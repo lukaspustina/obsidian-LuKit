@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(file:*)",
+      "WebFetch(domain:docs.obsidian.md)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npm install:*)",
+      "Bash(echo:*)",
+      "Bash(source:*)",
+      "Bash(/opt/homebrew/bin/brew install:*)",
+      "Bash(/opt/homebrew/bin/npm install)",
+      "Bash(/opt/homebrew/bin/npx vitest run)",
+      "Bash(/opt/homebrew/bin/npx tsc -noEmit)",
+      "Bash(/opt/homebrew/bin/node:*)"
+    ]
+  }
+}

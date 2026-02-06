@@ -1,0 +1,17 @@
+{
+	"name": "lukkit",
+	"version": "1.0.0",
+	"description": "Lukas' toolkit — modular workflow automations for Obsidian",
+	"scripts": {
+		"build": "tsc -noEmit && node esbuild.config.mjs production",
+		"dev": "node esbuild.config.mjs",
+		"test": "vitest run"
+	},
+	"devDependencies": {
+		"@types/node": "^22.0.0",
+		"esbuild": "^0.24.0",
+		"obsidian": "^1.7.2",
+		"typescript": "^5.6.0",
+		"vitest": "^2.1.0"
+	}
+}
