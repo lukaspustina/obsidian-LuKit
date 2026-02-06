@@ -46,6 +46,10 @@ Each use case is a self-contained "feature" in `src/features/<name>/`.
 - Acceptance test command flows with mocked Obsidian dependencies
 - Keep diary-engine.ts and other pure logic free of Obsidian imports so they can be tested without mocks
 
+## Documentation
+- **Keep `README.md` up to date** — update it when adding features, commands, or changing setup instructions
+- **Keep `TODO.md` up to date** — add planned features, mark completed ones, remove obsolete items
+
 ## Maintainability
 - Each feature is isolated in its own directory
 - Shared utilities go in `src/shared/`
