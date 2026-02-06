@@ -16,6 +16,16 @@ export class HeadingSuggestModal extends FuzzySuggestModal<string> {
 		this.headings = [NO_HEADING, ...fileHeadings];
 	}
 
+	onOpen(): void {
+		super.onOpen();
+		const firstHeading = this.headings[1];
+		if (firstHeading) {
+			this.inputEl.value = firstHeading;
+			this.inputEl.dispatchEvent(new Event("input"));
+			this.inputEl.select();
+		}
+	}
+
 	getItems(): string[] {
 		return this.headings;
 	}

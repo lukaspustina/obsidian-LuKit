@@ -10,7 +10,6 @@ import {
 import { renderWorkDiarySettings } from "./diary-settings";
 import { NoteSuggestModal } from "../../shared/modals/note-suggest";
 import { HeadingSuggestModal } from "../../shared/modals/heading-suggest";
-import { DescriptionModal } from "../../shared/modals/description-modal";
 import { TextInputModal } from "../../shared/modals/text-input-modal";
 
 export class WorkDiaryFeature implements LukKitFeature {
@@ -91,18 +90,15 @@ export class WorkDiaryFeature implements LukKitFeature {
 		if (!file) return;
 
 		new NoteSuggestModal(this.plugin.app, (selectedFile) => {
-			new HeadingSuggestModal(this.plugin.app, selectedFile, (heading) => {
-				new DescriptionModal(this.plugin.app, async (description) => {
-					const content = await this.plugin.app.vault.read(file);
-					const entry = formatDiaryEntry(
-						selectedFile.basename,
-						heading,
-						description
-					);
-					const { newContent } = addEntryUnderToday(content, entry);
-					await this.plugin.app.vault.modify(file, newContent);
-					new Notice("Diary entry added.");
-				}).open();
+			new HeadingSuggestModal(this.plugin.app, selectedFile, async (heading) => {
+				const content = await this.plugin.app.vault.read(file);
+				const entry = formatDiaryEntry(
+					selectedFile.basename,
+					heading,
+				);
+				const { newContent } = addEntryUnderToday(content, entry);
+				await this.plugin.app.vault.modify(file, newContent);
+				new Notice("Diary entry added.");
 			}).open();
 		}).open();
 	}

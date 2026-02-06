@@ -9,12 +9,12 @@ export function formatTodayHeader(date?: Date): string {
 	return `##### ${weekday}, ${day}.${month}.${year}`;
 }
 
-export function findSecondSeparatorIndex(lines: string[]): number {
+export function findThirdSeparatorIndex(lines: string[]): number {
 	let separatorCount = 0;
 	for (let i = 0; i < lines.length; i++) {
 		if (lines[i].trim() === "---") {
 			separatorCount++;
-			if (separatorCount === 2) {
+			if (separatorCount === 3) {
 				return i;
 			}
 		}
@@ -36,10 +36,10 @@ export function ensureTodayHeader(content: string, date?: Date): { newContent: s
 	const lines = content.split("\n");
 	const header = formatTodayHeader(date);
 
-	const separatorIndex = findSecondSeparatorIndex(lines);
+	const separatorIndex = findThirdSeparatorIndex(lines);
 
 	if (separatorIndex === -1) {
-		// No second separator found — append separator + header at end
+		// No third separator found — append separator + header at end
 		const trimmedContent = content.trimEnd();
 		const newContent = trimmedContent + "\n\n---\n" + header + "\n";
 		const newLines = newContent.split("\n");
@@ -73,17 +73,11 @@ export function addEntryUnderToday(content: string, entry: string, date?: Date):
 	return { newContent: lines.join("\n"), entryLineIndex: insertAt };
 }
 
-export function formatDiaryEntry(noteName: string, heading: string | null, description: string | null): string {
-	let link = `[[${noteName}`;
+export function formatDiaryEntry(noteName: string, heading: string | null): string {
 	if (heading) {
-		link += `#${heading}`;
+		return `- [[${noteName}#${heading}|${noteName}: ${heading}]]`;
 	}
-	link += "]]";
-
-	if (description) {
-		return `- ${link} - ${description}`;
-	}
-	return `- ${link}`;
+	return `- [[${noteName}]]`;
 }
 
 export function formatTextEntry(text: string): string {

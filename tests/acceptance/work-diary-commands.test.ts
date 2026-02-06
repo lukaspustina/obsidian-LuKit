@@ -22,34 +22,34 @@ describe("Ensure today's header command flow", () => {
 	});
 
 	it("is idempotent — does not duplicate header", () => {
-		const content = "---\nfm\n---\n##### Fr, 06.02.2026\n- existing";
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- existing";
 		const first = ensureTodayHeader(content, friday);
 		const second = ensureTodayHeader(first.newContent, friday);
 		expect(second.newContent).toBe(first.newContent);
 	});
 
 	it("positions cursor below the header (headerLineIndex)", () => {
-		const content = "---\nfm\n---";
+		const content = "---\nfm\n---\n[[pinned]]\n---";
 		const { headerLineIndex } = ensureTodayHeader(content, friday);
-		// Header inserted at line 3 (after index 2 separator)
-		expect(headerLineIndex).toBe(3);
+		// Third separator at index 4, header inserted at index 5
+		expect(headerLineIndex).toBe(5);
 	});
 });
 
 describe("Add diary entry command flow", () => {
-	it("full flow: note + heading + description", () => {
-		const content = "---\nfm\n---\n##### Fr, 06.02.2026";
-		const entry = formatDiaryEntry("ProjectX", "Tasks", "reviewed open items");
-		expect(entry).toBe("- [[ProjectX#Tasks]] - reviewed open items");
+	it("full flow: note + heading", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026";
+		const entry = formatDiaryEntry("ProjectX", "Tasks");
+		expect(entry).toBe("- [[ProjectX#Tasks|ProjectX: Tasks]]");
 
 		const { newContent, entryLineIndex } = addEntryUnderToday(content, entry, friday);
 		const lines = newContent.split("\n");
-		expect(lines[entryLineIndex]).toBe("- [[ProjectX#Tasks]] - reviewed open items");
+		expect(lines[entryLineIndex]).toBe("- [[ProjectX#Tasks|ProjectX: Tasks]]");
 	});
 
-	it("full flow: note + no heading + no description", () => {
-		const content = "---\nfm\n---\n##### Fr, 06.02.2026";
-		const entry = formatDiaryEntry("MeetingNotes", null, null);
+	it("full flow: note + no heading", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026";
+		const entry = formatDiaryEntry("MeetingNotes", null);
 		expect(entry).toBe("- [[MeetingNotes]]");
 
 		const { newContent } = addEntryUnderToday(content, entry, friday);
@@ -57,17 +57,17 @@ describe("Add diary entry command flow", () => {
 	});
 
 	it("appends after existing entries for today", () => {
-		const content = "---\nfm\n---\n##### Fr, 06.02.2026\n- [[First]]";
-		const entry = formatDiaryEntry("Second", "Section", null);
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- [[First]]";
+		const entry = formatDiaryEntry("Second", "Section");
 		const { newContent } = addEntryUnderToday(content, entry, friday);
 		const lines = newContent.split("\n");
-		expect(lines[4]).toBe("- [[First]]");
-		expect(lines[5]).toBe("- [[Second#Section]]");
+		expect(lines[6]).toBe("- [[First]]");
+		expect(lines[7]).toBe("- [[Second#Section|Second: Section]]");
 	});
 
 	it("does not modify file when user cancels (entry never created)", () => {
 		// Simulating cancel: no entry is generated, so no addEntryUnderToday call
-		const content = "---\nfm\n---\n##### Fr, 06.02.2026";
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026";
 		// If user cancels modal, the chain stops and content remains unchanged
 		expect(content).toBe(content); // No mutation
 	});
@@ -75,7 +75,7 @@ describe("Add diary entry command flow", () => {
 
 describe("Add text entry command flow", () => {
 	it("full flow: text entry added under today", () => {
-		const content = "---\nfm\n---\n##### Fr, 06.02.2026";
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026";
 		const entry = formatTextEntry("reviewed the budget");
 		expect(entry).toBe("- reviewed the budget");
 
@@ -85,7 +85,7 @@ describe("Add text entry command flow", () => {
 	});
 
 	it("creates header if missing then adds text entry", () => {
-		const content = "---\nfm\n---\n##### Do, 05.02.2026\n- old";
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Do, 05.02.2026\n- old";
 		const entry = formatTextEntry("new task");
 		const { newContent } = addEntryUnderToday(content, entry, friday);
 		expect(newContent).toContain("##### Fr, 06.02.2026");
