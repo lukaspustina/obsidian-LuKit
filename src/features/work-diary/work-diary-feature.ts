@@ -1,6 +1,6 @@
 import { Notice, TFile, WorkspaceLeaf } from "obsidian";
-import type LukKitPlugin from "../../main";
-import type { LukKitFeature } from "../../types";
+import type LuKitPlugin from "../../main";
+import type { LuKitFeature } from "../../types";
 import {
 	ensureTodayHeader,
 	addEntryUnderToday,
@@ -12,11 +12,11 @@ import { NoteSuggestModal } from "../../shared/modals/note-suggest";
 import { HeadingSuggestModal } from "../../shared/modals/heading-suggest";
 import { TextInputModal } from "../../shared/modals/text-input-modal";
 
-export class WorkDiaryFeature implements LukKitFeature {
+export class WorkDiaryFeature implements LuKitFeature {
 	id = "work-diary";
-	private plugin!: LukKitPlugin;
+	private plugin!: LuKitPlugin;
 
-	onload(plugin: LukKitPlugin): void {
+	onload(plugin: LuKitPlugin): void {
 		this.plugin = plugin;
 
 		plugin.addCommand({
@@ -42,19 +42,19 @@ export class WorkDiaryFeature implements LukKitFeature {
 		// Nothing to clean up
 	}
 
-	renderSettings(containerEl: HTMLElement, plugin: LukKitPlugin): void {
+	renderSettings(containerEl: HTMLElement, plugin: LuKitPlugin): void {
 		renderWorkDiarySettings(containerEl, plugin);
 	}
 
 	private getDiaryFile(): TFile | null {
 		const path = this.plugin.settings.workDiary.diaryNotePath;
 		if (!path) {
-			new Notice("LukKit: No diary note path configured. Set it in Settings → LukKit.");
+			new Notice("LuKit: No diary note path configured. Set it in Settings → LuKit.");
 			return null;
 		}
 		const file = this.plugin.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) {
-			new Notice(`LukKit: Diary note not found at "${path}".`);
+			new Notice(`LuKit: Diary note not found at "${path}".`);
 			return null;
 		}
 		return file;

@@ -6,12 +6,12 @@ type CommandHandler = (args: string[]) => void;
 const commands: Record<string, { handler: CommandHandler; usage: string }> = {
 	"add-text-to-diary": {
 		handler: runAddTextToDiary,
-		usage: "lukkit add-text-to-diary <diary-path> <text>",
+		usage: "lukit add-text-to-diary <diary-path> <text>",
 	},
 };
 
 function printUsage(): void {
-	console.log("Usage: lukkit <command> [args...]\n");
+	console.log("Usage: lukit <command> [args...]\n");
 	console.log("Commands:");
 	for (const [name, cmd] of Object.entries(commands)) {
 		console.log(`  ${cmd.usage}`);
@@ -23,7 +23,7 @@ function printUsage(): void {
 function runAddTextToDiary(args: string[]): void {
 	if (args.length < 2) {
 		console.error("Error: Missing arguments.");
-		console.error("Usage: lukkit add-text-to-diary <diary-path> <text>");
+		console.error("Usage: lukit add-text-to-diary <diary-path> <text>");
 		process.exit(1);
 	}
 
