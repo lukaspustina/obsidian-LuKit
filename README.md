@@ -10,9 +10,9 @@ Maintains a reverse-chronological work diary in a single note. Each day gets an 
 
 **Commands:**
 
-- **Ensure today's header** — Creates today's date header if missing, opens the diary note and positions the cursor below it.
-- **Add diary entry** — Pick a note and heading via fuzzy search, inserts a linked entry under today's header. Stays in the current note.
-- **Add text entry** — Type free text, inserts it as a bullet under today's header. Stays in the current note.
+- **Diary: Ensure today's header** — Creates today's date header if missing, opens the diary note and positions the cursor below it.
+- **Diary: Add linked entry** — Pick a note and heading via fuzzy search, inserts a linked entry under today's header. Stays in the current note.
+- **Diary: Add text entry** — Type free text, inserts it as a bullet under today's header. Stays in the current note.
 
 **Setup:** Set the diary note path in Settings > LuKit.
 
@@ -22,7 +22,7 @@ Automates adding a new section to "Vorgang"-style notes. A Vorgang note has a `#
 
 **Commands:**
 
-- **Add Absatz section** — Prompts for a section name, inserts a TOC bullet under `# Inhalt` and an h5 header section, then places the cursor on a blank bullet below the new header. If no `# Inhalt` exists, one is created.
+- **Vorgang: Add section** — Prompts for a section name, inserts a TOC bullet under `# Inhalt` and an h5 header section, then places the cursor on a blank bullet below the new header. If no `# Inhalt` exists, one is created.
 
 ### Besprechung
 
@@ -30,7 +30,7 @@ Extracts key sections from meeting notes (Besprechungsnotizen) and inserts them 
 
 **Commands:**
 
-- **Add Besprechung summary** — Pick a meeting note from the configured folder, extract the key sections, and insert at the cursor position.
+- **Besprechung: Add summary** — Pick a meeting note from the configured folder, extract the key sections, and insert at the cursor position.
 
 **Setup:** Set the Besprechung folder path in Settings > LuKit.
 
@@ -40,7 +40,7 @@ Converts old-format Vorgang notes to the current format. Old notes use `**Name, 
 
 **Commands:**
 
-- **Migrate Vorgang note (bold → h5)** — Converts the active note from old bold-header format to h5 headers and wikilink TOC entries. Safe to run multiple times (idempotent).
+- **Migration: Convert bold → h5** — Converts the active note from old bold-header format to h5 headers and wikilink TOC entries. Safe to run multiple times (idempotent).
 
 ## CLI
 

@@ -12,8 +12,8 @@ export class AbsatzFeature implements LuKitFeature {
 		this.plugin = plugin;
 
 		plugin.addCommand({
-			id: "add-absatz",
-			name: "Add Absatz section",
+			id: "vorgang-add-section",
+			name: "Vorgang: Add section",
 			callback: () => this.addAbsatzCmd(),
 		});
 	}

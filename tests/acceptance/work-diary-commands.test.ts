@@ -5,7 +5,7 @@ import {
 	formatDiaryEntry,
 	formatTextEntry,
 	formatTodayHeader,
-} from "../../src/features/work-diary/diary-engine";
+} from "../../src/features/work-diary/work-diary-engine";
 
 const friday = new Date(2026, 1, 6);
 

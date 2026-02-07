@@ -7,7 +7,7 @@ import {
 	addEntryUnderToday,
 	formatDiaryEntry,
 	formatTextEntry,
-} from "../../src/features/work-diary/diary-engine";
+} from "../../src/features/work-diary/work-diary-engine";
 
 describe("formatTodayHeader", () => {
 	it("formats a Friday correctly", () => {
