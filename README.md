@@ -34,6 +34,14 @@ Extracts key sections from meeting notes (Besprechungsnotizen) and inserts them 
 
 **Setup:** Set the Besprechung folder path in Settings > LuKit.
 
+### Migration
+
+Converts old-format Vorgang notes to the current format. Old notes use `**Name, DD.MM.YYYY**` (bold) for section headers and plain `- Name, DD.MM.YYYY` for TOC entries under `# Inhalt`. This command converts bold headers to `##### Name, DD.MM.YYYY` (h5) and plain TOC entries to `- [[#Name, DD.MM.YYYY]]` (clickable wikilinks).
+
+**Commands:**
+
+- **Migrate Vorgang note (bold → h5)** — Converts the active note from old bold-header format to h5 headers and wikilink TOC entries. Safe to run multiple times (idempotent).
+
 ## CLI
 
 LuKit also provides a command-line interface for use outside of Obsidian.

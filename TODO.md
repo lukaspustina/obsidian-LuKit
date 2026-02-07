@@ -11,6 +11,8 @@
 
 ## Planned Features
 
+- [x] **Migration**: Migrate old Vorgang notes from bold headers to h5 format
+
 - [x] **Distribution**: Make this Plugin distributable (GitHub Releases + BRAT)
 - [x] **Absatz**: Add a h5 section at the cursor and add it to _Inhalt_ if available
 - [x] **Besprechung**: Getting summary and next steps from a Besprechung note
