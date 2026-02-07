@@ -11,7 +11,7 @@ export function formatAbsatzHeader(name: string, date?: Date): string {
 }
 
 export function formatAbsatzBullet(name: string, date?: Date): string {
-	return `- ${name}, ${formatGermanDate(date)}`;
+	return `- [[#${name}, ${formatGermanDate(date)}]]`;
 }
 
 export function findInhaltSectionIndex(lines: string[]): number {
