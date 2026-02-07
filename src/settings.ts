@@ -1,10 +1,10 @@
 import { App, PluginSettingTab } from "obsidian";
-import type LukKitPlugin from "./main";
+import type LuKitPlugin from "./main";
 
-export class LukKitSettingTab extends PluginSettingTab {
-	private plugin: LukKitPlugin;
+export class LuKitSettingTab extends PluginSettingTab {
+	private plugin: LuKitPlugin;
 
-	constructor(app: App, plugin: LukKitPlugin) {
+	constructor(app: App, plugin: LuKitPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -12,7 +12,7 @@ export class LukKitSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.createEl("h2", { text: "LukKit Settings" });
+		containerEl.createEl("h2", { text: "LuKit Settings" });
 
 		for (const feature of this.plugin.features) {
 			if (feature.renderSettings) {

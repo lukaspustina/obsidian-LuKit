@@ -1,12 +1,12 @@
 import { Plugin } from "obsidian";
-import { LukKitSettingTab } from "./settings";
-import type { LukKitFeature, LukKitSettings } from "./types";
+import { LuKitSettingTab } from "./settings";
+import type { LuKitFeature, LuKitSettings } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 import { WorkDiaryFeature } from "./features/work-diary/work-diary-feature";
 
-export default class LukKitPlugin extends Plugin {
-	settings!: LukKitSettings;
-	features: LukKitFeature[] = [];
+export default class LuKitPlugin extends Plugin {
+	settings!: LuKitSettings;
+	features: LuKitFeature[] = [];
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -17,7 +17,7 @@ export default class LukKitPlugin extends Plugin {
 			feature.onload(this);
 		}
 
-		this.addSettingTab(new LukKitSettingTab(this.app, this));
+		this.addSettingTab(new LuKitSettingTab(this.app, this));
 	}
 
 	async onunload(): Promise<void> {

@@ -1,7 +1,7 @@
-# LukKit — Obsidian Plugin
+# LuKit — Obsidian Plugin
 
 ## Project Overview
-LukKit is a modular Obsidian plugin that bundles multiple workflow automations.
+LuKit is a modular Obsidian plugin that bundles multiple workflow automations.
 Each use case is a self-contained "feature" in `src/features/<name>/`.
 
 ## Build & Test Commands
@@ -12,7 +12,7 @@ Each use case is a self-contained "feature" in `src/features/<name>/`.
 
 ## Architecture
 - `src/main.ts` — thin plugin shell, loads features. Orchestration only, no business logic.
-- `src/types.ts` — shared interfaces (`LukKitFeature`, settings types)
+- `src/types.ts` — shared interfaces (`LuKitFeature`, settings types)
 - `src/settings.ts` — main settings tab, composes sections from features
 - `src/shared/` — reusable modals and utilities shared across features
 - `src/features/<name>/` — self-contained feature modules
@@ -20,7 +20,7 @@ Each use case is a self-contained "feature" in `src/features/<name>/`.
 - `tests/acceptance/` — acceptance tests with mocked Obsidian APIs
 
 ### Adding a New Feature
-1. Create `src/features/<name>/` with a class implementing `LukKitFeature`
+1. Create `src/features/<name>/` with a class implementing `LuKitFeature`
 2. Add feature-specific settings to a `<name>-settings.ts`
 3. Register the feature in `main.ts` → `onload()`
 4. Add tests in `tests/unit/` and `tests/acceptance/`

@@ -15,7 +15,10 @@
       "Bash(/opt/homebrew/bin/node:*)",
       "Bash(npm run build:*)",
       "Bash(npm run test:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:forum.obsidian.md)",
+      "Bash(make test:*)"
     ]
   }
 }

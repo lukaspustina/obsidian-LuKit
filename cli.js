@@ -73,11 +73,11 @@ function formatTextEntry(text) {
 var commands = {
   "add-text-to-diary": {
     handler: runAddTextToDiary,
-    usage: "lukkit add-text-to-diary <diary-path> <text>"
+    usage: "lukit add-text-to-diary <diary-path> <text>"
   }
 };
 function printUsage() {
-  console.log("Usage: lukkit <command> [args...]\n");
+  console.log("Usage: lukit <command> [args...]\n");
   console.log("Commands:");
   for (const [name, cmd] of Object.entries(commands)) {
     console.log(`  ${cmd.usage}`);
@@ -88,7 +88,7 @@ function printUsage() {
 function runAddTextToDiary(args) {
   if (args.length < 2) {
     console.error("Error: Missing arguments.");
-    console.error("Usage: lukkit add-text-to-diary <diary-path> <text>");
+    console.error("Usage: lukit add-text-to-diary <diary-path> <text>");
     process.exit(1);
   }
   const diaryPath = args[0];

@@ -1,15 +1,16 @@
 {
-	"name": "lukkit",
+	"name": "lukit",
 	"version": "1.0.0",
 	"description": "Lukas' toolkit — modular workflow automations for Obsidian",
 	"bin": {
-		"lukkit": "./cli.js"
+		"lukit": "./cli.js"
 	},
 	"scripts": {
 		"build": "tsc -noEmit && node esbuild.config.mjs production && node esbuild.config.mjs cli",
 		"build:cli": "node esbuild.config.mjs cli",
 		"dev": "node esbuild.config.mjs",
-		"test": "vitest run"
+		"test": "vitest run",
+		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"devDependencies": {
 		"@types/node": "^22.0.0",

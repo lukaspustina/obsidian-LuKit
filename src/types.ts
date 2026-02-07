@@ -1,18 +1,18 @@
-import type LukKitPlugin from "./main";
+import type LuKitPlugin from "./main";
 import type { WorkDiarySettings } from "./features/work-diary/diary-settings";
 
-export interface LukKitFeature {
+export interface LuKitFeature {
 	id: string;
-	onload(plugin: LukKitPlugin): void;
+	onload(plugin: LuKitPlugin): void;
 	onunload(): void;
-	renderSettings?(containerEl: HTMLElement, plugin: LukKitPlugin): void;
+	renderSettings?(containerEl: HTMLElement, plugin: LuKitPlugin): void;
 }
 
-export interface LukKitSettings {
+export interface LuKitSettings {
 	workDiary: WorkDiarySettings;
 }
 
-export const DEFAULT_SETTINGS: LukKitSettings = {
+export const DEFAULT_SETTINGS: LuKitSettings = {
 	workDiary: {
 		diaryNotePath: "",
 	},

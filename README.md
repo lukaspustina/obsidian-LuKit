@@ -1,4 +1,4 @@
-# LukKit
+# LuKit
 
 A modular Obsidian plugin that bundles workflow automations. Each use case is a self-contained "feature" that can be added independently.
 
@@ -14,11 +14,11 @@ Maintains a reverse-chronological work diary in a single note. Each day gets an 
 - **Add diary entry** — Pick a note and heading via fuzzy search, inserts a linked entry under today's header. Stays in the current note.
 - **Add text entry** — Type free text, inserts it as a bullet under today's header. Stays in the current note.
 
-**Setup:** Set the diary note path in Settings > LukKit.
+**Setup:** Set the diary note path in Settings > LuKit.
 
 ## CLI
 
-LukKit also provides a command-line interface for use outside of Obsidian.
+LuKit also provides a command-line interface for use outside of Obsidian.
 
 ```sh
 npm run build:cli    # build the CLI
@@ -30,18 +30,28 @@ node cli.js --help   # show available commands
 Adds a plain-text entry under today's date header in a diary note.
 
 ```sh
-lukkit add-text-to-diary <diary-path> <text>
+lukit add-text-to-diary <diary-path> <text>
 ```
 
 Example:
 
 ```sh
-lukkit add-text-to-diary path/to/diary.md "reviewed the budget"
+lukit add-text-to-diary path/to/diary.md "reviewed the budget"
 ```
 
 ## Installation
 
-Copy `main.js` and `manifest.json` into your vault at `.obsidian/plugins/lukkit/`, then enable the plugin in Obsidian settings.
+### Via BRAT
+
+1. Install the [BRAT](https://github.com/TfTHacker/obsidian42-brat) community plugin
+2. In BRAT settings, click **Add Beta Plugin** and enter the repo URL
+3. Enable LuKit in Settings > Community Plugins
+
+### Manual
+
+1. Download `main.js` and `manifest.json` from the [latest GitHub release](../../releases/latest)
+2. Copy them into your vault at `.obsidian/plugins/lukit/`
+3. Enable the plugin in Obsidian settings
 
 ## Development
 
