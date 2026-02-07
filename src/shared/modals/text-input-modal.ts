@@ -1,37 +1,46 @@
-import { App, Modal, Setting } from "obsidian";
+import { App, Modal } from "obsidian";
 
 export class TextInputModal extends Modal {
 	private onSubmit: (text: string) => void;
-	private value = "";
+	private placeholder: string;
+	private inputEl!: HTMLInputElement;
 
-	constructor(app: App, onSubmit: (text: string) => void) {
+	constructor(app: App, placeholder: string, onSubmit: (text: string) => void) {
 		super(app);
+		this.placeholder = placeholder;
 		this.onSubmit = onSubmit;
 	}
 
 	onOpen(): void {
 		const { contentEl } = this;
-		contentEl.createEl("h4", { text: "Text entry" });
+		contentEl.addClass("lukit-text-input-modal");
 
-		new Setting(contentEl)
-			.setName("Text")
-			.addText((text) => {
-				text.setPlaceholder("Type your entry…");
-				text.onChange((val) => {
-					this.value = val;
-				});
-				text.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
-					if (e.key === "Enter") {
-						e.preventDefault();
-						this.submit();
-					}
-				});
-				setTimeout(() => text.inputEl.focus(), 10);
-			});
+		this.inputEl = contentEl.createEl("input", {
+			type: "text",
+			placeholder: this.placeholder,
+			cls: "lukit-text-input",
+		});
+		this.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter") {
+				e.preventDefault();
+				this.submit();
+			}
+		});
 
-		new Setting(contentEl).addButton((btn) =>
-			btn.setButtonText("Submit").setCta().onClick(() => this.submit())
+		const buttonRow = contentEl.createEl("div", {
+			cls: "lukit-text-input-buttons",
+		});
+		buttonRow.createEl("button", { text: "Cancel" }).addEventListener(
+			"click",
+			() => this.close(),
 		);
+		const submitBtn = buttonRow.createEl("button", {
+			text: "Submit",
+			cls: "mod-cta",
+		});
+		submitBtn.addEventListener("click", () => this.submit());
+
+		setTimeout(() => this.inputEl.focus(), 10);
 	}
 
 	onClose(): void {
@@ -39,7 +48,7 @@ export class TextInputModal extends Modal {
 	}
 
 	private submit(): void {
-		const trimmed = this.value.trim();
+		const trimmed = this.inputEl.value.trim();
 		if (trimmed.length === 0) {
 			return;
 		}

@@ -107,7 +107,7 @@ export class WorkDiaryFeature implements LuKitFeature {
 		const file = this.getDiaryFile();
 		if (!file) return;
 
-		new TextInputModal(this.plugin.app, async (text) => {
+		new TextInputModal(this.plugin.app, "Diary entry…", async (text) => {
 			const content = await this.plugin.app.vault.read(file);
 			const entry = formatTextEntry(text);
 			const { newContent } = addEntryUnderToday(content, entry);

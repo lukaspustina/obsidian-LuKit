@@ -29,7 +29,7 @@ export class AbsatzFeature implements LuKitFeature {
 			return;
 		}
 
-		new TextInputModal(this.plugin.app, async (name) => {
+		new TextInputModal(this.plugin.app, "Section name…", async (name) => {
 			await this.insertAbsatz(file, name);
 		}).open();
 	}
