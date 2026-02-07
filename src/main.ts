@@ -6,6 +6,7 @@ import { WorkDiaryFeature } from "./features/work-diary/work-diary-feature";
 import { VorgangFeature } from "./features/vorgang/vorgang-feature";
 import { BesprechungFeature } from "./features/besprechung/besprechung-feature";
 import { MigrationFeature } from "./features/migration/migration-feature";
+import { HelpModal } from "./shared/modals/help-modal";
 
 export default class LuKitPlugin extends Plugin {
 	settings!: LuKitSettings;
@@ -22,6 +23,12 @@ export default class LuKitPlugin extends Plugin {
 		for (const feature of this.features) {
 			feature.onload(this);
 		}
+
+		this.addCommand({
+			id: "lukit-help",
+			name: "Help",
+			callback: () => new HelpModal(this.app).open(),
+		});
 
 		this.addSettingTab(new LuKitSettingTab(this.app, this));
 	}
