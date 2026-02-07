@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { createMockVault, createMockTFile } from "../helpers/obsidian-mocks";
-import { addAbsatz } from "../../src/features/absatz/absatz-engine";
+import { addVorgangSection } from "../../src/features/vorgang/vorgang-engine";
 
 const friday = new Date(2026, 1, 6);
 
-describe("Absatz vault.process() integration", () => {
-	it("inserts absatz via process() atomically", async () => {
+describe("Vorgang vault.process() integration", () => {
+	it("inserts vorgang section via process() atomically", async () => {
 		const initial = [
 			"# Fakten",
 			"- Status: Active",
@@ -22,7 +22,7 @@ describe("Absatz vault.process() integration", () => {
 
 		let cursorLineIndex = 0;
 		await vault.process(file, (content) => {
-			const result = addAbsatz(content, "Review", friday);
+			const result = addVorgangSection(content, "Review", friday);
 			cursorLineIndex = result.cursorLineIndex;
 			return result.newContent;
 		});
@@ -40,7 +40,7 @@ describe("Absatz vault.process() integration", () => {
 		const vault = createMockVault({ "vorgang.md": initial });
 
 		await vault.process(file, (content) => {
-			const { newContent } = addAbsatz(content, "New Section", friday);
+			const { newContent } = addVorgangSection(content, "New Section", friday);
 			return newContent;
 		});
 

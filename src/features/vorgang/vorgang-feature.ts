@@ -1,11 +1,11 @@
 import { Notice, TFile, WorkspaceLeaf } from "obsidian";
 import type LuKitPlugin from "../../main";
 import type { LuKitFeature } from "../../types";
-import { addAbsatz } from "./absatz-engine";
+import { addVorgangSection } from "./vorgang-engine";
 import { TextInputModal } from "../../shared/modals/text-input-modal";
 
-export class AbsatzFeature implements LuKitFeature {
-	id = "absatz";
+export class VorgangFeature implements LuKitFeature {
+	id = "vorgang";
 	private plugin!: LuKitPlugin;
 
 	onload(plugin: LuKitPlugin): void {
@@ -14,7 +14,7 @@ export class AbsatzFeature implements LuKitFeature {
 		plugin.addCommand({
 			id: "vorgang-add-section",
 			name: "Vorgang: Add section",
-			callback: () => this.addAbsatzCmd(),
+			callback: () => this.addVorgangSectionCmd(),
 		});
 	}
 
@@ -22,7 +22,7 @@ export class AbsatzFeature implements LuKitFeature {
 		// Nothing to clean up
 	}
 
-	private addAbsatzCmd(): void {
+	private addVorgangSectionCmd(): void {
 		const file = this.plugin.app.workspace.getActiveFile();
 		if (!file) {
 			new Notice("LuKit: No active note open.");
@@ -30,14 +30,14 @@ export class AbsatzFeature implements LuKitFeature {
 		}
 
 		new TextInputModal(this.plugin.app, "Section name…", async (name) => {
-			await this.insertAbsatz(file, name);
+			await this.insertVorgangSection(file, name);
 		}).open();
 	}
 
-	private async insertAbsatz(file: TFile, name: string): Promise<void> {
+	private async insertVorgangSection(file: TFile, name: string): Promise<void> {
 		let cursorLineIndex = 0;
 		await this.plugin.app.vault.process(file, (content) => {
-			const result = addAbsatz(content, name);
+			const result = addVorgangSection(content, name);
 			cursorLineIndex = result.cursorLineIndex;
 			return result.newContent;
 		});

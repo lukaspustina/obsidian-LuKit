@@ -3,7 +3,7 @@ import { LuKitSettingTab } from "./settings";
 import type { LuKitFeature, LuKitSettings } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 import { WorkDiaryFeature } from "./features/work-diary/work-diary-feature";
-import { AbsatzFeature } from "./features/absatz/absatz-feature";
+import { VorgangFeature } from "./features/vorgang/vorgang-feature";
 import { BesprechungFeature } from "./features/besprechung/besprechung-feature";
 import { MigrationFeature } from "./features/migration/migration-feature";
 
@@ -15,7 +15,7 @@ export default class LuKitPlugin extends Plugin {
 		await this.loadSettings();
 
 		this.features.push(new WorkDiaryFeature());
-		this.features.push(new AbsatzFeature());
+		this.features.push(new VorgangFeature());
 		this.features.push(new BesprechungFeature());
 		this.features.push(new MigrationFeature());
 

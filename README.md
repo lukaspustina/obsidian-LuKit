@@ -16,7 +16,7 @@ Maintains a reverse-chronological work diary in a single note. Each day gets an 
 
 **Setup:** Set the diary note path in Settings > LuKit.
 
-### Absatz
+### Vorgang
 
 Automates adding a new section to "Vorgang"-style notes. A Vorgang note has a `# Inhalt` table of contents with bullet entries, followed by `##### Name, DD.MM.YYYY` sections with bullet points. This feature inserts a new TOC entry and h5 header in one step, positioning the cursor for immediate typing.
 

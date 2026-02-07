@@ -6,11 +6,11 @@ export function formatGermanDate(date?: Date): string {
 	return `${day}.${month}.${year}`;
 }
 
-export function formatAbsatzHeader(name: string, date?: Date): string {
+export function formatVorgangHeader(name: string, date?: Date): string {
 	return `##### ${name}, ${formatGermanDate(date)}`;
 }
 
-export function formatAbsatzBullet(name: string, date?: Date): string {
+export function formatVorgangBullet(name: string, date?: Date): string {
 	return `- [[#${name}, ${formatGermanDate(date)}]]`;
 }
 
@@ -67,14 +67,14 @@ function findFirstH5Index(lines: string[], afterIndex: number): number {
 	return -1;
 }
 
-export function addAbsatz(
+export function addVorgangSection(
 	content: string,
 	name: string,
 	date?: Date,
 ): { newContent: string; cursorLineIndex: number } {
 	const lines = content.split("\n");
-	const bullet = formatAbsatzBullet(name, date);
-	const header = formatAbsatzHeader(name, date);
+	const bullet = formatVorgangBullet(name, date);
+	const header = formatVorgangHeader(name, date);
 	const inhaltIndex = findInhaltSectionIndex(lines);
 
 	if (inhaltIndex === -1) {
