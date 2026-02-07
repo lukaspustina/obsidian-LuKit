@@ -35,10 +35,12 @@ export class AbsatzFeature implements LuKitFeature {
 	}
 
 	private async insertAbsatz(file: TFile, name: string): Promise<void> {
-		const content = await this.plugin.app.vault.read(file);
-		const { newContent, cursorLineIndex } = addAbsatz(content, name);
-
-		await this.plugin.app.vault.modify(file, newContent);
+		let cursorLineIndex = 0;
+		await this.plugin.app.vault.process(file, (content) => {
+			const result = addAbsatz(content, name);
+			cursorLineIndex = result.cursorLineIndex;
+			return result.newContent;
+		});
 
 		const leaf = this.plugin.app.workspace.getLeaf(false) as WorkspaceLeaf;
 		await leaf.openFile(file);

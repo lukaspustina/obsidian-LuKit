@@ -2,6 +2,7 @@ import { Notice } from "obsidian";
 import type LuKitPlugin from "../../main";
 import type { LuKitFeature } from "../../types";
 import { migrateVorgangNote } from "./migration-engine";
+import { ConfirmModal } from "../../shared/modals/confirm-modal";
 
 export class MigrationFeature implements LuKitFeature {
 	id = "migration";
@@ -29,14 +30,30 @@ export class MigrationFeature implements LuKitFeature {
 		}
 
 		const content = await this.plugin.app.vault.read(file);
-		const { newContent, changeCount } = migrateVorgangNote(content);
+		const { changeCount: previewCount } = migrateVorgangNote(content);
 
-		if (changeCount === 0) {
+		if (previewCount === 0) {
 			new Notice("LuKit: Nothing to migrate.");
 			return;
 		}
 
-		await this.plugin.app.vault.modify(file, newContent);
-		new Notice(`LuKit: Migrated ${changeCount} entries.`);
+		new ConfirmModal(
+			this.plugin.app,
+			`Migrate ${previewCount} entries in "${file.basename}"?`,
+			async () => {
+				let changeCount = 0;
+				await this.plugin.app.vault.process(file, (current) => {
+					const result = migrateVorgangNote(current);
+					changeCount = result.changeCount;
+					return result.newContent;
+				});
+
+				if (changeCount === 0) {
+					new Notice("LuKit: Nothing to migrate.");
+				} else {
+					new Notice(`LuKit: Migrated ${changeCount} entries.`);
+				}
+			},
+		).open();
 	}
 }

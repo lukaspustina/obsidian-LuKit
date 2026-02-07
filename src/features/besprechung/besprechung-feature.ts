@@ -36,12 +36,15 @@ export class BesprechungFeature implements LuKitFeature {
 			return;
 		}
 
-		new FolderNoteSuggestModal(this.plugin.app, folderPath, async (file) => {
+		const headings = this.plugin.settings.besprechung.sectionHeadings;
+
+		new FolderNoteSuggestModal(this.plugin.app, folderPath, "Pick a Besprechung…", async (file) => {
 			const content = await this.plugin.app.vault.read(file);
-			const summary = formatBesprechungSummary(content);
+			const summary = formatBesprechungSummary(content, headings);
 
 			if (!summary) {
-				new Notice("LuKit: No Nächste Schritte or Zusammenfassung found.");
+				const names = headings.join(" or ");
+				new Notice(`LuKit: No ${names} found.`);
 				return;
 			}
 

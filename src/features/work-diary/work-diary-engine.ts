@@ -32,7 +32,7 @@ export function findTodayHeaderIndex(lines: string[], afterLine: number, date?: 
 	return -1;
 }
 
-export function ensureTodayHeader(content: string, date?: Date): { newContent: string; headerLineIndex: number } {
+export function ensureTodayHeader(content: string, date?: Date): { newContent: string; headerLineIndex: number; fallback: boolean } {
 	const lines = content.split("\n");
 	const header = formatTodayHeader(date);
 
@@ -44,19 +44,31 @@ export function ensureTodayHeader(content: string, date?: Date): { newContent: s
 		const newContent = trimmedContent + "\n\n---\n" + header + "\n";
 		const newLines = newContent.split("\n");
 		const headerLineIndex = newLines.indexOf(header);
-		return { newContent, headerLineIndex };
+		return { newContent, headerLineIndex, fallback: true };
 	}
 
 	const existingIndex = findTodayHeaderIndex(lines, separatorIndex, date);
 	if (existingIndex !== -1) {
-		return { newContent: content, headerLineIndex: existingIndex };
+		return { newContent: content, headerLineIndex: existingIndex, fallback: false };
 	}
 
 	// Insert header after separator, with a blank line in between
 	const before = lines.slice(0, separatorIndex + 1);
 	const after = lines.slice(separatorIndex + 1);
 	const newLines = [...before, header, ...after];
-	return { newContent: newLines.join("\n"), headerLineIndex: separatorIndex + 1 };
+	return { newContent: newLines.join("\n"), headerLineIndex: separatorIndex + 1, fallback: false };
+}
+
+export function validateDiaryStructure(content: string): string[] {
+	const lines = content.split("\n");
+	const errors: string[] = [];
+
+	const separatorIndex = findThirdSeparatorIndex(lines);
+	if (separatorIndex === -1) {
+		errors.push("Missing third separator (---). Diary entries may be misplaced.");
+	}
+
+	return errors;
 }
 
 export function addEntryUnderToday(content: string, entry: string, date?: Date): { newContent: string; entryLineIndex: number } {

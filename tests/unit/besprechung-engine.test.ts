@@ -181,4 +181,49 @@ describe("formatBesprechungSummary", () => {
 		expect(result).toContain("**Bold text**");
 		expect(result).toContain("- Bullet with [[link]]");
 	});
+
+	it("extracts custom section headings", () => {
+		const content = [
+			"### Agenda",
+			"- Topic 1",
+			"### Decisions",
+			"- Decision 1",
+			"### Nächste Schritte",
+			"- Step 1",
+		].join("\n");
+
+		const result = formatBesprechungSummary(content, ["Agenda", "Decisions"]);
+		expect(result).toBe("**Agenda**\n- Topic 1\n\n**Decisions**\n- Decision 1");
+	});
+
+	it("returns null for empty section headings array", () => {
+		const content = "### Nächste Schritte\n- Step 1";
+		expect(formatBesprechungSummary(content, [])).toBeNull();
+	});
+
+	it("extracts a single section heading", () => {
+		const content = [
+			"### Zusammenfassung",
+			"- Point 1",
+			"### Nächste Schritte",
+			"- Step 1",
+		].join("\n");
+
+		const result = formatBesprechungSummary(content, ["Zusammenfassung"]);
+		expect(result).toBe("**Zusammenfassung**\n- Point 1");
+	});
+
+	it("uses default headings when no parameter is provided", () => {
+		const content = [
+			"### Nächste Schritte",
+			"- Step 1",
+			"### Zusammenfassung",
+			"- Summary",
+		].join("\n");
+
+		const result = formatBesprechungSummary(content);
+		expect(result).toBe(
+			"**Nächste Schritte**\n- Step 1\n\n**Zusammenfassung**\n- Summary"
+		);
+	});
 });

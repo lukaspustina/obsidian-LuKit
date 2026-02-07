@@ -149,4 +149,33 @@ describe("Add Besprechung summary command flow", () => {
 
 		expect(formatBesprechungSummary(content)).toBeNull();
 	});
+
+	it("full flow with custom section headings from settings", () => {
+		const content = [
+			"---",
+			"type: note",
+			"---",
+			"### Agenda",
+			"- Topic 1",
+			"- Topic 2",
+			"### Decisions",
+			"- We decided X",
+			"### Nächste Schritte",
+			"- Step 1",
+			"### Meine Notizen",
+			"- Private",
+		].join("\n");
+
+		const customHeadings = ["Agenda", "Decisions", "Nächste Schritte"];
+		const result = formatBesprechungSummary(content, customHeadings);
+		expect(result).not.toBeNull();
+		expect(result).toContain("**Agenda**");
+		expect(result).toContain("- Topic 1");
+		expect(result).toContain("**Decisions**");
+		expect(result).toContain("- We decided X");
+		expect(result).toContain("**Nächste Schritte**");
+		expect(result).toContain("- Step 1");
+		expect(result).not.toContain("Meine Notizen");
+		expect(result).not.toContain("Private");
+	});
 });

@@ -75,11 +75,17 @@ export class WorkDiaryFeature implements LuKitFeature {
 		const file = this.getDiaryFile();
 		if (!file) return;
 
-		const content = await this.plugin.app.vault.read(file);
-		const { newContent, headerLineIndex } = ensureTodayHeader(content);
+		let headerLineIndex = 0;
+		let fallback = false;
+		await this.plugin.app.vault.process(file, (content) => {
+			const result = ensureTodayHeader(content);
+			headerLineIndex = result.headerLineIndex;
+			fallback = result.fallback;
+			return result.newContent;
+		});
 
-		if (newContent !== content) {
-			await this.plugin.app.vault.modify(file, newContent);
+		if (fallback) {
+			new Notice("LuKit: Diary note is missing the third separator (---). Header was appended at end.");
 		}
 
 		await this.openDiaryNote(file, headerLineIndex);
@@ -91,13 +97,14 @@ export class WorkDiaryFeature implements LuKitFeature {
 
 		new NoteSuggestModal(this.plugin.app, (selectedFile) => {
 			new HeadingSuggestModal(this.plugin.app, selectedFile, async (heading) => {
-				const content = await this.plugin.app.vault.read(file);
 				const entry = formatDiaryEntry(
 					selectedFile.basename,
 					heading,
 				);
-				const { newContent } = addEntryUnderToday(content, entry);
-				await this.plugin.app.vault.modify(file, newContent);
+				await this.plugin.app.vault.process(file, (content) => {
+					const { newContent } = addEntryUnderToday(content, entry);
+					return newContent;
+				});
 				new Notice("Diary entry added.");
 			}).open();
 		}).open();
@@ -108,10 +115,11 @@ export class WorkDiaryFeature implements LuKitFeature {
 		if (!file) return;
 
 		new TextInputModal(this.plugin.app, "Diary entry…", async (text) => {
-			const content = await this.plugin.app.vault.read(file);
 			const entry = formatTextEntry(text);
-			const { newContent } = addEntryUnderToday(content, entry);
-			await this.plugin.app.vault.modify(file, newContent);
+			await this.plugin.app.vault.process(file, (content) => {
+				const { newContent } = addEntryUnderToday(content, entry);
+				return newContent;
+			});
 			new Notice("Text entry added.");
 		}).open();
 	}
