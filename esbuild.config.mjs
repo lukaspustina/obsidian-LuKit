@@ -1,7 +1,24 @@
 import esbuild from "esbuild";
 import process from "process";
 
-const prod = process.argv[2] === "production";
+const mode = process.argv[2];
+const prod = mode === "production";
+const cli = mode === "cli";
+
+if (cli) {
+	await esbuild.build({
+		entryPoints: ["src/cli.ts"],
+		bundle: true,
+		platform: "node",
+		format: "cjs",
+		target: "es2022",
+		logLevel: "info",
+		treeShaking: true,
+		outfile: "cli.js",
+		banner: { js: "#!/usr/bin/env node" },
+	});
+	process.exit(0);
+}
 
 const context = await esbuild.context({
 	entryPoints: ["src/main.ts"],

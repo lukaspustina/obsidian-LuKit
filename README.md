@@ -16,6 +16,29 @@ Maintains a reverse-chronological work diary in a single note. Each day gets an 
 
 **Setup:** Set the diary note path in Settings > LukKit.
 
+## CLI
+
+LukKit also provides a command-line interface for use outside of Obsidian.
+
+```sh
+npm run build:cli    # build the CLI
+node cli.js --help   # show available commands
+```
+
+### add-text-to-diary
+
+Adds a plain-text entry under today's date header in a diary note.
+
+```sh
+lukkit add-text-to-diary <diary-path> <text>
+```
+
+Example:
+
+```sh
+lukkit add-text-to-diary path/to/diary.md "reviewed the budget"
+```
+
 ## Installation
 
 Copy `main.js` and `manifest.json` into your vault at `.obsidian/plugins/lukkit/`, then enable the plugin in Obsidian settings.
