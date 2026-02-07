@@ -28,7 +28,7 @@ describe("Add Absatz command flow", () => {
 		const lines = newContent.split("\n");
 
 		// TOC bullet inserted as first under # Inhalt
-		expect(lines[6]).toBe("- Review Meeting, 06.02.2026");
+		expect(lines[6]).toBe("- [[#Review Meeting, 06.02.2026]]");
 		// Old TOC entry still present
 		expect(lines[7]).toBe("- Abstimmung mit Daniel, 01.02.2026");
 		// New h5 section inserted before existing h5
@@ -60,7 +60,7 @@ describe("Add Absatz command flow", () => {
 
 		// # Inhalt was created
 		expect(newContent).toContain("# Inhalt");
-		expect(newContent).toContain("- Initial Setup, 06.02.2026");
+		expect(newContent).toContain("- [[#Initial Setup, 06.02.2026]]");
 		expect(newContent).toContain("##### Initial Setup, 06.02.2026");
 		// Cursor ready for typing
 		expect(lines[cursorLineIndex]).toBe("- ");
@@ -83,7 +83,7 @@ describe("Add Absatz command flow", () => {
 		const lines = newContent.split("\n");
 
 		// Bullet added under Inhalt
-		expect(lines[1]).toBe("- New Section, 06.02.2026");
+		expect(lines[1]).toBe("- [[#New Section, 06.02.2026]]");
 		// New h5 appears before old h5
 		const newIdx = lines.indexOf("##### New Section, 06.02.2026");
 		const oldIdx = lines.indexOf("##### Old Section, 01.01.2026");
@@ -130,7 +130,7 @@ describe("Add Absatz command flow", () => {
 		expect(newContent).toContain("##### Beta, 15.01.2026");
 		expect(newContent).toContain("- Beta note 1");
 		// New content added
-		expect(newContent).toContain("- Gamma, 06.02.2026");
+		expect(newContent).toContain("- [[#Gamma, 06.02.2026]]");
 		expect(newContent).toContain("##### Gamma, 06.02.2026");
 	});
 
@@ -151,8 +151,8 @@ describe("Add Absatz command flow", () => {
 
 		const lines = content.split("\n");
 		// All three entries in Inhalt
-		expect(content).toContain("- Third, 07.02.2026");
-		expect(content).toContain("- Second, 06.02.2026");
+		expect(content).toContain("- [[#Third, 07.02.2026]]");
+		expect(content).toContain("- [[#Second, 06.02.2026]]");
 		expect(content).toContain("##### Third, 07.02.2026");
 		expect(content).toContain("##### Second, 06.02.2026");
 		expect(content).toContain("##### First, 01.01.2026");

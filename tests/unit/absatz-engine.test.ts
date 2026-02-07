@@ -50,7 +50,7 @@ describe("formatAbsatzBullet", () => {
 	it("formats bullet with name and date", () => {
 		const date = new Date(2026, 1, 6);
 		expect(formatAbsatzBullet("Abstimmung", date)).toBe(
-			"- Abstimmung, 06.02.2026",
+			"- [[#Abstimmung, 06.02.2026]]",
 		);
 	});
 });
@@ -133,7 +133,7 @@ describe("addAbsatz", () => {
 		const { newContent, cursorLineIndex } = addAbsatz(content, "Review", date);
 
 		expect(newContent).toContain("# Inhalt");
-		expect(newContent).toContain("- Review, 06.02.2026");
+		expect(newContent).toContain("- [[#Review, 06.02.2026]]");
 		expect(newContent).toContain("##### Review, 06.02.2026");
 
 		const lines = newContent.split("\n");
@@ -144,7 +144,7 @@ describe("addAbsatz", () => {
 		const { newContent, cursorLineIndex } = addAbsatz("", "First", date);
 
 		expect(newContent).toContain("# Inhalt");
-		expect(newContent).toContain("- First, 06.02.2026");
+		expect(newContent).toContain("- [[#First, 06.02.2026]]");
 		expect(newContent).toContain("##### First, 06.02.2026");
 
 		const lines = newContent.split("\n");
@@ -168,7 +168,7 @@ describe("addAbsatz", () => {
 
 		const lines = newContent.split("\n");
 		// Bullet inserted after # Inhalt
-		expect(lines[3]).toBe("- New Section, 06.02.2026");
+		expect(lines[3]).toBe("- [[#New Section, 06.02.2026]]");
 		// H5 inserted before existing #####
 		const headerIdx = lines.indexOf("##### New Section, 06.02.2026");
 		expect(headerIdx).toBeGreaterThan(-1);
@@ -195,7 +195,7 @@ describe("addAbsatz", () => {
 
 		const lines = newContent.split("\n");
 		// New bullet inserted as first item
-		expect(lines[3]).toBe("- New Entry, 06.02.2026");
+		expect(lines[3]).toBe("- [[#New Entry, 06.02.2026]]");
 		// Old bullet still present
 		expect(lines[4]).toBe("- Old Entry, 01.02.2026");
 		// New h5 inserted before old h5
@@ -210,7 +210,7 @@ describe("addAbsatz", () => {
 		const { newContent, cursorLineIndex } = addAbsatz(content, "Solo", date);
 
 		const lines = newContent.split("\n");
-		expect(newContent).toContain("- Solo, 06.02.2026");
+		expect(newContent).toContain("- [[#Solo, 06.02.2026]]");
 		expect(newContent).toContain("##### Solo, 06.02.2026");
 		expect(lines[cursorLineIndex]).toBe("- ");
 	});
@@ -229,7 +229,7 @@ describe("addAbsatz", () => {
 		);
 
 		const lines = newContent.split("\n");
-		expect(newContent).toContain("- Another, 06.02.2026");
+		expect(newContent).toContain("- [[#Another, 06.02.2026]]");
 		expect(newContent).toContain("##### Another, 06.02.2026");
 		expect(lines[cursorLineIndex]).toBe("- ");
 	});
@@ -259,7 +259,7 @@ describe("addAbsatz", () => {
 
 		const lines = newContent.split("\n");
 		// New bullet inserted as first in Inhalt
-		expect(lines[5]).toBe("- Status Update, 06.02.2026");
+		expect(lines[5]).toBe("- [[#Status Update, 06.02.2026]]");
 		// Old bullets still present after
 		expect(lines[6]).toBe("- Abstimmung mit Daniel, 01.02.2026");
 		expect(lines[7]).toBe("- Kick-Off, 15.01.2026");
