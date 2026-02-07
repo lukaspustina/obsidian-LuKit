@@ -18,7 +18,14 @@
       "Bash(node:*)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:forum.obsidian.md)",
-      "Bash(make test:*)"
+      "Bash(make test:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nBump version to 1.1.0\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git tag:*)",
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd Besprechung feature — extract meeting note summaries\n\nAdds a new command \"Add Besprechung summary\" that picks a meeting note\nfrom a configurable folder via fuzzy search, extracts the Nächste Schritte\nand Zusammenfassung sections, and inserts the formatted summary at the\ncursor in the active note.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(npm version:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nBump version to 1.2.0\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
