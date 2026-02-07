@@ -1,7 +1,7 @@
 import {
 	findInhaltSectionIndex,
 	findInhaltBulletRange,
-} from "../absatz/absatz-engine";
+} from "../vorgang/vorgang-engine";
 
 export interface MigrationResult {
 	newContent: string;

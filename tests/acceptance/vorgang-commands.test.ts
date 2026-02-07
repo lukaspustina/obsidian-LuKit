@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { addAbsatz } from "../../src/features/absatz/absatz-engine";
+import { addVorgangSection } from "../../src/features/vorgang/vorgang-engine";
 
 const date = new Date(2026, 1, 6);
 
-describe("Add Absatz command flow", () => {
+describe("Add Vorgang section command flow", () => {
 	it("full flow with realistic Vorgang note", () => {
 		const content = [
 			"---",
@@ -19,7 +19,7 @@ describe("Add Absatz command flow", () => {
 			"- Agreed on timeline",
 		].join("\n");
 
-		const { newContent, cursorLineIndex } = addAbsatz(
+		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"Review Meeting",
 			date,
@@ -50,7 +50,7 @@ describe("Add Absatz command flow", () => {
 			"Some existing notes about the Vorgang.",
 		].join("\n");
 
-		const { newContent, cursorLineIndex } = addAbsatz(
+		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"Initial Setup",
 			date,
@@ -74,7 +74,7 @@ describe("Add Absatz command flow", () => {
 			"- some note",
 		].join("\n");
 
-		const { newContent, cursorLineIndex } = addAbsatz(
+		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"New Section",
 			date,
@@ -94,7 +94,7 @@ describe("Add Absatz command flow", () => {
 
 	it("positions cursor at ch: 2 for immediate typing after '- '", () => {
 		const content = "# Inhalt\n- Existing, 01.02.2026\n\n##### Existing, 01.02.2026\n- note";
-		const { cursorLineIndex, newContent } = addAbsatz(content, "Test", date);
+		const { cursorLineIndex, newContent } = addVorgangSection(content, "Test", date);
 		const lines = newContent.split("\n");
 		// The cursor line is "- " and the feature sets ch: 2 (after "- ")
 		expect(lines[cursorLineIndex]).toBe("- ");
@@ -119,7 +119,7 @@ describe("Add Absatz command flow", () => {
 			"- Beta note 1",
 		].join("\n");
 
-		const { newContent } = addAbsatz(content, "Gamma", date);
+		const { newContent } = addVorgangSection(content, "Gamma", date);
 
 		// All original content preserved
 		expect(newContent).toContain("- Alpha, 01.02.2026");
@@ -134,7 +134,7 @@ describe("Add Absatz command flow", () => {
 		expect(newContent).toContain("##### Gamma, 06.02.2026");
 	});
 
-	it("multiple consecutive addAbsatz calls build up correctly", () => {
+	it("multiple consecutive addVorgangSection calls build up correctly", () => {
 		let content = [
 			"# Inhalt",
 			"",
@@ -142,11 +142,11 @@ describe("Add Absatz command flow", () => {
 			"- note",
 		].join("\n");
 
-		const first = addAbsatz(content, "Second", date);
+		const first = addVorgangSection(content, "Second", date);
 		content = first.newContent;
 
 		const date2 = new Date(2026, 1, 7);
-		const second = addAbsatz(content, "Third", date2);
+		const second = addVorgangSection(content, "Third", date2);
 		content = second.newContent;
 
 		const lines = content.split("\n");

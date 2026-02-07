@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
 	formatGermanDate,
-	formatAbsatzHeader,
-	formatAbsatzBullet,
+	formatVorgangHeader,
+	formatVorgangBullet,
 	findInhaltSectionIndex,
 	findInhaltBulletRange,
-	addAbsatz,
-} from "../../src/features/absatz/absatz-engine";
+	addVorgangSection,
+} from "../../src/features/vorgang/vorgang-engine";
 
 describe("formatGermanDate", () => {
 	it("formats a date with zero-padded day and month", () => {
@@ -30,26 +30,26 @@ describe("formatGermanDate", () => {
 	});
 });
 
-describe("formatAbsatzHeader", () => {
+describe("formatVorgangHeader", () => {
 	it("formats header with name and date", () => {
 		const date = new Date(2026, 1, 6);
-		expect(formatAbsatzHeader("Abstimmung", date)).toBe(
+		expect(formatVorgangHeader("Abstimmung", date)).toBe(
 			"##### Abstimmung, 06.02.2026",
 		);
 	});
 
 	it("handles names with special characters", () => {
 		const date = new Date(2026, 1, 6);
-		expect(formatAbsatzHeader("Besprechung: Fibunet", date)).toBe(
+		expect(formatVorgangHeader("Besprechung: Fibunet", date)).toBe(
 			"##### Besprechung: Fibunet, 06.02.2026",
 		);
 	});
 });
 
-describe("formatAbsatzBullet", () => {
+describe("formatVorgangBullet", () => {
 	it("formats bullet with name and date", () => {
 		const date = new Date(2026, 1, 6);
-		expect(formatAbsatzBullet("Abstimmung", date)).toBe(
+		expect(formatVorgangBullet("Abstimmung", date)).toBe(
 			"- [[#Abstimmung, 06.02.2026]]",
 		);
 	});
@@ -125,12 +125,12 @@ describe("findInhaltBulletRange", () => {
 	});
 });
 
-describe("addAbsatz", () => {
+describe("addVorgangSection", () => {
 	const date = new Date(2026, 1, 6);
 
 	it("appends Inhalt + section when no # Inhalt exists", () => {
 		const content = "# Titel\n\nSome content";
-		const { newContent, cursorLineIndex } = addAbsatz(content, "Review", date);
+		const { newContent, cursorLineIndex } = addVorgangSection(content, "Review", date);
 
 		expect(newContent).toContain("# Inhalt");
 		expect(newContent).toContain("- [[#Review, 06.02.2026]]");
@@ -141,7 +141,7 @@ describe("addAbsatz", () => {
 	});
 
 	it("handles empty content with no # Inhalt", () => {
-		const { newContent, cursorLineIndex } = addAbsatz("", "First", date);
+		const { newContent, cursorLineIndex } = addVorgangSection("", "First", date);
 
 		expect(newContent).toContain("# Inhalt");
 		expect(newContent).toContain("- [[#First, 06.02.2026]]");
@@ -160,7 +160,7 @@ describe("addAbsatz", () => {
 			"##### Existing, 01.02.2026",
 			"- some note",
 		].join("\n");
-		const { newContent, cursorLineIndex } = addAbsatz(
+		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"New Section",
 			date,
@@ -187,7 +187,7 @@ describe("addAbsatz", () => {
 			"##### Old Entry, 01.02.2026",
 			"- old note",
 		].join("\n");
-		const { newContent, cursorLineIndex } = addAbsatz(
+		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"New Entry",
 			date,
@@ -207,7 +207,7 @@ describe("addAbsatz", () => {
 
 	it("appends h5 at end when no existing h5 sections and Inhalt has no bullets", () => {
 		const content = ["# Titel", "", "# Inhalt"].join("\n");
-		const { newContent, cursorLineIndex } = addAbsatz(content, "Solo", date);
+		const { newContent, cursorLineIndex } = addVorgangSection(content, "Solo", date);
 
 		const lines = newContent.split("\n");
 		expect(newContent).toContain("- [[#Solo, 06.02.2026]]");
@@ -222,7 +222,7 @@ describe("addAbsatz", () => {
 			"# Inhalt",
 			"- Existing, 01.02.2026",
 		].join("\n");
-		const { newContent, cursorLineIndex } = addAbsatz(
+		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"Another",
 			date,
@@ -251,7 +251,7 @@ describe("addAbsatz", () => {
 			"##### Kick-Off, 15.01.2026",
 			"- Initial meeting",
 		].join("\n");
-		const { newContent, cursorLineIndex } = addAbsatz(
+		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"Status Update",
 			date,
@@ -284,7 +284,7 @@ describe("addAbsatz", () => {
 			"##### Existing, 01.02.2026",
 			"- note",
 		].join("\n");
-		const { newContent, cursorLineIndex } = addAbsatz(
+		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"Test",
 			date,
