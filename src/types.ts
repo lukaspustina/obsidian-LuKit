@@ -1,5 +1,6 @@
 import type LuKitPlugin from "./main";
 import type { WorkDiarySettings } from "./features/work-diary/diary-settings";
+import type { BesprechungSettings } from "./features/besprechung/besprechung-settings";
 
 export interface LuKitFeature {
 	id: string;
@@ -10,10 +11,14 @@ export interface LuKitFeature {
 
 export interface LuKitSettings {
 	workDiary: WorkDiarySettings;
+	besprechung: BesprechungSettings;
 }
 
 export const DEFAULT_SETTINGS: LuKitSettings = {
 	workDiary: {
 		diaryNotePath: "",
+	},
+	besprechung: {
+		folderPath: "",
 	},
 };
