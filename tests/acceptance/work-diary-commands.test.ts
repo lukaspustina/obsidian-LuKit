@@ -5,6 +5,8 @@ import {
 	formatDiaryEntry,
 	formatTextEntry,
 	formatTodayHeader,
+	formatReminderEntry,
+	addReminder,
 } from "../../src/features/work-diary/work-diary-engine";
 
 const friday = new Date(2026, 1, 6);
@@ -90,6 +92,45 @@ describe("Add text entry command flow", () => {
 		const { newContent } = addEntryUnderToday(content, entry, friday);
 		expect(newContent).toContain("##### Fr, 06.02.2026");
 		expect(newContent).toContain("- new task");
+	});
+});
+
+describe("Add reminder command flow", () => {
+	it("full flow: creates Erinnerungen section and adds reminder", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n\n---\n##### Fr, 06.02.2026";
+		const entry = formatReminderEntry("Call dentist", friday);
+		expect(entry).toBe("- Call dentist, 06.02.2026");
+
+		const result = addReminder(content, entry);
+		expect(result).not.toBeNull();
+		expect(result!.newContent).toContain("# Erinnerungen");
+		expect(result!.newContent).toContain("- Call dentist, 06.02.2026");
+	});
+
+	it("adds newest reminder at top of existing section", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n\n# Erinnerungen\n- Old thought, 05.02.2026\n\n---\n##### Fr, 06.02.2026";
+		const entry = formatReminderEntry("New thought", friday);
+		const result = addReminder(content, entry);
+		expect(result).not.toBeNull();
+		const lines = result!.newContent.split("\n");
+		const headingIdx = lines.indexOf("# Erinnerungen");
+		expect(lines[headingIdx + 1]).toBe("- New thought, 06.02.2026");
+		expect(lines[headingIdx + 2]).toBe("- Old thought, 05.02.2026");
+	});
+
+	it("returns null when diary has no third separator", () => {
+		const content = "---\nfm\n---\nno third separator";
+		const result = addReminder(content, "- reminder, 06.02.2026");
+		expect(result).toBeNull();
+	});
+
+	it("does not modify diary entries below third separator", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n\n---\n##### Fr, 06.02.2026\n- work entry";
+		const entry = formatReminderEntry("Buy groceries", friday);
+		const result = addReminder(content, entry);
+		expect(result).not.toBeNull();
+		expect(result!.newContent).toContain("##### Fr, 06.02.2026");
+		expect(result!.newContent).toContain("- work entry");
 	});
 });
 

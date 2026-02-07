@@ -5,6 +5,8 @@ import {
 	addEntryUnderToday,
 	formatDiaryEntry,
 	formatTextEntry,
+	formatReminderEntry,
+	addReminder,
 } from "../../src/features/work-diary/work-diary-engine";
 
 const friday = new Date(2026, 1, 6);
@@ -95,6 +97,43 @@ describe("Work diary vault.process() integration", () => {
 		expect(fallback).toBe(true);
 		const result = vault.files.get("diary.md")!;
 		expect(result).toContain("##### Fr, 06.02.2026");
+	});
+
+	it("add-reminder via process() creates section and adds entry", async () => {
+		const initial = "---\nfm\n---\n[[pinned]]\n\n---\n##### Fr, 06.02.2026";
+		const file = createMockTFile("diary.md");
+		const vault = createMockVault({ "diary.md": initial });
+
+		const entry = formatReminderEntry("Call dentist", friday);
+		await vault.process(file, (content) => {
+			const result = addReminder(content, entry);
+			if (!result) return content;
+			return result.newContent;
+		});
+
+		const result = vault.files.get("diary.md")!;
+		expect(result).toContain("# Erinnerungen");
+		expect(result).toContain("- Call dentist, 06.02.2026");
+		expect(result).toContain("##### Fr, 06.02.2026");
+	});
+
+	it("add-reminder via process() inserts newest first", async () => {
+		const initial = "---\nfm\n---\n[[pinned]]\n\n# Erinnerungen\n- Old, 05.02.2026\n\n---\n##### Fr, 06.02.2026";
+		const file = createMockTFile("diary.md");
+		const vault = createMockVault({ "diary.md": initial });
+
+		const entry = formatReminderEntry("New thought", friday);
+		await vault.process(file, (content) => {
+			const result = addReminder(content, entry);
+			if (!result) return content;
+			return result.newContent;
+		});
+
+		const result = vault.files.get("diary.md")!;
+		const lines = result.split("\n");
+		const headingIdx = lines.indexOf("# Erinnerungen");
+		expect(lines[headingIdx + 1]).toBe("- New thought, 06.02.2026");
+		expect(lines[headingIdx + 2]).toBe("- Old, 05.02.2026");
 	});
 
 	it("process() throws for non-existent file", async () => {

@@ -4,6 +4,8 @@ import {
 	formatDiaryEntry,
 	addEntryUnderToday,
 	ensureTodayHeader,
+	formatReminderEntry,
+	addReminder,
 } from "./features/work-diary/work-diary-engine";
 
 type CommandHandler = (args: string[]) => void;
@@ -20,6 +22,10 @@ const commands: Record<string, { handler: CommandHandler; usage: string }> = {
 	"add-diary-entry": {
 		handler: runAddDiaryEntry,
 		usage: "lukit add-diary-entry <diary-path> <note-name> [heading]",
+	},
+	"add-reminder": {
+		handler: runAddReminder,
+		usage: "lukit add-reminder <diary-path> <text>",
 	},
 };
 
@@ -108,6 +114,39 @@ function runAddDiaryEntry(args: string[]): void {
 	writeFileSync(diaryPath, newContent, "utf-8");
 
 	console.log(`Added diary entry to ${diaryPath}`);
+}
+
+function runAddReminder(args: string[]): void {
+	if (args.length < 2) {
+		console.error("Error: Missing arguments.");
+		console.error("Usage: lukit add-reminder <diary-path> <text>");
+		process.exit(1);
+	}
+
+	const diaryPath = args[0];
+	const text = args[1].trim();
+
+	if (text.length === 0) {
+		console.error("Error: Text cannot be empty.");
+		process.exit(1);
+	}
+
+	if (!existsSync(diaryPath)) {
+		console.error(`Error: File not found: ${diaryPath}`);
+		process.exit(1);
+	}
+
+	const content = readFileSync(diaryPath, "utf-8");
+	const entry = formatReminderEntry(text);
+	const result = addReminder(content, entry);
+
+	if (!result) {
+		console.error("Error: Diary note is missing the third separator (---). Cannot add reminder.");
+		process.exit(1);
+	}
+
+	writeFileSync(diaryPath, result.newContent, "utf-8");
+	console.log(`Added reminder to ${diaryPath}`);
 }
 
 function main(): void {

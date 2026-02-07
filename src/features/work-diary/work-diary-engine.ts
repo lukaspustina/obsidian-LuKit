@@ -95,3 +95,59 @@ export function formatDiaryEntry(noteName: string, heading: string | null): stri
 export function formatTextEntry(text: string): string {
 	return `- ${text}`;
 }
+
+export function formatReminderEntry(text: string, date?: Date): string {
+	const d = date ?? new Date();
+	const day = String(d.getDate()).padStart(2, "0");
+	const month = String(d.getMonth() + 1).padStart(2, "0");
+	const year = d.getFullYear();
+	return `- ${text}, ${day}.${month}.${year}`;
+}
+
+function findSecondSeparatorIndex(lines: string[]): number {
+	let count = 0;
+	for (let i = 0; i < lines.length; i++) {
+		if (lines[i].trim() === "---") {
+			count++;
+			if (count === 2) {
+				return i;
+			}
+		}
+	}
+	return -1;
+}
+
+function findErinnerungenIndex(lines: string[], fromIndex: number, toIndex: number): number {
+	for (let i = fromIndex; i < toIndex; i++) {
+		if (lines[i].trim() === "# Erinnerungen") {
+			return i;
+		}
+	}
+	return -1;
+}
+
+export function addReminder(content: string, entry: string): { newContent: string } | null {
+	const lines = content.split("\n");
+	const thirdSep = findThirdSeparatorIndex(lines);
+	if (thirdSep === -1) {
+		return null;
+	}
+
+	const secondSep = findSecondSeparatorIndex(lines);
+	const searchStart = secondSep !== -1 ? secondSep + 1 : 0;
+
+	const erinnerungenIdx = findErinnerungenIndex(lines, searchStart, thirdSep);
+
+	if (erinnerungenIdx !== -1) {
+		lines.splice(erinnerungenIdx + 1, 0, entry);
+	} else {
+		const lineBeforeThirdSep = thirdSep > 0 ? lines[thirdSep - 1] : "";
+		const needsBlankBefore = lineBeforeThirdSep.trim() !== "";
+		const toInsert = needsBlankBefore
+			? ["", "# Erinnerungen", entry, ""]
+			: ["# Erinnerungen", entry, ""];
+		lines.splice(thirdSep, 0, ...toInsert);
+	}
+
+	return { newContent: lines.join("\n") };
+}

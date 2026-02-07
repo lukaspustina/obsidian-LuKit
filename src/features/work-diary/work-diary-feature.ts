@@ -6,6 +6,8 @@ import {
 	addEntryUnderToday,
 	formatDiaryEntry,
 	formatTextEntry,
+	formatReminderEntry,
+	addReminder,
 } from "./work-diary-engine";
 import { renderWorkDiarySettings } from "./work-diary-settings";
 import { NoteSuggestModal } from "../../shared/modals/note-suggest";
@@ -35,6 +37,12 @@ export class WorkDiaryFeature implements LuKitFeature {
 			id: "diary-add-text",
 			name: "Diary: Add text entry",
 			callback: () => this.addTextEntryCmd(),
+		});
+
+		plugin.addCommand({
+			id: "diary-add-reminder",
+			name: "Diary: Add reminder",
+			callback: () => this.addReminderCmd(),
 		});
 	}
 
@@ -121,6 +129,29 @@ export class WorkDiaryFeature implements LuKitFeature {
 				return newContent;
 			});
 			new Notice("Text entry added.");
+		}).open();
+	}
+
+	private addReminderCmd(): void {
+		const file = this.getDiaryFile();
+		if (!file) return;
+
+		new TextInputModal(this.plugin.app, "Reminder…", async (text) => {
+			const entry = formatReminderEntry(text);
+			let success = false;
+			await this.plugin.app.vault.process(file, (content) => {
+				const result = addReminder(content, entry);
+				if (!result) {
+					return content;
+				}
+				success = true;
+				return result.newContent;
+			});
+			if (!success) {
+				new Notice("LuKit: Diary note is missing the third separator (---). Cannot add reminder.");
+				return;
+			}
+			new Notice("Reminder added.");
 		}).open();
 	}
 }

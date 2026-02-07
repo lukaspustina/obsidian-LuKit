@@ -7,6 +7,8 @@ import {
 	formatDiaryEntry,
 	addEntryUnderToday,
 	ensureTodayHeader,
+	formatReminderEntry,
+	addReminder,
 } from "../../src/features/work-diary/work-diary-engine";
 
 const friday = new Date(2026, 1, 6);
@@ -146,5 +148,62 @@ describe("CLI: add-diary-entry", () => {
 
 		const result = readFileSync(diaryPath, "utf-8");
 		expect(result).toContain("- [[MeetingNotes]]");
+	});
+});
+
+describe("CLI: add-reminder", () => {
+	let tmpDir: string;
+	let diaryPath: string;
+
+	beforeEach(() => {
+		tmpDir = mkdtempSync(join(tmpdir(), "lukit-cli-"));
+		diaryPath = join(tmpDir, "diary.md");
+	});
+
+	afterEach(() => {
+		rmSync(tmpDir, { recursive: true });
+	});
+
+	it("adds a reminder to a diary file", () => {
+		const initial = "---\nfm\n---\n[[pinned]]\n\n---\n##### Fr, 06.02.2026";
+		writeFileSync(diaryPath, initial, "utf-8");
+
+		const content = readFileSync(diaryPath, "utf-8");
+		const entry = formatReminderEntry("Call dentist", friday);
+		const result = addReminder(content, entry);
+		expect(result).not.toBeNull();
+		writeFileSync(diaryPath, result!.newContent, "utf-8");
+
+		const written = readFileSync(diaryPath, "utf-8");
+		expect(written).toContain("# Erinnerungen");
+		expect(written).toContain("- Call dentist, 06.02.2026");
+		expect(written).toContain("##### Fr, 06.02.2026");
+	});
+
+	it("adds newest reminder at top of existing section", () => {
+		const initial = "---\nfm\n---\n[[pinned]]\n\n# Erinnerungen\n- Old, 05.02.2026\n\n---\n##### Fr, 06.02.2026";
+		writeFileSync(diaryPath, initial, "utf-8");
+
+		const content = readFileSync(diaryPath, "utf-8");
+		const entry = formatReminderEntry("New thought", friday);
+		const result = addReminder(content, entry);
+		expect(result).not.toBeNull();
+		writeFileSync(diaryPath, result!.newContent, "utf-8");
+
+		const written = readFileSync(diaryPath, "utf-8");
+		const lines = written.split("\n");
+		const headingIdx = lines.indexOf("# Erinnerungen");
+		expect(lines[headingIdx + 1]).toBe("- New thought, 06.02.2026");
+		expect(lines[headingIdx + 2]).toBe("- Old, 05.02.2026");
+	});
+
+	it("returns null when third separator is missing", () => {
+		const initial = "---\nfm\n---\nno third separator";
+		writeFileSync(diaryPath, initial, "utf-8");
+
+		const content = readFileSync(diaryPath, "utf-8");
+		const entry = formatReminderEntry("reminder", friday);
+		const result = addReminder(content, entry);
+		expect(result).toBeNull();
 	});
 });
