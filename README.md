@@ -24,6 +24,16 @@ Automates adding a new section to "Vorgang"-style notes. A Vorgang note has a `#
 
 - **Add Absatz section** — Prompts for a section name, inserts a TOC bullet under `# Inhalt` and an h5 header section, then places the cursor on a blank bullet below the new header. If no `# Inhalt` exists, one is created.
 
+### Besprechung
+
+Extracts key sections from meeting notes (Besprechungsnotizen) and inserts them at the cursor in the active note. Picks a note from a configurable folder via fuzzy search, extracts `### Nächste Schritte` and `### Zusammenfassung`, converts the h3 headers to bold, and inserts the formatted summary.
+
+**Commands:**
+
+- **Add Besprechung summary** — Pick a meeting note from the configured folder, extract the key sections, and insert at the cursor position.
+
+**Setup:** Set the Besprechung folder path in Settings > LuKit.
+
 ## CLI
 
 LuKit also provides a command-line interface for use outside of Obsidian.
