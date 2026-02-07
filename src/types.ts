@@ -20,5 +20,6 @@ export const DEFAULT_SETTINGS: LuKitSettings = {
 	},
 	besprechung: {
 		folderPath: "",
+		sectionHeadings: ["Nächste Schritte", "Zusammenfassung"],
 	},
 };

@@ -4,11 +4,11 @@ export class FolderNoteSuggestModal extends FuzzySuggestModal<TFile> {
 	private folderPath: string;
 	private onChoose: (file: TFile) => void;
 
-	constructor(app: App, folderPath: string, onChoose: (file: TFile) => void) {
+	constructor(app: App, folderPath: string, placeholder: string, onChoose: (file: TFile) => void) {
 		super(app);
 		this.folderPath = normalizePath(folderPath);
 		this.onChoose = onChoose;
-		this.setPlaceholder("Pick a Besprechung…");
+		this.setPlaceholder(placeholder);
 	}
 
 	getItems(): TFile[] {

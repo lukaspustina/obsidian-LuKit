@@ -39,22 +39,21 @@ export function extractSection(content: string, heading: string): string | null 
 	return body.join("\n");
 }
 
-export function formatBesprechungSummary(content: string): string | null {
-	const naechsteSchritte = extractSection(content, "Nächste Schritte");
-	const zusammenfassung = extractSection(content, "Zusammenfassung");
-
-	if (!naechsteSchritte && !zusammenfassung) {
-		return null;
-	}
-
+export function formatBesprechungSummary(
+	content: string,
+	sectionHeadings: string[] = ["Nächste Schritte", "Zusammenfassung"],
+): string | null {
 	const parts: string[] = [];
 
-	if (naechsteSchritte) {
-		parts.push(`**Nächste Schritte**\n${naechsteSchritte}`);
+	for (const heading of sectionHeadings) {
+		const body = extractSection(content, heading);
+		if (body) {
+			parts.push(`**${heading}**\n${body}`);
+		}
 	}
 
-	if (zusammenfassung) {
-		parts.push(`**Zusammenfassung**\n${zusammenfassung}`);
+	if (parts.length === 0) {
+		return null;
 	}
 
 	return parts.join("\n\n");

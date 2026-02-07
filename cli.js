@@ -44,16 +44,16 @@ function ensureTodayHeader(content, date) {
     const newContent = trimmedContent + "\n\n---\n" + header + "\n";
     const newLines2 = newContent.split("\n");
     const headerLineIndex = newLines2.indexOf(header);
-    return { newContent, headerLineIndex };
+    return { newContent, headerLineIndex, fallback: true };
   }
   const existingIndex = findTodayHeaderIndex(lines, separatorIndex, date);
   if (existingIndex !== -1) {
-    return { newContent: content, headerLineIndex: existingIndex };
+    return { newContent: content, headerLineIndex: existingIndex, fallback: false };
   }
   const before = lines.slice(0, separatorIndex + 1);
   const after = lines.slice(separatorIndex + 1);
   const newLines = [...before, header, ...after];
-  return { newContent: newLines.join("\n"), headerLineIndex: separatorIndex + 1 };
+  return { newContent: newLines.join("\n"), headerLineIndex: separatorIndex + 1, fallback: false };
 }
 function addEntryUnderToday(content, entry, date) {
   const { newContent: contentWithHeader, headerLineIndex } = ensureTodayHeader(content, date);
@@ -65,6 +65,12 @@ function addEntryUnderToday(content, entry, date) {
   lines.splice(insertAt, 0, entry);
   return { newContent: lines.join("\n"), entryLineIndex: insertAt };
 }
+function formatDiaryEntry(noteName, heading) {
+  if (heading) {
+    return `- [[${noteName}#${heading}|${noteName}: ${heading}]]`;
+  }
+  return `- [[${noteName}]]`;
+}
 function formatTextEntry(text) {
   return `- ${text}`;
 }
@@ -74,6 +80,14 @@ var commands = {
   "add-text-to-diary": {
     handler: runAddTextToDiary,
     usage: "lukit add-text-to-diary <diary-path> <text>"
+  },
+  "ensure-today-header": {
+    handler: runEnsureTodayHeader,
+    usage: "lukit ensure-today-header <diary-path>"
+  },
+  "add-diary-entry": {
+    handler: runAddDiaryEntry,
+    usage: "lukit add-diary-entry <diary-path> <note-name> [heading]"
   }
 };
 function printUsage() {
@@ -106,6 +120,44 @@ function runAddTextToDiary(args) {
   const { newContent } = addEntryUnderToday(content, entry);
   (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
   console.log(`Added entry to ${diaryPath}`);
+}
+function runEnsureTodayHeader(args) {
+  if (args.length < 1) {
+    console.error("Error: Missing arguments.");
+    console.error("Usage: lukit ensure-today-header <diary-path>");
+    process.exit(1);
+  }
+  const diaryPath = args[0];
+  if (!(0, import_fs.existsSync)(diaryPath)) {
+    console.error(`Error: File not found: ${diaryPath}`);
+    process.exit(1);
+  }
+  const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
+  const { newContent, fallback } = ensureTodayHeader(content);
+  (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
+  if (fallback) {
+    console.warn("Warning: Diary note is missing the third separator (---). Header was appended at end.");
+  }
+  console.log(`Ensured today's header in ${diaryPath}`);
+}
+function runAddDiaryEntry(args) {
+  if (args.length < 2) {
+    console.error("Error: Missing arguments.");
+    console.error("Usage: lukit add-diary-entry <diary-path> <note-name> [heading]");
+    process.exit(1);
+  }
+  const diaryPath = args[0];
+  const noteName = args[1];
+  const heading = args.length >= 3 ? args[2] : null;
+  if (!(0, import_fs.existsSync)(diaryPath)) {
+    console.error(`Error: File not found: ${diaryPath}`);
+    process.exit(1);
+  }
+  const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
+  const entry = formatDiaryEntry(noteName, heading);
+  const { newContent } = addEntryUnderToday(content, entry);
+  (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
+  console.log(`Added diary entry to ${diaryPath}`);
 }
 function main() {
   const args = process.argv.slice(2);

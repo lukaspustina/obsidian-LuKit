@@ -26,13 +26,13 @@ Automates adding a new section to "Vorgang"-style notes. A Vorgang note has a `#
 
 ### Besprechung
 
-Extracts key sections from meeting notes (Besprechungsnotizen) and inserts them at the cursor in the active note. Picks a note from a configurable folder via fuzzy search, extracts `### Nächste Schritte` and `### Zusammenfassung`, converts the h3 headers to bold, and inserts the formatted summary.
+Extracts key sections from meeting notes (Besprechungsnotizen) and inserts them at the cursor in the active note. Picks a note from a configurable folder via fuzzy search, extracts configurable h3 sections (default: `### Nächste Schritte` and `### Zusammenfassung`), converts the h3 headers to bold, and inserts the formatted summary.
 
 **Commands:**
 
 - **Besprechung: Add summary** — Pick a meeting note from the configured folder, extract the key sections, and insert at the cursor position.
 
-**Setup:** Set the Besprechung folder path in Settings > LuKit.
+**Setup:** Set the Besprechung folder path and section headings in Settings > LuKit. Section headings are comma-separated (e.g. `Nächste Schritte, Zusammenfassung, Agenda`).
 
 ### Migration
 
@@ -40,7 +40,7 @@ Converts old-format Vorgang notes to the current format. Old notes use `**Name, 
 
 **Commands:**
 
-- **Migration: Convert bold → h5** — Converts the active note from old bold-header format to h5 headers and wikilink TOC entries. Safe to run multiple times (idempotent).
+- **Migration: Convert bold → h5** — Converts the active note from old bold-header format to h5 headers and wikilink TOC entries. Shows a confirmation dialog with the number of entries to migrate before applying. Safe to run multiple times (idempotent).
 
 ## CLI
 
@@ -63,6 +63,35 @@ Example:
 
 ```sh
 lukit add-text-to-diary path/to/diary.md "reviewed the budget"
+```
+
+### ensure-today-header
+
+Ensures today's date header exists in a diary note. Warns if the diary structure is missing the third separator.
+
+```sh
+lukit ensure-today-header <diary-path>
+```
+
+Example:
+
+```sh
+lukit ensure-today-header path/to/diary.md
+```
+
+### add-diary-entry
+
+Adds a linked note entry under today's date header. Optionally specify a heading.
+
+```sh
+lukit add-diary-entry <diary-path> <note-name> [heading]
+```
+
+Examples:
+
+```sh
+lukit add-diary-entry path/to/diary.md "ProjectX" "Tasks"
+lukit add-diary-entry path/to/diary.md "MeetingNotes"
 ```
 
 ## Installation

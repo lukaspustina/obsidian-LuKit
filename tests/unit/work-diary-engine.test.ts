@@ -7,6 +7,7 @@ import {
 	addEntryUnderToday,
 	formatDiaryEntry,
 	formatTextEntry,
+	validateDiaryStructure,
 } from "../../src/features/work-diary/work-diary-engine";
 
 describe("formatTodayHeader", () => {
@@ -149,6 +150,24 @@ describe("ensureTodayHeader", () => {
 		expect(result.newContent).toContain("---\n##### Fr, 06.02.2026");
 	});
 
+	it("returns fallback: true when no third separator found", () => {
+		const content = "---\nfm\n---\nsome content without third separator";
+		const result = ensureTodayHeader(content, friday);
+		expect(result.fallback).toBe(true);
+	});
+
+	it("returns fallback: false when third separator exists", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026";
+		const result = ensureTodayHeader(content, friday);
+		expect(result.fallback).toBe(false);
+	});
+
+	it("returns fallback: false when inserting new header after existing separator", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Do, 05.02.2026\n- old";
+		const result = ensureTodayHeader(content, friday);
+		expect(result.fallback).toBe(false);
+	});
+
 	it("works with real note content (frontmatter + pinned links + diary separator)", () => {
 		const content = [
 			"---",
@@ -231,5 +250,29 @@ describe("formatTextEntry", () => {
 		expect(formatTextEntry("some [[link]] in text")).toBe(
 			"- some [[link]] in text"
 		);
+	});
+});
+
+describe("validateDiaryStructure", () => {
+	it("returns no errors for valid diary structure", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026";
+		expect(validateDiaryStructure(content)).toEqual([]);
+	});
+
+	it("returns error when third separator is missing", () => {
+		const content = "---\nfm\n---\nsome content";
+		const errors = validateDiaryStructure(content);
+		expect(errors).toHaveLength(1);
+		expect(errors[0]).toContain("third separator");
+	});
+
+	it("returns error for empty content", () => {
+		const errors = validateDiaryStructure("");
+		expect(errors).toHaveLength(1);
+	});
+
+	it("returns no errors when only frontmatter and third separator exist", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n---";
+		expect(validateDiaryStructure(content)).toEqual([]);
 	});
 });
