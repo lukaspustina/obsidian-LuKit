@@ -7,7 +7,7 @@
 
 ## Enhancements
 
-- [ ] Textinput modals need to be more efficient
+- [x] Textinput modals need to be more efficient
 
 ## Planned Features
 
