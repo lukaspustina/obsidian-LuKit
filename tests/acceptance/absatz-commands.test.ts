@@ -1,0 +1,162 @@
+import { describe, it, expect } from "vitest";
+import { addAbsatz } from "../../src/features/absatz/absatz-engine";
+
+const date = new Date(2026, 1, 6);
+
+describe("Add Absatz command flow", () => {
+	it("full flow with realistic Vorgang note", () => {
+		const content = [
+			"---",
+			"Created at: 2024-03-28",
+			"Author: Lukas",
+			"---",
+			"",
+			"# Inhalt",
+			"- Abstimmung mit Daniel, 01.02.2026",
+			"",
+			"##### Abstimmung mit Daniel, 01.02.2026",
+			"- Discussed budget",
+			"- Agreed on timeline",
+		].join("\n");
+
+		const { newContent, cursorLineIndex } = addAbsatz(
+			content,
+			"Review Meeting",
+			date,
+		);
+
+		const lines = newContent.split("\n");
+
+		// TOC bullet inserted as first under # Inhalt
+		expect(lines[6]).toBe("- Review Meeting, 06.02.2026");
+		// Old TOC entry still present
+		expect(lines[7]).toBe("- Abstimmung mit Daniel, 01.02.2026");
+		// New h5 section inserted before existing h5
+		expect(newContent).toContain("##### Review Meeting, 06.02.2026");
+		const newHeaderIdx = lines.indexOf("##### Review Meeting, 06.02.2026");
+		const oldHeaderIdx = lines.indexOf("##### Abstimmung mit Daniel, 01.02.2026");
+		expect(newHeaderIdx).toBeLessThan(oldHeaderIdx);
+		// Cursor on stub line ready for typing
+		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(cursorLineIndex).toBe(newHeaderIdx + 1);
+	});
+
+	it("creates Inhalt section when note has none", () => {
+		const content = [
+			"---",
+			"Created at: 2024-03-28",
+			"---",
+			"",
+			"Some existing notes about the Vorgang.",
+		].join("\n");
+
+		const { newContent, cursorLineIndex } = addAbsatz(
+			content,
+			"Initial Setup",
+			date,
+		);
+
+		const lines = newContent.split("\n");
+
+		// # Inhalt was created
+		expect(newContent).toContain("# Inhalt");
+		expect(newContent).toContain("- Initial Setup, 06.02.2026");
+		expect(newContent).toContain("##### Initial Setup, 06.02.2026");
+		// Cursor ready for typing
+		expect(lines[cursorLineIndex]).toBe("- ");
+	});
+
+	it("handles Inhalt with empty bullet list gracefully", () => {
+		const content = [
+			"# Inhalt",
+			"",
+			"##### Old Section, 01.01.2026",
+			"- some note",
+		].join("\n");
+
+		const { newContent, cursorLineIndex } = addAbsatz(
+			content,
+			"New Section",
+			date,
+		);
+
+		const lines = newContent.split("\n");
+
+		// Bullet added under Inhalt
+		expect(lines[1]).toBe("- New Section, 06.02.2026");
+		// New h5 appears before old h5
+		const newIdx = lines.indexOf("##### New Section, 06.02.2026");
+		const oldIdx = lines.indexOf("##### Old Section, 01.01.2026");
+		expect(newIdx).toBeLessThan(oldIdx);
+		// Cursor on stub line
+		expect(lines[cursorLineIndex]).toBe("- ");
+	});
+
+	it("positions cursor at ch: 2 for immediate typing after '- '", () => {
+		const content = "# Inhalt\n- Existing, 01.02.2026\n\n##### Existing, 01.02.2026\n- note";
+		const { cursorLineIndex, newContent } = addAbsatz(content, "Test", date);
+		const lines = newContent.split("\n");
+		// The cursor line is "- " and the feature sets ch: 2 (after "- ")
+		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex].length).toBe(2);
+	});
+
+	it("preserves all original content after insertion", () => {
+		const content = [
+			"---",
+			"title: Vorgang",
+			"---",
+			"",
+			"# Inhalt",
+			"- Alpha, 01.02.2026",
+			"- Beta, 15.01.2026",
+			"",
+			"##### Alpha, 01.02.2026",
+			"- Alpha note 1",
+			"- Alpha note 2",
+			"",
+			"##### Beta, 15.01.2026",
+			"- Beta note 1",
+		].join("\n");
+
+		const { newContent } = addAbsatz(content, "Gamma", date);
+
+		// All original content preserved
+		expect(newContent).toContain("- Alpha, 01.02.2026");
+		expect(newContent).toContain("- Beta, 15.01.2026");
+		expect(newContent).toContain("##### Alpha, 01.02.2026");
+		expect(newContent).toContain("- Alpha note 1");
+		expect(newContent).toContain("- Alpha note 2");
+		expect(newContent).toContain("##### Beta, 15.01.2026");
+		expect(newContent).toContain("- Beta note 1");
+		// New content added
+		expect(newContent).toContain("- Gamma, 06.02.2026");
+		expect(newContent).toContain("##### Gamma, 06.02.2026");
+	});
+
+	it("multiple consecutive addAbsatz calls build up correctly", () => {
+		let content = [
+			"# Inhalt",
+			"",
+			"##### First, 01.01.2026",
+			"- note",
+		].join("\n");
+
+		const first = addAbsatz(content, "Second", date);
+		content = first.newContent;
+
+		const date2 = new Date(2026, 1, 7);
+		const second = addAbsatz(content, "Third", date2);
+		content = second.newContent;
+
+		const lines = content.split("\n");
+		// All three entries in Inhalt
+		expect(content).toContain("- Third, 07.02.2026");
+		expect(content).toContain("- Second, 06.02.2026");
+		expect(content).toContain("##### Third, 07.02.2026");
+		expect(content).toContain("##### Second, 06.02.2026");
+		expect(content).toContain("##### First, 01.01.2026");
+		// Cursor on last stub
+		expect(lines[second.cursorLineIndex]).toBe("- ");
+	});
+});
