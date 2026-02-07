@@ -16,6 +16,14 @@ Maintains a reverse-chronological work diary in a single note. Each day gets an 
 
 **Setup:** Set the diary note path in Settings > LuKit.
 
+### Absatz
+
+Automates adding a new section to "Vorgang"-style notes. A Vorgang note has a `# Inhalt` table of contents with bullet entries, followed by `##### Name, DD.MM.YYYY` sections with bullet points. This feature inserts a new TOC entry and h5 header in one step, positioning the cursor for immediate typing.
+
+**Commands:**
+
+- **Add Absatz section** — Prompts for a section name, inserts a TOC bullet under `# Inhalt` and an h5 header section, then places the cursor on a blank bullet below the new header. If no `# Inhalt` exists, one is created.
+
 ## CLI
 
 LuKit also provides a command-line interface for use outside of Obsidian.
