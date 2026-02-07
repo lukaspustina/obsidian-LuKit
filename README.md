@@ -13,6 +13,7 @@ Maintains a reverse-chronological work diary in a single note. Each day gets an 
 - **Diary: Ensure today's header** — Creates today's date header if missing, opens the diary note and positions the cursor below it.
 - **Diary: Add linked entry** — Pick a note and heading via fuzzy search, inserts a linked entry under today's header. Stays in the current note.
 - **Diary: Add text entry** — Type free text, inserts it as a bullet under today's header. Stays in the current note.
+- **Diary: Add reminder** — Type a quick thought or reminder, inserts it under a `# Erinnerungen` section between frontmatter and the diary separator (third `---`). Newest entries appear first, each tagged with the current date (e.g., `- Call dentist, 07.02.2026`).
 
 **Setup:** Set the diary note path in Settings > LuKit.
 
@@ -92,6 +93,20 @@ Examples:
 ```sh
 lukit add-diary-entry path/to/diary.md "ProjectX" "Tasks"
 lukit add-diary-entry path/to/diary.md "MeetingNotes"
+```
+
+### add-reminder
+
+Adds a reminder entry under a `# Erinnerungen` section between frontmatter and the diary separator.
+
+```sh
+lukit add-reminder <diary-path> <text>
+```
+
+Example:
+
+```sh
+lukit add-reminder path/to/diary.md "Call dentist"
 ```
 
 ## Installation

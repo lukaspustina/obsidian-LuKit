@@ -8,6 +8,8 @@ import {
 	formatDiaryEntry,
 	formatTextEntry,
 	validateDiaryStructure,
+	formatReminderEntry,
+	addReminder,
 } from "../../src/features/work-diary/work-diary-engine";
 
 describe("formatTodayHeader", () => {
@@ -250,6 +252,109 @@ describe("formatTextEntry", () => {
 		expect(formatTextEntry("some [[link]] in text")).toBe(
 			"- some [[link]] in text"
 		);
+	});
+});
+
+describe("formatReminderEntry", () => {
+	it("formats text with date", () => {
+		const friday = new Date(2026, 1, 6);
+		expect(formatReminderEntry("Call dentist", friday)).toBe("- Call dentist, 06.02.2026");
+	});
+
+	it("zero-pads single-digit day and month", () => {
+		const date = new Date(2026, 0, 5);
+		expect(formatReminderEntry("Buy groceries", date)).toBe("- Buy groceries, 05.01.2026");
+	});
+
+	it("handles double-digit day and month", () => {
+		const date = new Date(2026, 11, 25);
+		expect(formatReminderEntry("Christmas shopping", date)).toBe("- Christmas shopping, 25.12.2026");
+	});
+});
+
+describe("addReminder", () => {
+	it("creates Erinnerungen section and inserts entry when section does not exist", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n\n---\n##### Fr, 06.02.2026\n- entry";
+		const entry = "- Call dentist, 06.02.2026";
+		const result = addReminder(content, entry);
+		expect(result).not.toBeNull();
+		const lines = result!.newContent.split("\n");
+		const headingIdx = lines.indexOf("# Erinnerungen");
+		expect(headingIdx).toBeGreaterThan(-1);
+		expect(lines[headingIdx + 1]).toBe(entry);
+		// Section is before the third separator
+		const thirdSepIdx = lines.indexOf("---", headingIdx);
+		expect(thirdSepIdx).toBeGreaterThan(headingIdx + 1);
+	});
+
+	it("inserts entry after existing Erinnerungen heading (newest first)", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n\n# Erinnerungen\n- Old reminder, 05.02.2026\n\n---\n##### Fr, 06.02.2026";
+		const entry = "- New reminder, 06.02.2026";
+		const result = addReminder(content, entry);
+		expect(result).not.toBeNull();
+		const lines = result!.newContent.split("\n");
+		const headingIdx = lines.indexOf("# Erinnerungen");
+		expect(lines[headingIdx + 1]).toBe("- New reminder, 06.02.2026");
+		expect(lines[headingIdx + 2]).toBe("- Old reminder, 05.02.2026");
+	});
+
+	it("returns null when third separator is missing", () => {
+		const content = "---\nfm\n---\nsome content";
+		const result = addReminder(content, "- reminder, 06.02.2026");
+		expect(result).toBeNull();
+	});
+
+	it("preserves all content after the third separator", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n\n---\n##### Fr, 06.02.2026\n- entry1\n- entry2";
+		const entry = "- Call dentist, 06.02.2026";
+		const result = addReminder(content, entry);
+		expect(result).not.toBeNull();
+		expect(result!.newContent).toContain("##### Fr, 06.02.2026");
+		expect(result!.newContent).toContain("- entry1");
+		expect(result!.newContent).toContain("- entry2");
+	});
+
+	it("handles no blank line before third separator", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026";
+		const entry = "- reminder, 06.02.2026";
+		const result = addReminder(content, entry);
+		expect(result).not.toBeNull();
+		const lines = result!.newContent.split("\n");
+		const headingIdx = lines.indexOf("# Erinnerungen");
+		expect(headingIdx).toBeGreaterThan(-1);
+		// Should have a blank line before # Erinnerungen since [[pinned]] is non-empty
+		expect(lines[headingIdx - 1].trim()).toBe("");
+	});
+
+	it("handles blank line already before third separator", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n\n---\n##### Fr, 06.02.2026";
+		const entry = "- reminder, 06.02.2026";
+		const result = addReminder(content, entry);
+		expect(result).not.toBeNull();
+		const lines = result!.newContent.split("\n");
+		const headingIdx = lines.indexOf("# Erinnerungen");
+		// No double blank lines before # Erinnerungen
+		expect(lines[headingIdx - 1].trim()).toBe("");
+		expect(lines[headingIdx - 2].trim()).not.toBe("");
+	});
+
+	it("is idempotent with section creation — second call adds to existing section", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n\n---\n##### Fr, 06.02.2026";
+		const first = addReminder(content, "- first, 06.02.2026");
+		const second = addReminder(first!.newContent, "- second, 07.02.2026");
+		expect(second).not.toBeNull();
+		const lines = second!.newContent.split("\n");
+		const headingIdx = lines.indexOf("# Erinnerungen");
+		expect(lines[headingIdx + 1]).toBe("- second, 07.02.2026");
+		expect(lines[headingIdx + 2]).toBe("- first, 06.02.2026");
+	});
+
+	it("preserves pinned links between frontmatter and Erinnerungen", () => {
+		const content = "---\nfm\n---\n[[link1]]\n[[link2]]\n\n---\n##### Fr, 06.02.2026";
+		const result = addReminder(content, "- reminder, 06.02.2026");
+		expect(result).not.toBeNull();
+		expect(result!.newContent).toContain("[[link1]]");
+		expect(result!.newContent).toContain("[[link2]]");
 	});
 });
 
