@@ -12,7 +12,10 @@
       "Bash(/opt/homebrew/bin/npm install)",
       "Bash(/opt/homebrew/bin/npx vitest run)",
       "Bash(/opt/homebrew/bin/npx tsc -noEmit)",
-      "Bash(/opt/homebrew/bin/node:*)"
+      "Bash(/opt/homebrew/bin/node:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run test:*)",
+      "Bash(node:*)"
     ]
   }
 }

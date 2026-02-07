@@ -1,0 +1,71 @@
+import { readFileSync, writeFileSync, existsSync } from "fs";
+import { formatTextEntry, addEntryUnderToday } from "./features/work-diary/diary-engine";
+
+type CommandHandler = (args: string[]) => void;
+
+const commands: Record<string, { handler: CommandHandler; usage: string }> = {
+	"add-text-to-diary": {
+		handler: runAddTextToDiary,
+		usage: "lukkit add-text-to-diary <diary-path> <text>",
+	},
+};
+
+function printUsage(): void {
+	console.log("Usage: lukkit <command> [args...]\n");
+	console.log("Commands:");
+	for (const [name, cmd] of Object.entries(commands)) {
+		console.log(`  ${cmd.usage}`);
+	}
+	console.log("\nOptions:");
+	console.log("  --help    Show this help message");
+}
+
+function runAddTextToDiary(args: string[]): void {
+	if (args.length < 2) {
+		console.error("Error: Missing arguments.");
+		console.error("Usage: lukkit add-text-to-diary <diary-path> <text>");
+		process.exit(1);
+	}
+
+	const diaryPath = args[0];
+	const text = args[1].trim();
+
+	if (text.length === 0) {
+		console.error("Error: Text cannot be empty.");
+		process.exit(1);
+	}
+
+	if (!existsSync(diaryPath)) {
+		console.error(`Error: File not found: ${diaryPath}`);
+		process.exit(1);
+	}
+
+	const content = readFileSync(diaryPath, "utf-8");
+	const entry = formatTextEntry(text);
+	const { newContent } = addEntryUnderToday(content, entry);
+	writeFileSync(diaryPath, newContent, "utf-8");
+
+	console.log(`Added entry to ${diaryPath}`);
+}
+
+function main(): void {
+	const args = process.argv.slice(2);
+
+	if (args.length === 0 || args[0] === "--help") {
+		printUsage();
+		process.exit(0);
+	}
+
+	const commandName = args[0];
+	const command = commands[commandName];
+
+	if (!command) {
+		console.error(`Error: Unknown command '${commandName}'`);
+		printUsage();
+		process.exit(1);
+	}
+
+	command.handler(args.slice(1));
+}
+
+main();
