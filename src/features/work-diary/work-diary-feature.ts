@@ -6,8 +6,8 @@ import {
 	addEntryUnderToday,
 	formatDiaryEntry,
 	formatTextEntry,
-} from "./diary-engine";
-import { renderWorkDiarySettings } from "./diary-settings";
+} from "./work-diary-engine";
+import { renderWorkDiarySettings } from "./work-diary-settings";
 import { NoteSuggestModal } from "../../shared/modals/note-suggest";
 import { HeadingSuggestModal } from "../../shared/modals/heading-suggest";
 import { TextInputModal } from "../../shared/modals/text-input-modal";
@@ -20,20 +20,20 @@ export class WorkDiaryFeature implements LuKitFeature {
 		this.plugin = plugin;
 
 		plugin.addCommand({
-			id: "ensure-today-header",
-			name: "Ensure today's header",
+			id: "diary-ensure-today",
+			name: "Diary: Ensure today's header",
 			callback: () => this.ensureTodayHeaderCmd(),
 		});
 
 		plugin.addCommand({
-			id: "add-diary-entry",
-			name: "Add diary entry",
+			id: "diary-add-entry",
+			name: "Diary: Add linked entry",
 			callback: () => this.addDiaryEntryCmd(),
 		});
 
 		plugin.addCommand({
-			id: "add-text-entry",
-			name: "Add text entry",
+			id: "diary-add-text",
+			name: "Diary: Add text entry",
 			callback: () => this.addTextEntryCmd(),
 		});
 	}

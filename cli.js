@@ -4,7 +4,7 @@
 // src/cli.ts
 var import_fs = require("fs");
 
-// src/features/work-diary/diary-engine.ts
+// src/features/work-diary/work-diary-engine.ts
 var GERMAN_WEEKDAYS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 function formatTodayHeader(date) {
   const d = date ?? /* @__PURE__ */ new Date();

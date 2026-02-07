@@ -11,8 +11,8 @@ export class MigrationFeature implements LuKitFeature {
 		this.plugin = plugin;
 
 		plugin.addCommand({
-			id: "migrate-vorgang-note",
-			name: "Migrate Vorgang note (bold → h5)",
+			id: "migration-convert-bold",
+			name: "Migration: Convert bold → h5",
 			callback: () => this.migrateCmd(),
 		});
 	}

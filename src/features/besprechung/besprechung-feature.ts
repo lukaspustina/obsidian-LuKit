@@ -13,8 +13,8 @@ export class BesprechungFeature implements LuKitFeature {
 		this.plugin = plugin;
 
 		plugin.addCommand({
-			id: "add-besprechung-summary",
-			name: "Add Besprechung summary",
+			id: "besprechung-add-summary",
+			name: "Besprechung: Add summary",
 			editorCallback: (editor) => {
 				this.addBesprechungSummaryCmd(editor);
 			},

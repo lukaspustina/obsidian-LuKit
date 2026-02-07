@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
-import { formatTextEntry, addEntryUnderToday } from "./features/work-diary/diary-engine";
+import { formatTextEntry, addEntryUnderToday } from "./features/work-diary/work-diary-engine";
 
 type CommandHandler = (args: string[]) => void;
 
