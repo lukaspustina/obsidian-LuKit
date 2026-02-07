@@ -14,3 +14,26 @@
 	gap: var(--size-4-2);
 	padding: var(--size-4-2) var(--size-4-3);
 }
+
+.lukit-help-modal {
+	max-width: 600px;
+}
+
+.lukit-help-modal h3 {
+	margin-top: var(--size-4-4);
+	margin-bottom: var(--size-4-1);
+}
+
+.lukit-help-setup {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin-top: 0;
+}
+
+.lukit-help-list {
+	padding-left: var(--size-4-4);
+}
+
+.lukit-help-list li {
+	margin-bottom: var(--size-4-1);
+}

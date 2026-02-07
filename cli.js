@@ -74,6 +74,52 @@ function formatDiaryEntry(noteName, heading) {
 function formatTextEntry(text) {
   return `- ${text}`;
 }
+function formatReminderEntry(text, date) {
+  const d = date ?? /* @__PURE__ */ new Date();
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `- ${text}, ${day}.${month}.${year}`;
+}
+function findSecondSeparatorIndex(lines) {
+  let count = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === "---") {
+      count++;
+      if (count === 2) {
+        return i;
+      }
+    }
+  }
+  return -1;
+}
+function findErinnerungenIndex(lines, fromIndex, toIndex) {
+  for (let i = fromIndex; i < toIndex; i++) {
+    if (lines[i].trim() === "# Erinnerungen") {
+      return i;
+    }
+  }
+  return -1;
+}
+function addReminder(content, entry) {
+  const lines = content.split("\n");
+  const thirdSep = findThirdSeparatorIndex(lines);
+  if (thirdSep === -1) {
+    return null;
+  }
+  const secondSep = findSecondSeparatorIndex(lines);
+  const searchStart = secondSep !== -1 ? secondSep + 1 : 0;
+  const erinnerungenIdx = findErinnerungenIndex(lines, searchStart, thirdSep);
+  if (erinnerungenIdx !== -1) {
+    lines.splice(erinnerungenIdx + 1, 0, entry);
+  } else {
+    const lineBeforeThirdSep = thirdSep > 0 ? lines[thirdSep - 1] : "";
+    const needsBlankBefore = lineBeforeThirdSep.trim() !== "";
+    const toInsert = needsBlankBefore ? ["", "# Erinnerungen", entry, ""] : ["# Erinnerungen", entry, ""];
+    lines.splice(thirdSep, 0, ...toInsert);
+  }
+  return { newContent: lines.join("\n") };
+}
 
 // src/cli.ts
 var commands = {
@@ -88,6 +134,10 @@ var commands = {
   "add-diary-entry": {
     handler: runAddDiaryEntry,
     usage: "lukit add-diary-entry <diary-path> <note-name> [heading]"
+  },
+  "add-reminder": {
+    handler: runAddReminder,
+    usage: "lukit add-reminder <diary-path> <text>"
   }
 };
 function printUsage() {
@@ -158,6 +208,32 @@ function runAddDiaryEntry(args) {
   const { newContent } = addEntryUnderToday(content, entry);
   (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
   console.log(`Added diary entry to ${diaryPath}`);
+}
+function runAddReminder(args) {
+  if (args.length < 2) {
+    console.error("Error: Missing arguments.");
+    console.error("Usage: lukit add-reminder <diary-path> <text>");
+    process.exit(1);
+  }
+  const diaryPath = args[0];
+  const text = args[1].trim();
+  if (text.length === 0) {
+    console.error("Error: Text cannot be empty.");
+    process.exit(1);
+  }
+  if (!(0, import_fs.existsSync)(diaryPath)) {
+    console.error(`Error: File not found: ${diaryPath}`);
+    process.exit(1);
+  }
+  const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
+  const entry = formatReminderEntry(text);
+  const result = addReminder(content, entry);
+  if (!result) {
+    console.error("Error: Diary note is missing the third separator (---). Cannot add reminder.");
+    process.exit(1);
+  }
+  (0, import_fs.writeFileSync)(diaryPath, result.newContent, "utf-8");
+  console.log(`Added reminder to ${diaryPath}`);
 }
 function main() {
   const args = process.argv.slice(2);
