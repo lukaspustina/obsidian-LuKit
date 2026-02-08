@@ -109,6 +109,43 @@ Example:
 lukit add-reminder path/to/diary.md "Call dentist"
 ```
 
+### init-config
+
+Creates a `~/.lukit.json` config file used by the LaunchBar actions. Auto-detects `nodePath` and `cliPath`; you only need to edit `diaryPath`.
+
+```sh
+lukit init-config
+```
+
+Refuses to overwrite an existing config file.
+
+## LaunchBar Integration
+
+The `launchbar/` directory contains two [LaunchBar](https://www.obdev.at/products/launchbar/) actions for adding entries from anywhere on macOS.
+
+### Setup
+
+1. Build the CLI and generate the config file:
+   ```sh
+   npm run build:cli
+   node cli.js init-config
+   ```
+2. Edit `~/.lukit.json` — set `diaryPath` to the absolute path of your diary note.
+3. Double-click the `.lbaction` bundles in `launchbar/` to install them in LaunchBar.
+
+### Config Reference (`~/.lukit.json`)
+
+| Key         | Required | Description                              | Default              |
+|-------------|----------|------------------------------------------|----------------------|
+| `diaryPath` | yes      | Absolute path to the diary note          | _(placeholder)_      |
+| `cliPath`   | yes      | Absolute path to `cli.js`               | _(auto-detected)_    |
+| `nodePath`  | no       | Absolute path to the `node` binary       | `/usr/local/bin/node`|
+
+### Available Actions
+
+- **LuKit Add Reminder** — type a reminder, adds it under `# Erinnerungen`
+- **LuKit Add Text to Diary** — type a diary entry, adds it under today's header
+
 ## Installation
 
 ### Via BRAT

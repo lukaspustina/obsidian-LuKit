@@ -3,6 +3,8 @@
 
 // src/cli.ts
 var import_fs = require("fs");
+var import_path = require("path");
+var import_os = require("os");
 
 // src/features/work-diary/work-diary-engine.ts
 var GERMAN_WEEKDAYS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
@@ -138,6 +140,10 @@ var commands = {
   "add-reminder": {
     handler: runAddReminder,
     usage: "lukit add-reminder <diary-path> <text>"
+  },
+  "init-config": {
+    handler: runInitConfig,
+    usage: "lukit init-config"
   }
 };
 function printUsage() {
@@ -234,6 +240,22 @@ function runAddReminder(args) {
   }
   (0, import_fs.writeFileSync)(diaryPath, result.newContent, "utf-8");
   console.log(`Added reminder to ${diaryPath}`);
+}
+function runInitConfig(_args) {
+  const configPath = (0, import_path.join)((0, import_os.homedir)(), ".lukit.json");
+  if ((0, import_fs.existsSync)(configPath)) {
+    console.error(`Error: Config file already exists: ${configPath}`);
+    console.error("Remove it first if you want to regenerate.");
+    process.exit(1);
+  }
+  const config = {
+    diaryPath: "/path/to/your/vault/Work Diary.md",
+    cliPath: (0, import_path.join)(process.cwd(), "cli.js"),
+    nodePath: process.execPath
+  };
+  (0, import_fs.writeFileSync)(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
+  console.log(`Created ${configPath}`);
+  console.log("Edit diaryPath to point to your diary note.");
 }
 function main() {
   const args = process.argv.slice(2);
