@@ -14,6 +14,8 @@ export interface LuKitSettings {
 	besprechung: BesprechungSettings;
 }
 
+export const LUKIT_ICON_ID = "lukit-logo";
+
 export const DEFAULT_SETTINGS: LuKitSettings = {
 	workDiary: {
 		diaryNotePath: "",

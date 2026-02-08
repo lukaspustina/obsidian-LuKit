@@ -1,5 +1,6 @@
 import { Notice } from "obsidian";
 import type LuKitPlugin from "../../main";
+import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature } from "../../types";
 import { formatBesprechungSummary } from "./besprechung-engine";
 import { renderBesprechungSettings } from "./besprechung-settings";
@@ -15,6 +16,7 @@ export class BesprechungFeature implements LuKitFeature {
 		plugin.addCommand({
 			id: "besprechung-add-summary",
 			name: "Besprechung: Add summary",
+			icon: LUKIT_ICON_ID,
 			editorCallback: (editor) => {
 				this.addBesprechungSummaryCmd(editor);
 			},

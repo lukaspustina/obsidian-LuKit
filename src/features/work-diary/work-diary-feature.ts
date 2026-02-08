@@ -1,5 +1,6 @@
 import { Notice, TFile, WorkspaceLeaf } from "obsidian";
 import type LuKitPlugin from "../../main";
+import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature } from "../../types";
 import {
 	ensureTodayHeader,
@@ -24,24 +25,28 @@ export class WorkDiaryFeature implements LuKitFeature {
 		plugin.addCommand({
 			id: "diary-ensure-today",
 			name: "Diary: Ensure today's header",
+			icon: LUKIT_ICON_ID,
 			callback: () => this.ensureTodayHeaderCmd(),
 		});
 
 		plugin.addCommand({
 			id: "diary-add-entry",
 			name: "Diary: Add linked entry",
+			icon: LUKIT_ICON_ID,
 			callback: () => this.addDiaryEntryCmd(),
 		});
 
 		plugin.addCommand({
 			id: "diary-add-text",
 			name: "Diary: Add text entry",
+			icon: LUKIT_ICON_ID,
 			callback: () => this.addTextEntryCmd(),
 		});
 
 		plugin.addCommand({
 			id: "diary-add-reminder",
 			name: "Diary: Add reminder",
+			icon: LUKIT_ICON_ID,
 			callback: () => this.addReminderCmd(),
 		});
 	}

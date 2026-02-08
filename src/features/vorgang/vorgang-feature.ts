@@ -1,5 +1,6 @@
 import { Notice, TFile, WorkspaceLeaf } from "obsidian";
 import type LuKitPlugin from "../../main";
+import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature } from "../../types";
 import { addVorgangSection } from "./vorgang-engine";
 import { TextInputModal } from "../../shared/modals/text-input-modal";
@@ -14,6 +15,7 @@ export class VorgangFeature implements LuKitFeature {
 		plugin.addCommand({
 			id: "vorgang-add-section",
 			name: "Vorgang: Add section",
+			icon: LUKIT_ICON_ID,
 			callback: () => this.addVorgangSectionCmd(),
 		});
 	}
