@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!--
+    "L" built from 5 modular blocks on a 3x3 grid.
+    Block size 96x96, gap 16px. Grid origin (96, 96).
+    Monochrome version — works on any background.
+  -->
+
+  <!-- Block 1 — top of vertical stroke -->
+  <rect x="96" y="96" width="96" height="96" rx="18" fill="currentColor"/>
+
+  <!-- Block 2 — middle of vertical stroke -->
+  <rect x="96" y="208" width="96" height="96" rx="18" fill="currentColor"/>
+
+  <!-- Block 3 — corner (shared by vertical + horizontal) -->
+  <rect x="96" y="320" width="96" height="96" rx="18" fill="currentColor"/>
+
+  <!-- Block 4 — horizontal stroke middle -->
+  <rect x="208" y="320" width="96" height="96" rx="18" fill="currentColor"/>
+
+  <!-- Block 5 — horizontal stroke end -->
+  <rect x="320" y="320" width="96" height="96" rx="18" fill="currentColor"/>
+</svg>

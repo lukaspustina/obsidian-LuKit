@@ -1,5 +1,6 @@
 import { Notice } from "obsidian";
 import type LuKitPlugin from "../../main";
+import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature } from "../../types";
 import { migrateVorgangNote } from "./migration-engine";
 import { ConfirmModal } from "../../shared/modals/confirm-modal";
@@ -14,6 +15,7 @@ export class MigrationFeature implements LuKitFeature {
 		plugin.addCommand({
 			id: "migration-convert-bold",
 			name: "Migration: Convert bold → h5",
+			icon: LUKIT_ICON_ID,
 			callback: () => this.migrateCmd(),
 		});
 	}
