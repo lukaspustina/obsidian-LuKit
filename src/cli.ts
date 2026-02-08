@@ -1,4 +1,6 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 import {
 	formatTextEntry,
 	formatDiaryEntry,
@@ -26,6 +28,10 @@ const commands: Record<string, { handler: CommandHandler; usage: string }> = {
 	"add-reminder": {
 		handler: runAddReminder,
 		usage: "lukit add-reminder <diary-path> <text>",
+	},
+	"init-config": {
+		handler: runInitConfig,
+		usage: "lukit init-config",
 	},
 };
 
@@ -147,6 +153,26 @@ function runAddReminder(args: string[]): void {
 
 	writeFileSync(diaryPath, result.newContent, "utf-8");
 	console.log(`Added reminder to ${diaryPath}`);
+}
+
+function runInitConfig(_args: string[]): void {
+	const configPath = join(homedir(), ".lukit.json");
+
+	if (existsSync(configPath)) {
+		console.error(`Error: Config file already exists: ${configPath}`);
+		console.error("Remove it first if you want to regenerate.");
+		process.exit(1);
+	}
+
+	const config = {
+		diaryPath: "/path/to/your/vault/Work Diary.md",
+		cliPath: join(process.cwd(), "cli.js"),
+		nodePath: process.execPath,
+	};
+
+	writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
+	console.log(`Created ${configPath}`);
+	console.log("Edit diaryPath to point to your diary note.");
 }
 
 function main(): void {

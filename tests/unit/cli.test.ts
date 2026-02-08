@@ -1,7 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "fs";
+import {
+	mkdtempSync,
+	writeFileSync,
+	readFileSync,
+	rmSync,
+	existsSync,
+} from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { execFileSync } from "child_process";
 import {
 	formatTextEntry,
 	formatDiaryEntry,
@@ -205,5 +212,46 @@ describe("CLI: add-reminder", () => {
 		const entry = formatReminderEntry("reminder", friday);
 		const result = addReminder(content, entry);
 		expect(result).toBeNull();
+	});
+});
+
+describe("CLI: init-config", () => {
+	let tmpDir: string;
+
+	beforeEach(() => {
+		tmpDir = mkdtempSync(join(tmpdir(), "lukit-cli-"));
+	});
+
+	afterEach(() => {
+		rmSync(tmpDir, { recursive: true });
+	});
+
+	function runCli(args: string[], home: string): string {
+		return execFileSync("npx", ["tsx", "src/cli.ts", ...args], {
+			cwd: process.cwd(),
+			env: { ...process.env, HOME: home },
+			encoding: "utf-8",
+		});
+	}
+
+	it("creates config file with expected keys", () => {
+		const output = runCli(["init-config"], tmpDir);
+		const configPath = join(tmpDir, ".lukit.json");
+
+		expect(existsSync(configPath)).toBe(true);
+		const config = JSON.parse(readFileSync(configPath, "utf-8"));
+		expect(config).toHaveProperty("diaryPath");
+		expect(config).toHaveProperty("cliPath");
+		expect(config).toHaveProperty("nodePath");
+		expect(output).toContain("Created");
+	});
+
+	it("refuses to overwrite existing config", () => {
+		const configPath = join(tmpDir, ".lukit.json");
+		writeFileSync(configPath, "{}", "utf-8");
+
+		expect(() => runCli(["init-config"], tmpDir)).toThrow();
+		const content = readFileSync(configPath, "utf-8");
+		expect(content).toBe("{}");
 	});
 });

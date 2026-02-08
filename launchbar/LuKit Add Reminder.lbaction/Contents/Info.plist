@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIconFile</key>
+	<string>icon.png</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.lukas.lukit.add-reminder</string>
+	<key>CFBundleName</key>
+	<string>LuKit Add Reminder</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>LBTextInputTitle</key>
+	<string>Reminder…</string>
+	<key>LBScripts</key>
+	<dict>
+		<key>LBDefaultScript</key>
+		<dict>
+			<key>LBScriptName</key>
+			<string>default.js</string>
+			<key>LBAcceptedArgumentTypes</key>
+			<array>
+				<string>string</string>
+			</array>
+		</dict>
+	</dict>
+	<key>LBDescription</key>
+	<dict>
+		<key>LBSummary</key>
+		<string>Add a reminder to the work diary via LuKit CLI.</string>
+	</dict>
+</dict>
+</plist>
