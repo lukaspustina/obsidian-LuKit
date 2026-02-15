@@ -18,6 +18,10 @@ Each use case is a self-contained "feature" in `src/features/<name>/`.
 - `src/features/<name>/` — self-contained feature modules
 - `tests/unit/` — unit tests for pure logic (no Obsidian mocks needed)
 - `tests/acceptance/` — acceptance tests with mocked Obsidian APIs
+- `examples/` — example notes showing old and new note formats
+  - `examples/old/` — pre-migration note styles (bold headers, plain TOC entries, bold date headers in diary)
+  - `examples/new/` — current note styles (h5 section headers, wikilink TOC entries, `# Fakten und Pointer` / `# Inhalt` structure)
+  - `examples/test-besprechung.md` — sample meeting note with `### Nächste Schritte` and `### Zusammenfassung` sections
 
 ### Adding a New Feature
 1. Create `src/features/<name>/` with a class implementing `LuKitFeature`

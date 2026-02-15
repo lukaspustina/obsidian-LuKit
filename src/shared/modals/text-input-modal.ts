@@ -3,12 +3,19 @@ import { App, Modal } from "obsidian";
 export class TextInputModal extends Modal {
 	private onSubmit: (text: string) => void;
 	private placeholder: string;
+	private defaultValue: string;
 	private inputEl!: HTMLInputElement;
 
-	constructor(app: App, placeholder: string, onSubmit: (text: string) => void) {
+	constructor(
+		app: App,
+		placeholder: string,
+		onSubmit: (text: string) => void,
+		defaultValue?: string,
+	) {
 		super(app);
 		this.placeholder = placeholder;
 		this.onSubmit = onSubmit;
+		this.defaultValue = defaultValue ?? "";
 	}
 
 	onOpen(): void {
@@ -20,6 +27,9 @@ export class TextInputModal extends Modal {
 			placeholder: this.placeholder,
 			cls: "lukit-text-input",
 		});
+		if (this.defaultValue) {
+			this.inputEl.value = this.defaultValue;
+		}
 		this.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key === "Enter") {
 				e.preventDefault();

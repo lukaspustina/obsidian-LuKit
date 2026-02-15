@@ -37,11 +37,14 @@ Extracts key sections from meeting notes (Besprechungsnotizen) and inserts them 
 
 ### Migration
 
-Converts old-format Vorgang notes to the current format. Old notes use `**Name, DD.MM.YYYY**` (bold) for section headers and plain `- Name, DD.MM.YYYY` for TOC entries under `# Inhalt`. This command converts bold headers to `##### Name, DD.MM.YYYY` (h5) and plain TOC entries to `- [[#Name, DD.MM.YYYY]]` (clickable wikilinks).
+Auto-detects and converts old-format notes to the current format with a single command. Handles both **Vorgang** and **Diary** notes:
+
+- **Vorgang notes** (detected by `**Inhalt**` or `# Inhalt`): Converts bold top-level sections (`**Fakten**`, `**nächste Schritte**`, `**Inhalt**`) to h1 headings, renames `Fakten` → `Fakten und Pointer`, capitalizes section names, converts bold entry headers to h5, converts plain TOC entries to wikilinks, and adds a configurable tag to frontmatter.
+- **Diary notes** (no `Inhalt` section): Converts bold date headers to h5.
 
 **Commands:**
 
-- **Migration: Convert bold → h5** — Converts the active note from old bold-header format to h5 headers and wikilink TOC entries. Shows a confirmation dialog with the number of entries to migrate before applying. Safe to run multiple times (idempotent).
+- **Migration: Convert note** — Auto-detects the note type, prompts for a frontmatter tag (Vorgang only, default: `"Vorgang"`), shows a confirmation dialog with the number of changes, and applies the migration. Safe to run multiple times (idempotent).
 
 ## CLI
 
