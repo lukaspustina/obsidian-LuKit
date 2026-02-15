@@ -6,15 +6,45 @@ var import_fs = require("fs");
 var import_path = require("path");
 var import_os = require("os");
 
-// src/features/work-diary/work-diary-engine.ts
+// src/shared/date-format.ts
 var GERMAN_WEEKDAYS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
-function formatTodayHeader(date) {
+var ENGLISH_WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function formatDate(date, locale) {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  switch (locale) {
+    case "de":
+      return `${day}.${month}.${year}`;
+    case "en":
+      return `${month}/${day}/${year}`;
+    case "iso":
+      return `${year}-${month}-${day}`;
+  }
+}
+function formatWeekday(date, locale) {
+  switch (locale) {
+    case "de":
+      return GERMAN_WEEKDAYS[date.getDay()];
+    case "en":
+      return ENGLISH_WEEKDAYS[date.getDay()];
+    case "iso":
+      return null;
+  }
+}
+function formatDateWithWeekday(date, locale) {
+  const dateStr = formatDate(date, locale);
+  const weekday = formatWeekday(date, locale);
+  if (weekday) {
+    return `${weekday}, ${dateStr}`;
+  }
+  return dateStr;
+}
+
+// src/features/work-diary/work-diary-engine.ts
+function formatTodayHeader(locale, date) {
   const d = date ?? /* @__PURE__ */ new Date();
-  const weekday = GERMAN_WEEKDAYS[d.getDay()];
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-  return `##### ${weekday}, ${day}.${month}.${year}`;
+  return `##### ${formatDateWithWeekday(d, locale)}`;
 }
 function findThirdSeparatorIndex(lines) {
   let separatorCount = 0;
@@ -28,8 +58,8 @@ function findThirdSeparatorIndex(lines) {
   }
   return -1;
 }
-function findTodayHeaderIndex(lines, afterLine, date) {
-  const header = formatTodayHeader(date);
+function findTodayHeaderIndex(lines, afterLine, locale, date) {
+  const header = formatTodayHeader(locale, date);
   for (let i = afterLine + 1; i < lines.length; i++) {
     if (lines[i] === header) {
       return i;
@@ -37,9 +67,9 @@ function findTodayHeaderIndex(lines, afterLine, date) {
   }
   return -1;
 }
-function ensureTodayHeader(content, date) {
+function ensureTodayHeader(content, locale, date) {
   const lines = content.split("\n");
-  const header = formatTodayHeader(date);
+  const header = formatTodayHeader(locale, date);
   const separatorIndex = findThirdSeparatorIndex(lines);
   if (separatorIndex === -1) {
     const trimmedContent = content.trimEnd();
@@ -48,7 +78,7 @@ function ensureTodayHeader(content, date) {
     const headerLineIndex = newLines2.indexOf(header);
     return { newContent, headerLineIndex, fallback: true };
   }
-  const existingIndex = findTodayHeaderIndex(lines, separatorIndex, date);
+  const existingIndex = findTodayHeaderIndex(lines, separatorIndex, locale, date);
   if (existingIndex !== -1) {
     return { newContent: content, headerLineIndex: existingIndex, fallback: false };
   }
@@ -57,8 +87,8 @@ function ensureTodayHeader(content, date) {
   const newLines = [...before, header, ...after];
   return { newContent: newLines.join("\n"), headerLineIndex: separatorIndex + 1, fallback: false };
 }
-function addEntryUnderToday(content, entry, date) {
-  const { newContent: contentWithHeader, headerLineIndex } = ensureTodayHeader(content, date);
+function addEntryUnderToday(content, entry, locale, date) {
+  const { newContent: contentWithHeader, headerLineIndex } = ensureTodayHeader(content, locale, date);
   const lines = contentWithHeader.split("\n");
   let insertAt = headerLineIndex + 1;
   while (insertAt < lines.length && lines[insertAt].startsWith("- ")) {
@@ -76,12 +106,9 @@ function formatDiaryEntry(noteName, heading) {
 function formatTextEntry(text) {
   return `- ${text}`;
 }
-function formatReminderEntry(text, date) {
+function formatReminderEntry(text, locale, date) {
   const d = date ?? /* @__PURE__ */ new Date();
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-  return `- ${text}, ${day}.${month}.${year}`;
+  return `- ${text}, ${formatDate(d, locale)}`;
 }
 function findSecondSeparatorIndex(lines) {
   let count = 0;
@@ -146,6 +173,19 @@ var commands = {
     usage: "lukit init-config"
   }
 };
+function loadLocale() {
+  const configPath = (0, import_path.join)((0, import_os.homedir)(), ".lukit.json");
+  if ((0, import_fs.existsSync)(configPath)) {
+    try {
+      const config = JSON.parse((0, import_fs.readFileSync)(configPath, "utf-8"));
+      if (config.dateLocale === "de" || config.dateLocale === "en" || config.dateLocale === "iso") {
+        return config.dateLocale;
+      }
+    } catch {
+    }
+  }
+  return "de";
+}
 function printUsage() {
   console.log("Usage: lukit <command> [args...]\n");
   console.log("Commands:");
@@ -171,9 +211,10 @@ function runAddTextToDiary(args) {
     console.error(`Error: File not found: ${diaryPath}`);
     process.exit(1);
   }
+  const locale = loadLocale();
   const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
   const entry = formatTextEntry(text);
-  const { newContent } = addEntryUnderToday(content, entry);
+  const { newContent } = addEntryUnderToday(content, entry, locale);
   (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
   console.log(`Added entry to ${diaryPath}`);
 }
@@ -188,8 +229,9 @@ function runEnsureTodayHeader(args) {
     console.error(`Error: File not found: ${diaryPath}`);
     process.exit(1);
   }
+  const locale = loadLocale();
   const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
-  const { newContent, fallback } = ensureTodayHeader(content);
+  const { newContent, fallback } = ensureTodayHeader(content, locale);
   (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
   if (fallback) {
     console.warn("Warning: Diary note is missing the third separator (---). Header was appended at end.");
@@ -209,9 +251,10 @@ function runAddDiaryEntry(args) {
     console.error(`Error: File not found: ${diaryPath}`);
     process.exit(1);
   }
+  const locale = loadLocale();
   const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
   const entry = formatDiaryEntry(noteName, heading);
-  const { newContent } = addEntryUnderToday(content, entry);
+  const { newContent } = addEntryUnderToday(content, entry, locale);
   (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
   console.log(`Added diary entry to ${diaryPath}`);
 }
@@ -231,8 +274,9 @@ function runAddReminder(args) {
     console.error(`Error: File not found: ${diaryPath}`);
     process.exit(1);
   }
+  const locale = loadLocale();
   const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
-  const entry = formatReminderEntry(text);
+  const entry = formatReminderEntry(text, locale);
   const result = addReminder(content, entry);
   if (!result) {
     console.error("Error: Diary note is missing the third separator (---). Cannot add reminder.");
@@ -250,6 +294,7 @@ function runInitConfig(_args) {
   }
   const config = {
     diaryPath: "/path/to/your/vault/Work Diary.md",
+    dateLocale: "de",
     cliPath: (0, import_path.join)(process.cwd(), "cli.js"),
     nodePath: process.execPath
   };

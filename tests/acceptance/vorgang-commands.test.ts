@@ -23,6 +23,7 @@ describe("Add Vorgang section command flow", () => {
 		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"Review Meeting",
+			"de",
 			date,
 		);
 
@@ -54,6 +55,7 @@ describe("Add Vorgang section command flow", () => {
 		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"Initial Setup",
+			"de",
 			date,
 		);
 
@@ -78,6 +80,7 @@ describe("Add Vorgang section command flow", () => {
 		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"New Section",
+			"de",
 			date,
 		);
 
@@ -95,7 +98,7 @@ describe("Add Vorgang section command flow", () => {
 
 	it("positions cursor on empty line after header for immediate typing", () => {
 		const content = "# Inhalt\n- Existing, 01.02.2026\n\n##### Existing, 01.02.2026\n- note";
-		const { cursorLineIndex, newContent } = addVorgangSection(content, "Test", date);
+		const { cursorLineIndex, newContent } = addVorgangSection(content, "Test", "de", date);
 		const lines = newContent.split("\n");
 		// The cursor line is empty and the feature sets ch: 0
 		expect(lines[cursorLineIndex]).toBe("");
@@ -120,7 +123,7 @@ describe("Add Vorgang section command flow", () => {
 			"- Beta note 1",
 		].join("\n");
 
-		const { newContent } = addVorgangSection(content, "Gamma", date);
+		const { newContent } = addVorgangSection(content, "Gamma", "de", date);
 
 		// All original content preserved
 		expect(newContent).toContain("- Alpha, 01.02.2026");
@@ -143,11 +146,11 @@ describe("Add Vorgang section command flow", () => {
 			"- note",
 		].join("\n");
 
-		const first = addVorgangSection(content, "Second", date);
+		const first = addVorgangSection(content, "Second", "de", date);
 		content = first.newContent;
 
 		const date2 = new Date(2026, 1, 7);
-		const second = addVorgangSection(content, "Third", date2);
+		const second = addVorgangSection(content, "Third", "de", date2);
 		content = second.newContent;
 
 		const lines = content.split("\n");
@@ -176,17 +179,17 @@ describe("Add Vorgang section + diary entry flow", () => {
 		const noteName = "ProjectX";
 
 		// Step 1: Add Vorgang section (editor side)
-		const { newContent: newVorgang } = addVorgangSection(vorgangContent, sectionName, date);
+		const { newContent: newVorgang } = addVorgangSection(vorgangContent, sectionName, "de", date);
 		expect(newVorgang).toContain("##### Review Meeting, 06.02.2026");
 
 		// Step 2: Build and add diary entry (vault.process side)
-		const headingText = formatVorgangHeadingText(sectionName, date);
+		const headingText = formatVorgangHeadingText(sectionName, "de", date);
 		expect(headingText).toBe("Review Meeting, 06.02.2026");
 
 		const entry = formatDiaryEntry(noteName, headingText);
 		expect(entry).toBe("- [[ProjectX#Review Meeting, 06.02.2026|ProjectX: Review Meeting, 06.02.2026]]");
 
-		const { newContent: newDiary } = addEntryUnderToday(diaryContent, entry, date);
+		const { newContent: newDiary } = addEntryUnderToday(diaryContent, entry, "de", date);
 		expect(newDiary).toContain("- [[ProjectX#Review Meeting, 06.02.2026|ProjectX: Review Meeting, 06.02.2026]]");
 	});
 
@@ -202,9 +205,9 @@ describe("Add Vorgang section + diary entry flow", () => {
 		const sectionName = "Kick-Off";
 		const noteName = "VorgangNote";
 
-		const headingText = formatVorgangHeadingText(sectionName, date);
+		const headingText = formatVorgangHeadingText(sectionName, "de", date);
 		const entry = formatDiaryEntry(noteName, headingText);
-		const { newContent } = addEntryUnderToday(diaryContent, entry, date);
+		const { newContent } = addEntryUnderToday(diaryContent, entry, "de", date);
 
 		expect(newContent).toContain("##### Fr, 06.02.2026");
 		expect(newContent).toContain("- [[VorgangNote#Kick-Off, 06.02.2026|VorgangNote: Kick-Off, 06.02.2026]]");

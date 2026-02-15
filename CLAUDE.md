@@ -1,7 +1,7 @@
 # LuKit — Obsidian Plugin
 
 ## Project Overview
-LuKit is a modular Obsidian plugin (v1.8.1) that bundles workflow automations for German-language note-taking workflows. Each use case is a self-contained "feature" in `src/features/<name>/`. Notes use German locale formatting (dates like `06.02.2026`, weekdays like `Fr`, section names like `Inhalt`, `Fakten und Pointer`, `Erinnerungen`, `Nächste Schritte`).
+LuKit is a modular Obsidian plugin (v1.8.1) that bundles workflow automations for note-taking workflows. Each use case is a self-contained "feature" in `src/features/<name>/`. Date formatting is configurable via the `dateLocale` setting (`"de"`, `"en"`, or `"iso"`), defaulting to German locale. Section names use German terms (`Inhalt`, `Fakten und Pointer`, `Erinnerungen`, `Nächste Schritte`).
 
 ## Build & Test Commands
 - `npm install` — install dependencies
@@ -14,7 +14,7 @@ LuKit is a modular Obsidian plugin (v1.8.1) that bundles workflow automations fo
 
 ### Work Diary (`src/features/work-diary/`)
 Maintains a reverse-chronological diary in a single note. The diary note has frontmatter, then an optional `# Erinnerungen` section, then a third `---` separator, below which are date-headed entries.
-- Date headers: `##### Fr, 06.02.2026` (h5, German weekday, DD.MM.YYYY)
+- Date headers: h5 with locale-dependent format (e.g., `##### Fr, 06.02.2026` for `de`, `##### Fri, 02/06/2026` for `en`, `##### 2026-02-06` for `iso`)
 - Entries are bullet points: linked (`- [[NoteName#Heading|NoteName: Heading]]`) or plain text (`- some text`)
 - Reminders go under `# Erinnerungen` between frontmatter and the third `---` separator, tagged with date (`- Call dentist, 07.02.2026`)
 - The third `---` separator is a critical structural element — diary entries go below it
@@ -29,7 +29,7 @@ Automates adding sections to "Vorgang" (case/process) notes. A Vorgang note has:
 - `##### Section Name, DD.MM.YYYY` — h5 section headers with bullet content below
 - Adding a section creates both a TOC entry and an h5 header, placing cursor for immediate typing
 - Adding a section also creates a linked diary entry (`- [[Note#Section, DD.MM.YYYY|Note: Section, DD.MM.YYYY]]`) under today's header in the configured diary note; silently skips if no diary path is configured
-- `formatVorgangHeadingText(name, date?)` returns the heading text without the `##### ` prefix (e.g., `"Section, DD.MM.YYYY"`)
+- `formatVorgangHeadingText(name, locale, date?)` returns the heading text without the `##### ` prefix (e.g., `"Section, DD.MM.YYYY"`)
 - Engine: `vorgang-engine.ts`, Feature: `vorgang-feature.ts`
 
 ### Besprechung (`src/features/besprechung/`)
@@ -47,7 +47,7 @@ Auto-detects and converts old-format notes to current format. Idempotent (safe t
 - Engine: `migration-engine.ts` (reuses `vorgang-engine.ts` helpers), Feature: `migration-feature.ts`
 
 ### CLI (`src/cli.ts` → `cli.js`)
-Command-line interface for use outside Obsidian. Commands: `add-text-to-diary`, `ensure-today-header`, `add-diary-entry`, `add-reminder`, `init-config`. Uses `~/.lukit.json` config. LaunchBar actions in `launchbar/` directory for macOS integration.
+Command-line interface for use outside Obsidian. Commands: `add-text-to-diary`, `ensure-today-header`, `add-diary-entry`, `add-reminder`, `init-config`. Uses `~/.lukit.json` config (includes `dateLocale` field). LaunchBar actions in `launchbar/` directory for macOS integration.
 
 ## Architecture
 
@@ -56,6 +56,7 @@ Command-line interface for use outside Obsidian. Commands: `add-text-to-diary`, 
 - `src/types.ts` — shared interfaces (`LuKitFeature`, settings types, `DEFAULT_SETTINGS`)
 - `src/settings.ts` — main settings tab, composes sections from features
 - `src/cli.ts` — CLI entry point, parsed with minimal deps (no Obsidian imports)
+- `src/shared/date-format.ts` — shared date formatting module (`DateLocale` type, `formatDate`, `formatWeekday`, `formatDateWithWeekday`)
 - `src/shared/modals/` — reusable modals (`confirm-modal`, `text-input-modal`, `note-suggest`, `folder-note-suggest`, `heading-suggest`, `help-modal`)
 - `src/features/<name>/` — self-contained feature modules
 

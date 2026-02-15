@@ -14,7 +14,7 @@ const friday = new Date(2026, 1, 6);
 describe("Ensure today's header command flow", () => {
 	it("creates header in a diary note with existing content", () => {
 		const content = "---\ntitle: Diary\n---\n[[pinned]]\n\n---\n##### Do, 05.02.2026\n- old entry";
-		const { newContent, headerLineIndex } = ensureTodayHeader(content, friday);
+		const { newContent, headerLineIndex } = ensureTodayHeader(content, "de", friday);
 
 		const lines = newContent.split("\n");
 		expect(lines[headerLineIndex]).toBe("##### Fr, 06.02.2026");
@@ -25,14 +25,14 @@ describe("Ensure today's header command flow", () => {
 
 	it("is idempotent — does not duplicate header", () => {
 		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- existing";
-		const first = ensureTodayHeader(content, friday);
-		const second = ensureTodayHeader(first.newContent, friday);
+		const first = ensureTodayHeader(content, "de", friday);
+		const second = ensureTodayHeader(first.newContent, "de", friday);
 		expect(second.newContent).toBe(first.newContent);
 	});
 
 	it("positions cursor below the header (headerLineIndex)", () => {
 		const content = "---\nfm\n---\n[[pinned]]\n---";
-		const { headerLineIndex } = ensureTodayHeader(content, friday);
+		const { headerLineIndex } = ensureTodayHeader(content, "de", friday);
 		// Third separator at index 4, header inserted at index 5
 		expect(headerLineIndex).toBe(5);
 	});
@@ -44,7 +44,7 @@ describe("Add diary entry command flow", () => {
 		const entry = formatDiaryEntry("ProjectX", "Tasks");
 		expect(entry).toBe("- [[ProjectX#Tasks|ProjectX: Tasks]]");
 
-		const { newContent, entryLineIndex } = addEntryUnderToday(content, entry, friday);
+		const { newContent, entryLineIndex } = addEntryUnderToday(content, entry, "de", friday);
 		const lines = newContent.split("\n");
 		expect(lines[entryLineIndex]).toBe("- [[ProjectX#Tasks|ProjectX: Tasks]]");
 	});
@@ -54,14 +54,14 @@ describe("Add diary entry command flow", () => {
 		const entry = formatDiaryEntry("MeetingNotes", null);
 		expect(entry).toBe("- [[MeetingNotes]]");
 
-		const { newContent } = addEntryUnderToday(content, entry, friday);
+		const { newContent } = addEntryUnderToday(content, entry, "de", friday);
 		expect(newContent).toContain("- [[MeetingNotes]]");
 	});
 
 	it("appends after existing entries for today", () => {
 		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- [[First]]";
 		const entry = formatDiaryEntry("Second", "Section");
-		const { newContent } = addEntryUnderToday(content, entry, friday);
+		const { newContent } = addEntryUnderToday(content, entry, "de", friday);
 		const lines = newContent.split("\n");
 		expect(lines[6]).toBe("- [[First]]");
 		expect(lines[7]).toBe("- [[Second#Section|Second: Section]]");
@@ -81,7 +81,7 @@ describe("Add text entry command flow", () => {
 		const entry = formatTextEntry("reviewed the budget");
 		expect(entry).toBe("- reviewed the budget");
 
-		const { newContent, entryLineIndex } = addEntryUnderToday(content, entry, friday);
+		const { newContent, entryLineIndex } = addEntryUnderToday(content, entry, "de", friday);
 		const lines = newContent.split("\n");
 		expect(lines[entryLineIndex]).toBe("- reviewed the budget");
 	});
@@ -89,7 +89,7 @@ describe("Add text entry command flow", () => {
 	it("creates header if missing then adds text entry", () => {
 		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Do, 05.02.2026\n- old";
 		const entry = formatTextEntry("new task");
-		const { newContent } = addEntryUnderToday(content, entry, friday);
+		const { newContent } = addEntryUnderToday(content, entry, "de", friday);
 		expect(newContent).toContain("##### Fr, 06.02.2026");
 		expect(newContent).toContain("- new task");
 	});
@@ -98,7 +98,7 @@ describe("Add text entry command flow", () => {
 describe("Add reminder command flow", () => {
 	it("full flow: creates Erinnerungen section and adds reminder", () => {
 		const content = "---\nfm\n---\n[[pinned]]\n\n---\n##### Fr, 06.02.2026";
-		const entry = formatReminderEntry("Call dentist", friday);
+		const entry = formatReminderEntry("Call dentist", "de", friday);
 		expect(entry).toBe("- Call dentist, 06.02.2026");
 
 		const result = addReminder(content, entry);
@@ -109,7 +109,7 @@ describe("Add reminder command flow", () => {
 
 	it("adds newest reminder at top of existing section", () => {
 		const content = "---\nfm\n---\n[[pinned]]\n\n# Erinnerungen\n- Old thought, 05.02.2026\n\n---\n##### Fr, 06.02.2026";
-		const entry = formatReminderEntry("New thought", friday);
+		const entry = formatReminderEntry("New thought", "de", friday);
 		const result = addReminder(content, entry);
 		expect(result).not.toBeNull();
 		const lines = result!.newContent.split("\n");
@@ -126,7 +126,7 @@ describe("Add reminder command flow", () => {
 
 	it("does not modify diary entries below third separator", () => {
 		const content = "---\nfm\n---\n[[pinned]]\n\n---\n##### Fr, 06.02.2026\n- work entry";
-		const entry = formatReminderEntry("Buy groceries", friday);
+		const entry = formatReminderEntry("Buy groceries", "de", friday);
 		const result = addReminder(content, entry);
 		expect(result).not.toBeNull();
 		expect(result!.newContent).toContain("##### Fr, 06.02.2026");
@@ -143,7 +143,7 @@ describe("Add current note command flow", () => {
 		const entry = formatDiaryEntry(noteName, headingAtCursor);
 		expect(entry).toBe("- [[ProjectX#Tasks|ProjectX: Tasks]]");
 
-		const { newContent, entryLineIndex } = addEntryUnderToday(diaryContent, entry, friday);
+		const { newContent, entryLineIndex } = addEntryUnderToday(diaryContent, entry, "de", friday);
 		const lines = newContent.split("\n");
 		expect(lines[entryLineIndex]).toBe("- [[ProjectX#Tasks|ProjectX: Tasks]]");
 	});
@@ -155,7 +155,7 @@ describe("Add current note command flow", () => {
 		const entry = formatDiaryEntry(noteName, null);
 		expect(entry).toBe("- [[MeetingNotes]]");
 
-		const { newContent } = addEntryUnderToday(diaryContent, entry, friday);
+		const { newContent } = addEntryUnderToday(diaryContent, entry, "de", friday);
 		expect(newContent).toContain("- [[MeetingNotes]]");
 	});
 
@@ -163,7 +163,7 @@ describe("Add current note command flow", () => {
 		const diaryContent = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- [[First]]";
 		const entry = formatDiaryEntry("Second", "Overview");
 
-		const { newContent } = addEntryUnderToday(diaryContent, entry, friday);
+		const { newContent } = addEntryUnderToday(diaryContent, entry, "de", friday);
 		const lines = newContent.split("\n");
 		expect(lines[6]).toBe("- [[First]]");
 		expect(lines[7]).toBe("- [[Second#Overview|Second: Overview]]");
@@ -180,14 +180,14 @@ describe("Error cases", () => {
 
 	it("handles content with no frontmatter gracefully", () => {
 		const content = "Just some text";
-		const { newContent } = ensureTodayHeader(content, friday);
+		const { newContent } = ensureTodayHeader(content, "de", friday);
 		expect(newContent).toContain("---");
 		expect(newContent).toContain("##### Fr, 06.02.2026");
 	});
 
 	it("handles completely empty content", () => {
-		const { newContent } = ensureTodayHeader("", friday);
+		const { newContent } = ensureTodayHeader("", "de", friday);
 		expect(newContent).toContain("---");
-		expect(newContent).toContain(formatTodayHeader(friday));
+		expect(newContent).toContain(formatTodayHeader("de", friday));
 	});
 });

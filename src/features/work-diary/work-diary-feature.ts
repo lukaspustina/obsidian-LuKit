@@ -96,10 +96,11 @@ export class WorkDiaryFeature implements LuKitFeature {
 		const file = this.getDiaryFile();
 		if (!file) return;
 
+		const locale = this.plugin.settings.dateLocale;
 		let headerLineIndex = 0;
 		let fallback = false;
 		await this.plugin.app.vault.process(file, (content) => {
-			const result = ensureTodayHeader(content);
+			const result = ensureTodayHeader(content, locale);
 			headerLineIndex = result.headerLineIndex;
 			fallback = result.fallback;
 			return result.newContent;
@@ -116,6 +117,7 @@ export class WorkDiaryFeature implements LuKitFeature {
 		const file = this.getDiaryFile();
 		if (!file) return;
 
+		const locale = this.plugin.settings.dateLocale;
 		new NoteSuggestModal(this.plugin.app, (selectedFile) => {
 			new HeadingSuggestModal(this.plugin.app, selectedFile, async (heading) => {
 				const entry = formatDiaryEntry(
@@ -123,7 +125,7 @@ export class WorkDiaryFeature implements LuKitFeature {
 					heading,
 				);
 				await this.plugin.app.vault.process(file, (content) => {
-					const { newContent } = addEntryUnderToday(content, entry);
+					const { newContent } = addEntryUnderToday(content, entry, locale);
 					return newContent;
 				});
 				new Notice("Diary entry added.");
@@ -135,10 +137,11 @@ export class WorkDiaryFeature implements LuKitFeature {
 		const file = this.getDiaryFile();
 		if (!file) return;
 
+		const locale = this.plugin.settings.dateLocale;
 		new TextInputModal(this.plugin.app, "Diary entry…", async (text) => {
 			const entry = formatTextEntry(text);
 			await this.plugin.app.vault.process(file, (content) => {
-				const { newContent } = addEntryUnderToday(content, entry);
+				const { newContent } = addEntryUnderToday(content, entry, locale);
 				return newContent;
 			});
 			new Notice("Text entry added.");
@@ -149,8 +152,9 @@ export class WorkDiaryFeature implements LuKitFeature {
 		const file = this.getDiaryFile();
 		if (!file) return;
 
+		const locale = this.plugin.settings.dateLocale;
 		new TextInputModal(this.plugin.app, "Reminder…", async (text) => {
-			const entry = formatReminderEntry(text);
+			const entry = formatReminderEntry(text, locale);
 			let success = false;
 			await this.plugin.app.vault.process(file, (content) => {
 				const result = addReminder(content, entry);
@@ -183,11 +187,12 @@ export class WorkDiaryFeature implements LuKitFeature {
 			return;
 		}
 
+		const locale = this.plugin.settings.dateLocale;
 		const heading = this.getHeadingAtCursor(activeFile);
 		const entry = formatDiaryEntry(activeFile.basename, heading);
 
 		await this.plugin.app.vault.process(diaryFile, (content) => {
-			const { newContent } = addEntryUnderToday(content, entry);
+			const { newContent } = addEntryUnderToday(content, entry, locale);
 			return newContent;
 		});
 

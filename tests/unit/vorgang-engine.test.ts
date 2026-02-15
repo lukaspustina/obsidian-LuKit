@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-	formatGermanDate,
 	formatVorgangHeadingText,
 	formatVorgangHeader,
 	formatVorgangBullet,
@@ -8,54 +7,69 @@ import {
 	findInhaltBulletRange,
 	addVorgangSection,
 } from "../../src/features/vorgang/vorgang-engine";
+import { formatDate } from "../../src/shared/date-format";
 
-describe("formatGermanDate", () => {
+describe("formatDate", () => {
 	it("formats a date with zero-padded day and month", () => {
 		const date = new Date(2026, 0, 5); // Jan 5
-		expect(formatGermanDate(date)).toBe("05.01.2026");
+		expect(formatDate(date, "de")).toBe("05.01.2026");
 	});
 
 	it("formats double-digit day and month", () => {
 		const date = new Date(2026, 11, 25); // Dec 25
-		expect(formatGermanDate(date)).toBe("25.12.2026");
+		expect(formatDate(date, "de")).toBe("25.12.2026");
 	});
 
 	it("handles single-digit month", () => {
 		const date = new Date(2026, 1, 6); // Feb 6
-		expect(formatGermanDate(date)).toBe("06.02.2026");
+		expect(formatDate(date, "de")).toBe("06.02.2026");
 	});
 
-	it("uses current date when none provided", () => {
-		const result = formatGermanDate();
-		expect(result).toMatch(/^\d{2}\.\d{2}\.\d{4}$/);
+	it("formats English locale", () => {
+		const date = new Date(2026, 1, 6);
+		expect(formatDate(date, "en")).toBe("02/06/2026");
+	});
+
+	it("formats ISO locale", () => {
+		const date = new Date(2026, 1, 6);
+		expect(formatDate(date, "iso")).toBe("2026-02-06");
 	});
 });
 
 describe("formatVorgangHeadingText", () => {
 	it("returns name and date without ##### prefix", () => {
 		const date = new Date(2026, 1, 6);
-		expect(formatVorgangHeadingText("Abstimmung", date)).toBe(
+		expect(formatVorgangHeadingText("Abstimmung", "de", date)).toBe(
 			"Abstimmung, 06.02.2026",
 		);
 	});
 
-	it("uses current date when none provided", () => {
-		const result = formatVorgangHeadingText("Test");
-		expect(result).toMatch(/^Test, \d{2}\.\d{2}\.\d{4}$/);
+	it("formats with English locale", () => {
+		const date = new Date(2026, 1, 6);
+		expect(formatVorgangHeadingText("Abstimmung", "en", date)).toBe(
+			"Abstimmung, 02/06/2026",
+		);
+	});
+
+	it("formats with ISO locale", () => {
+		const date = new Date(2026, 1, 6);
+		expect(formatVorgangHeadingText("Abstimmung", "iso", date)).toBe(
+			"Abstimmung, 2026-02-06",
+		);
 	});
 });
 
 describe("formatVorgangHeader", () => {
 	it("formats header with name and date", () => {
 		const date = new Date(2026, 1, 6);
-		expect(formatVorgangHeader("Abstimmung", date)).toBe(
+		expect(formatVorgangHeader("Abstimmung", "de", date)).toBe(
 			"##### Abstimmung, 06.02.2026",
 		);
 	});
 
 	it("handles names with special characters", () => {
 		const date = new Date(2026, 1, 6);
-		expect(formatVorgangHeader("Besprechung: Fibunet", date)).toBe(
+		expect(formatVorgangHeader("Besprechung: Fibunet", "de", date)).toBe(
 			"##### Besprechung: Fibunet, 06.02.2026",
 		);
 	});
@@ -64,8 +78,15 @@ describe("formatVorgangHeader", () => {
 describe("formatVorgangBullet", () => {
 	it("formats bullet with name and date", () => {
 		const date = new Date(2026, 1, 6);
-		expect(formatVorgangBullet("Abstimmung", date)).toBe(
+		expect(formatVorgangBullet("Abstimmung", "de", date)).toBe(
 			"- [[#Abstimmung, 06.02.2026]]",
+		);
+	});
+
+	it("formats bullet with English locale", () => {
+		const date = new Date(2026, 1, 6);
+		expect(formatVorgangBullet("Abstimmung", "en", date)).toBe(
+			"- [[#Abstimmung, 02/06/2026]]",
 		);
 	});
 });
@@ -145,7 +166,7 @@ describe("addVorgangSection", () => {
 
 	it("appends Inhalt + section when no # Inhalt exists", () => {
 		const content = "# Titel\n\nSome content";
-		const { newContent, cursorLineIndex } = addVorgangSection(content, "Review", date);
+		const { newContent, cursorLineIndex } = addVorgangSection(content, "Review", "de", date);
 
 		expect(newContent).toContain("# Inhalt");
 		expect(newContent).toContain("- [[#Review, 06.02.2026]]");
@@ -156,7 +177,7 @@ describe("addVorgangSection", () => {
 	});
 
 	it("handles empty content with no # Inhalt", () => {
-		const { newContent, cursorLineIndex } = addVorgangSection("", "First", date);
+		const { newContent, cursorLineIndex } = addVorgangSection("", "First", "de", date);
 
 		expect(newContent).toContain("# Inhalt");
 		expect(newContent).toContain("- [[#First, 06.02.2026]]");
@@ -178,6 +199,7 @@ describe("addVorgangSection", () => {
 		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"New Section",
+			"de",
 			date,
 		);
 
@@ -205,6 +227,7 @@ describe("addVorgangSection", () => {
 		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"New Entry",
+			"de",
 			date,
 		);
 
@@ -222,7 +245,7 @@ describe("addVorgangSection", () => {
 
 	it("appends h5 at end when no existing h5 sections and Inhalt has no bullets", () => {
 		const content = ["# Titel", "", "# Inhalt"].join("\n");
-		const { newContent, cursorLineIndex } = addVorgangSection(content, "Solo", date);
+		const { newContent, cursorLineIndex } = addVorgangSection(content, "Solo", "de", date);
 
 		const lines = newContent.split("\n");
 		expect(newContent).toContain("- [[#Solo, 06.02.2026]]");
@@ -240,6 +263,7 @@ describe("addVorgangSection", () => {
 		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"Another",
+			"de",
 			date,
 		);
 
@@ -269,6 +293,7 @@ describe("addVorgangSection", () => {
 		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"Status Update",
+			"de",
 			date,
 		);
 
@@ -302,9 +327,24 @@ describe("addVorgangSection", () => {
 		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			"Test",
+			"de",
 			date,
 		);
 		const lines = newContent.split("\n");
 		expect(lines[cursorLineIndex]).toBe("");
+	});
+
+	it("works with English locale", () => {
+		const content = "# Titel\n\n# Inhalt\n- Existing, 01.02.2026\n\n##### Existing, 01.02.2026\n- note";
+		const { newContent } = addVorgangSection(content, "Review", "en", date);
+		expect(newContent).toContain("- [[#Review, 02/06/2026]]");
+		expect(newContent).toContain("##### Review, 02/06/2026");
+	});
+
+	it("works with ISO locale", () => {
+		const content = "# Titel\n\n# Inhalt\n- Existing, 01.02.2026\n\n##### Existing, 01.02.2026\n- note";
+		const { newContent } = addVorgangSection(content, "Review", "iso", date);
+		expect(newContent).toContain("- [[#Review, 2026-02-06]]");
+		expect(newContent).toContain("##### Review, 2026-02-06");
 	});
 });

@@ -44,10 +44,12 @@ export class VorgangFeature implements LuKitFeature {
 			return;
 		}
 
+		const locale = this.plugin.settings.dateLocale;
 		const content = editor.getValue();
 		const { newContent, cursorLineIndex } = addVorgangSection(
 			content,
 			name,
+			locale,
 		);
 
 		editor.setValue(newContent);
@@ -65,11 +67,12 @@ export class VorgangFeature implements LuKitFeature {
 		const diaryAbstract = this.plugin.app.vault.getAbstractFileByPath(diaryPath);
 		if (!(diaryAbstract instanceof TFile)) return;
 
-		const headingText = formatVorgangHeadingText(sectionName);
+		const locale = this.plugin.settings.dateLocale;
+		const headingText = formatVorgangHeadingText(sectionName, locale);
 		const entry = formatDiaryEntry(activeFile.basename, headingText);
 
 		await this.plugin.app.vault.process(diaryAbstract, (content) => {
-			const { newContent } = addEntryUnderToday(content, entry);
+			const { newContent } = addEntryUnderToday(content, entry, locale);
 			return newContent;
 		});
 	}

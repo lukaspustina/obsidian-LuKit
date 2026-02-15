@@ -1,21 +1,18 @@
-export function formatGermanDate(date?: Date): string {
+import { formatDate } from "../../shared/date-format";
+import type { DateLocale } from "../../shared/date-format";
+
+export function formatVorgangHeadingText(name: string, locale: DateLocale, date?: Date): string {
 	const d = date ?? new Date();
-	const day = String(d.getDate()).padStart(2, "0");
-	const month = String(d.getMonth() + 1).padStart(2, "0");
-	const year = d.getFullYear();
-	return `${day}.${month}.${year}`;
+	return `${name}, ${formatDate(d, locale)}`;
 }
 
-export function formatVorgangHeadingText(name: string, date?: Date): string {
-	return `${name}, ${formatGermanDate(date)}`;
+export function formatVorgangHeader(name: string, locale: DateLocale, date?: Date): string {
+	return `##### ${formatVorgangHeadingText(name, locale, date)}`;
 }
 
-export function formatVorgangHeader(name: string, date?: Date): string {
-	return `##### ${formatVorgangHeadingText(name, date)}`;
-}
-
-export function formatVorgangBullet(name: string, date?: Date): string {
-	return `- [[#${name}, ${formatGermanDate(date)}]]`;
+export function formatVorgangBullet(name: string, locale: DateLocale, date?: Date): string {
+	const d = date ?? new Date();
+	return `- [[#${name}, ${formatDate(d, locale)}]]`;
 }
 
 export function findInhaltSectionIndex(lines: string[]): number {
@@ -74,11 +71,12 @@ function findFirstH5Index(lines: string[], afterIndex: number): number {
 export function addVorgangSection(
 	content: string,
 	name: string,
+	locale: DateLocale,
 	date?: Date,
 ): { newContent: string; cursorLineIndex: number } {
 	const lines = content.split("\n");
-	const bullet = formatVorgangBullet(name, date);
-	const header = formatVorgangHeader(name, date);
+	const bullet = formatVorgangBullet(name, locale, date);
+	const header = formatVorgangHeader(name, locale, date);
 	const inhaltIndex = findInhaltSectionIndex(lines);
 
 	if (inhaltIndex === -1) {
