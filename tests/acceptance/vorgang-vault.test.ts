@@ -31,7 +31,7 @@ describe("Vorgang vault.process() integration", () => {
 		expect(result).toContain("- [[#Review, 06.02.2026]]");
 		expect(result).toContain("##### Review, 06.02.2026");
 		const lines = result.split("\n");
-		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex]).toBe("");
 	});
 
 	it("creates Inhalt section when missing", async () => {

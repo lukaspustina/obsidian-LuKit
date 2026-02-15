@@ -1,4 +1,4 @@
-import { Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { Notice } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature } from "../../types";
@@ -31,26 +31,27 @@ export class VorgangFeature implements LuKitFeature {
 			return;
 		}
 
-		new TextInputModal(this.plugin.app, "Section name…", async (name) => {
-			await this.insertVorgangSection(file, name);
+		new TextInputModal(this.plugin.app, "Section name…", (name) => {
+			this.insertVorgangSection(name);
 		}).open();
 	}
 
-	private async insertVorgangSection(file: TFile, name: string): Promise<void> {
-		let cursorLineIndex = 0;
-		await this.plugin.app.vault.process(file, (content) => {
-			const result = addVorgangSection(content, name);
-			cursorLineIndex = result.cursorLineIndex;
-			return result.newContent;
-		});
-
-		const leaf = this.plugin.app.workspace.getLeaf(false) as WorkspaceLeaf;
-		await leaf.openFile(file);
+	private insertVorgangSection(name: string): void {
 		const editor = this.plugin.app.workspace.activeEditor?.editor;
-		if (editor) {
-			const pos = { line: cursorLineIndex, ch: 2 };
-			editor.setCursor(pos);
-			editor.scrollIntoView({ from: pos, to: pos }, true);
+		if (!editor) {
+			new Notice("LuKit: No active editor.");
+			return;
 		}
+
+		const content = editor.getValue();
+		const { newContent, cursorLineIndex } = addVorgangSection(
+			content,
+			name,
+		);
+
+		editor.setValue(newContent);
+		const pos = { line: cursorLineIndex, ch: 0 };
+		editor.setCursor(pos);
+		editor.scrollIntoView({ from: pos, to: pos }, true);
 	}
 }

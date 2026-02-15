@@ -137,7 +137,7 @@ describe("addVorgangSection", () => {
 		expect(newContent).toContain("##### Review, 06.02.2026");
 
 		const lines = newContent.split("\n");
-		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex]).toBe("");
 	});
 
 	it("handles empty content with no # Inhalt", () => {
@@ -148,7 +148,7 @@ describe("addVorgangSection", () => {
 		expect(newContent).toContain("##### First, 06.02.2026");
 
 		const lines = newContent.split("\n");
-		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex]).toBe("");
 	});
 
 	it("inserts bullet and h5 when # Inhalt has no bullets", () => {
@@ -172,7 +172,7 @@ describe("addVorgangSection", () => {
 		// H5 inserted before existing #####
 		const headerIdx = lines.indexOf("##### New Section, 06.02.2026");
 		expect(headerIdx).toBeGreaterThan(-1);
-		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex]).toBe("");
 		// Existing h5 still present
 		expect(newContent).toContain("##### Existing, 01.02.2026");
 	});
@@ -202,7 +202,7 @@ describe("addVorgangSection", () => {
 		const newHeaderIdx = lines.indexOf("##### New Entry, 06.02.2026");
 		const oldHeaderIdx = lines.indexOf("##### Old Entry, 01.02.2026");
 		expect(newHeaderIdx).toBeLessThan(oldHeaderIdx);
-		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex]).toBe("");
 	});
 
 	it("appends h5 at end when no existing h5 sections and Inhalt has no bullets", () => {
@@ -212,7 +212,7 @@ describe("addVorgangSection", () => {
 		const lines = newContent.split("\n");
 		expect(newContent).toContain("- [[#Solo, 06.02.2026]]");
 		expect(newContent).toContain("##### Solo, 06.02.2026");
-		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex]).toBe("");
 	});
 
 	it("appends h5 at end when no existing h5 sections and Inhalt has bullets", () => {
@@ -231,7 +231,7 @@ describe("addVorgangSection", () => {
 		const lines = newContent.split("\n");
 		expect(newContent).toContain("- [[#Another, 06.02.2026]]");
 		expect(newContent).toContain("##### Another, 06.02.2026");
-		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex]).toBe("");
 	});
 
 	it("works with realistic Vorgang note content", () => {
@@ -270,7 +270,7 @@ describe("addVorgangSection", () => {
 		);
 		expect(newHeaderIdx).toBeLessThan(firstOldHeaderIdx);
 		// Cursor on stub line
-		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex]).toBe("");
 		// All original content preserved
 		expect(newContent).toContain("##### Kick-Off, 15.01.2026");
 		expect(newContent).toContain("- Initial meeting");
@@ -290,6 +290,6 @@ describe("addVorgangSection", () => {
 			date,
 		);
 		const lines = newContent.split("\n");
-		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex]).toBe("");
 	});
 });
