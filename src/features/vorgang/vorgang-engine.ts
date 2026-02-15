@@ -87,11 +87,12 @@ export function addVorgangSection(
 			bullet,
 			"",
 			header,
-			"- ",
+			"",
+			"",
 		].join("\n");
 		const newContent = trimmed + section + "\n";
 		const newLines = newContent.split("\n");
-		const cursorLineIndex = newLines.length - 2; // the "- " line
+		const cursorLineIndex = newLines.length - 3;
 		return { newContent, cursorLineIndex };
 	}
 
@@ -106,15 +107,15 @@ export function addVorgangSection(
 		// Find first ##### after the Inhalt section to insert h5 before it
 		const firstH5 = findFirstH5Index(lines, bulletInsertAt + 1);
 		if (firstH5 !== -1) {
-			lines.splice(firstH5, 0, "", header, "- ");
+			lines.splice(firstH5, 0, "", header, "", "");
 			const cursorLineIndex = firstH5 + 2;
 			return { newContent: lines.join("\n"), cursorLineIndex };
 		}
 
 		// No existing h5 — append at end
 		const trimmedLines = trimTrailingEmptyLines(lines);
-		trimmedLines.push("", header, "- ", "");
-		const cursorLineIndex = trimmedLines.length - 2;
+		trimmedLines.push("", header, "", "", "");
+		const cursorLineIndex = trimmedLines.length - 3;
 		return { newContent: trimmedLines.join("\n"), cursorLineIndex };
 	}
 
@@ -127,15 +128,15 @@ export function addVorgangSection(
 	const firstH5 = findFirstH5Index(lines, adjustedAfterLast);
 
 	if (firstH5 !== -1) {
-		lines.splice(firstH5, 0, header, "- ");
+		lines.splice(firstH5, 0, header, "", "");
 		const cursorLineIndex = firstH5 + 1;
 		return { newContent: lines.join("\n"), cursorLineIndex };
 	}
 
 	// No existing h5 — append at end
 	const trimmedLines = trimTrailingEmptyLines(lines);
-	trimmedLines.push("", header, "- ", "");
-	const cursorLineIndex = trimmedLines.length - 2;
+	trimmedLines.push("", header, "", "", "");
+	const cursorLineIndex = trimmedLines.length - 3;
 	return { newContent: trimmedLines.join("\n"), cursorLineIndex };
 }
 

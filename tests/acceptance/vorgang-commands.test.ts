@@ -37,7 +37,7 @@ describe("Add Vorgang section command flow", () => {
 		const oldHeaderIdx = lines.indexOf("##### Abstimmung mit Daniel, 01.02.2026");
 		expect(newHeaderIdx).toBeLessThan(oldHeaderIdx);
 		// Cursor on stub line ready for typing
-		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex]).toBe("");
 		expect(cursorLineIndex).toBe(newHeaderIdx + 1);
 	});
 
@@ -63,7 +63,7 @@ describe("Add Vorgang section command flow", () => {
 		expect(newContent).toContain("- [[#Initial Setup, 06.02.2026]]");
 		expect(newContent).toContain("##### Initial Setup, 06.02.2026");
 		// Cursor ready for typing
-		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex]).toBe("");
 	});
 
 	it("handles Inhalt with empty bullet list gracefully", () => {
@@ -89,16 +89,16 @@ describe("Add Vorgang section command flow", () => {
 		const oldIdx = lines.indexOf("##### Old Section, 01.01.2026");
 		expect(newIdx).toBeLessThan(oldIdx);
 		// Cursor on stub line
-		expect(lines[cursorLineIndex]).toBe("- ");
+		expect(lines[cursorLineIndex]).toBe("");
 	});
 
-	it("positions cursor at ch: 2 for immediate typing after '- '", () => {
+	it("positions cursor on empty line after header for immediate typing", () => {
 		const content = "# Inhalt\n- Existing, 01.02.2026\n\n##### Existing, 01.02.2026\n- note";
 		const { cursorLineIndex, newContent } = addVorgangSection(content, "Test", date);
 		const lines = newContent.split("\n");
-		// The cursor line is "- " and the feature sets ch: 2 (after "- ")
-		expect(lines[cursorLineIndex]).toBe("- ");
-		expect(lines[cursorLineIndex].length).toBe(2);
+		// The cursor line is empty and the feature sets ch: 0
+		expect(lines[cursorLineIndex]).toBe("");
+		expect(lines[cursorLineIndex - 1]).toBe("##### Test, 06.02.2026");
 	});
 
 	it("preserves all original content after insertion", () => {
@@ -156,7 +156,7 @@ describe("Add Vorgang section command flow", () => {
 		expect(content).toContain("##### Third, 07.02.2026");
 		expect(content).toContain("##### Second, 06.02.2026");
 		expect(content).toContain("##### First, 01.01.2026");
-		// Cursor on last stub
-		expect(lines[second.cursorLineIndex]).toBe("- ");
+		// Cursor on empty line after header
+		expect(lines[second.cursorLineIndex]).toBe("");
 	});
 });
