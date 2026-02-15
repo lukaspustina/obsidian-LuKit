@@ -36,6 +36,11 @@ const HELP_SECTIONS: HelpSection[] = [
 				description:
 					"Type a quick thought, inserts it under a # Erinnerungen section between frontmatter and the diary separator. Newest first, tagged with today's date.",
 			},
+			{
+				name: "Diary: Add current note",
+				description:
+					"Adds the active note (with the heading at cursor) as a linked diary entry under today's header. No modals — one-step command.",
+			},
 		],
 	},
 	{
@@ -44,7 +49,7 @@ const HELP_SECTIONS: HelpSection[] = [
 			{
 				name: "Vorgang: Add section",
 				description:
-					"Prompts for a section name, inserts a TOC bullet under # Inhalt and an h5 header section, then places the cursor on a blank bullet.",
+					"Prompts for a section name, inserts a TOC bullet under # Inhalt and an h5 header section, then places the cursor on a blank bullet. Also creates a linked diary entry if a diary path is configured.",
 			},
 		],
 	},
@@ -64,7 +69,7 @@ const HELP_SECTIONS: HelpSection[] = [
 		title: "Migration",
 		commands: [
 			{
-				name: "Migration: Convert bold \u2192 h5",
+				name: "Migration: Convert note",
 				description:
 					"Converts the active note from old bold-header format to h5 headers and wikilink TOC entries. Shows a confirmation dialog first.",
 			},
