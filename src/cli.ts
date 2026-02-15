@@ -9,6 +9,7 @@ import {
 	formatReminderEntry,
 	addReminder,
 } from "./features/work-diary/work-diary-engine";
+import type { DateLocale } from "./shared/date-format";
 
 type CommandHandler = (args: string[]) => void;
 
@@ -34,6 +35,21 @@ const commands: Record<string, { handler: CommandHandler; usage: string }> = {
 		usage: "lukit init-config",
 	},
 };
+
+function loadLocale(): DateLocale {
+	const configPath = join(homedir(), ".lukit.json");
+	if (existsSync(configPath)) {
+		try {
+			const config = JSON.parse(readFileSync(configPath, "utf-8"));
+			if (config.dateLocale === "de" || config.dateLocale === "en" || config.dateLocale === "iso") {
+				return config.dateLocale;
+			}
+		} catch {
+			// Ignore parse errors, fall through to default
+		}
+	}
+	return "de";
+}
 
 function printUsage(): void {
 	console.log("Usage: lukit <command> [args...]\n");
@@ -65,9 +81,10 @@ function runAddTextToDiary(args: string[]): void {
 		process.exit(1);
 	}
 
+	const locale = loadLocale();
 	const content = readFileSync(diaryPath, "utf-8");
 	const entry = formatTextEntry(text);
-	const { newContent } = addEntryUnderToday(content, entry);
+	const { newContent } = addEntryUnderToday(content, entry, locale);
 	writeFileSync(diaryPath, newContent, "utf-8");
 
 	console.log(`Added entry to ${diaryPath}`);
@@ -87,8 +104,9 @@ function runEnsureTodayHeader(args: string[]): void {
 		process.exit(1);
 	}
 
+	const locale = loadLocale();
 	const content = readFileSync(diaryPath, "utf-8");
-	const { newContent, fallback } = ensureTodayHeader(content);
+	const { newContent, fallback } = ensureTodayHeader(content, locale);
 	writeFileSync(diaryPath, newContent, "utf-8");
 
 	if (fallback) {
@@ -114,9 +132,10 @@ function runAddDiaryEntry(args: string[]): void {
 		process.exit(1);
 	}
 
+	const locale = loadLocale();
 	const content = readFileSync(diaryPath, "utf-8");
 	const entry = formatDiaryEntry(noteName, heading);
-	const { newContent } = addEntryUnderToday(content, entry);
+	const { newContent } = addEntryUnderToday(content, entry, locale);
 	writeFileSync(diaryPath, newContent, "utf-8");
 
 	console.log(`Added diary entry to ${diaryPath}`);
@@ -142,8 +161,9 @@ function runAddReminder(args: string[]): void {
 		process.exit(1);
 	}
 
+	const locale = loadLocale();
 	const content = readFileSync(diaryPath, "utf-8");
-	const entry = formatReminderEntry(text);
+	const entry = formatReminderEntry(text, locale);
 	const result = addReminder(content, entry);
 
 	if (!result) {
@@ -166,6 +186,7 @@ function runInitConfig(_args: string[]): void {
 
 	const config = {
 		diaryPath: "/path/to/your/vault/Work Diary.md",
+		dateLocale: "de",
 		cliPath: join(process.cwd(), "cli.js"),
 		nodePath: process.execPath,
 	};

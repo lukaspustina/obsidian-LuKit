@@ -39,7 +39,7 @@ describe("CLI: add-text-to-diary", () => {
 
 		const content = readFileSync(diaryPath, "utf-8");
 		const entry = formatTextEntry("reviewed the budget");
-		const { newContent } = addEntryUnderToday(content, entry, friday);
+		const { newContent } = addEntryUnderToday(content, entry, "de", friday);
 		writeFileSync(diaryPath, newContent, "utf-8");
 
 		const result = readFileSync(diaryPath, "utf-8");
@@ -52,7 +52,7 @@ describe("CLI: add-text-to-diary", () => {
 
 		const content = readFileSync(diaryPath, "utf-8");
 		const entry = formatTextEntry("new task");
-		const { newContent } = addEntryUnderToday(content, entry, friday);
+		const { newContent } = addEntryUnderToday(content, entry, "de", friday);
 		writeFileSync(diaryPath, newContent, "utf-8");
 
 		const result = readFileSync(diaryPath, "utf-8");
@@ -79,7 +79,7 @@ describe("CLI: ensure-today-header", () => {
 		writeFileSync(diaryPath, initial, "utf-8");
 
 		const content = readFileSync(diaryPath, "utf-8");
-		const { newContent } = ensureTodayHeader(content, friday);
+		const { newContent } = ensureTodayHeader(content, "de", friday);
 		writeFileSync(diaryPath, newContent, "utf-8");
 
 		const result = readFileSync(diaryPath, "utf-8");
@@ -92,11 +92,11 @@ describe("CLI: ensure-today-header", () => {
 		writeFileSync(diaryPath, initial, "utf-8");
 
 		const content1 = readFileSync(diaryPath, "utf-8");
-		const { newContent: pass1 } = ensureTodayHeader(content1, friday);
+		const { newContent: pass1 } = ensureTodayHeader(content1, "de", friday);
 		writeFileSync(diaryPath, pass1, "utf-8");
 
 		const content2 = readFileSync(diaryPath, "utf-8");
-		const { newContent: pass2 } = ensureTodayHeader(content2, friday);
+		const { newContent: pass2 } = ensureTodayHeader(content2, "de", friday);
 		writeFileSync(diaryPath, pass2, "utf-8");
 
 		const result = readFileSync(diaryPath, "utf-8");
@@ -109,7 +109,7 @@ describe("CLI: ensure-today-header", () => {
 		writeFileSync(diaryPath, initial, "utf-8");
 
 		const content = readFileSync(diaryPath, "utf-8");
-		const { newContent, fallback } = ensureTodayHeader(content, friday);
+		const { newContent, fallback } = ensureTodayHeader(content, "de", friday);
 		writeFileSync(diaryPath, newContent, "utf-8");
 
 		expect(fallback).toBe(true);
@@ -137,7 +137,7 @@ describe("CLI: add-diary-entry", () => {
 
 		const content = readFileSync(diaryPath, "utf-8");
 		const entry = formatDiaryEntry("ProjectX", "Tasks");
-		const { newContent } = addEntryUnderToday(content, entry, friday);
+		const { newContent } = addEntryUnderToday(content, entry, "de", friday);
 		writeFileSync(diaryPath, newContent, "utf-8");
 
 		const result = readFileSync(diaryPath, "utf-8");
@@ -150,7 +150,7 @@ describe("CLI: add-diary-entry", () => {
 
 		const content = readFileSync(diaryPath, "utf-8");
 		const entry = formatDiaryEntry("MeetingNotes", null);
-		const { newContent } = addEntryUnderToday(content, entry, friday);
+		const { newContent } = addEntryUnderToday(content, entry, "de", friday);
 		writeFileSync(diaryPath, newContent, "utf-8");
 
 		const result = readFileSync(diaryPath, "utf-8");
@@ -176,7 +176,7 @@ describe("CLI: add-reminder", () => {
 		writeFileSync(diaryPath, initial, "utf-8");
 
 		const content = readFileSync(diaryPath, "utf-8");
-		const entry = formatReminderEntry("Call dentist", friday);
+		const entry = formatReminderEntry("Call dentist", "de", friday);
 		const result = addReminder(content, entry);
 		expect(result).not.toBeNull();
 		writeFileSync(diaryPath, result!.newContent, "utf-8");
@@ -192,7 +192,7 @@ describe("CLI: add-reminder", () => {
 		writeFileSync(diaryPath, initial, "utf-8");
 
 		const content = readFileSync(diaryPath, "utf-8");
-		const entry = formatReminderEntry("New thought", friday);
+		const entry = formatReminderEntry("New thought", "de", friday);
 		const result = addReminder(content, entry);
 		expect(result).not.toBeNull();
 		writeFileSync(diaryPath, result!.newContent, "utf-8");
@@ -209,7 +209,7 @@ describe("CLI: add-reminder", () => {
 		writeFileSync(diaryPath, initial, "utf-8");
 
 		const content = readFileSync(diaryPath, "utf-8");
-		const entry = formatReminderEntry("reminder", friday);
+		const entry = formatReminderEntry("reminder", "de", friday);
 		const result = addReminder(content, entry);
 		expect(result).toBeNull();
 	});
@@ -241,8 +241,10 @@ describe("CLI: init-config", () => {
 		expect(existsSync(configPath)).toBe(true);
 		const config = JSON.parse(readFileSync(configPath, "utf-8"));
 		expect(config).toHaveProperty("diaryPath");
+		expect(config).toHaveProperty("dateLocale");
 		expect(config).toHaveProperty("cliPath");
 		expect(config).toHaveProperty("nodePath");
+		expect(config.dateLocale).toBe("de");
 		expect(output).toContain("Created");
 	});
 

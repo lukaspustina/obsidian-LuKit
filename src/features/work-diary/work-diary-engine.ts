@@ -1,12 +1,9 @@
-const GERMAN_WEEKDAYS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+import { formatDate, formatDateWithWeekday } from "../../shared/date-format";
+import type { DateLocale } from "../../shared/date-format";
 
-export function formatTodayHeader(date?: Date): string {
+export function formatTodayHeader(locale: DateLocale, date?: Date): string {
 	const d = date ?? new Date();
-	const weekday = GERMAN_WEEKDAYS[d.getDay()];
-	const day = String(d.getDate()).padStart(2, "0");
-	const month = String(d.getMonth() + 1).padStart(2, "0");
-	const year = d.getFullYear();
-	return `##### ${weekday}, ${day}.${month}.${year}`;
+	return `##### ${formatDateWithWeekday(d, locale)}`;
 }
 
 export function findThirdSeparatorIndex(lines: string[]): number {
@@ -22,8 +19,8 @@ export function findThirdSeparatorIndex(lines: string[]): number {
 	return -1;
 }
 
-export function findTodayHeaderIndex(lines: string[], afterLine: number, date?: Date): number {
-	const header = formatTodayHeader(date);
+export function findTodayHeaderIndex(lines: string[], afterLine: number, locale: DateLocale, date?: Date): number {
+	const header = formatTodayHeader(locale, date);
 	for (let i = afterLine + 1; i < lines.length; i++) {
 		if (lines[i] === header) {
 			return i;
@@ -32,9 +29,9 @@ export function findTodayHeaderIndex(lines: string[], afterLine: number, date?: 
 	return -1;
 }
 
-export function ensureTodayHeader(content: string, date?: Date): { newContent: string; headerLineIndex: number; fallback: boolean } {
+export function ensureTodayHeader(content: string, locale: DateLocale, date?: Date): { newContent: string; headerLineIndex: number; fallback: boolean } {
 	const lines = content.split("\n");
-	const header = formatTodayHeader(date);
+	const header = formatTodayHeader(locale, date);
 
 	const separatorIndex = findThirdSeparatorIndex(lines);
 
@@ -47,7 +44,7 @@ export function ensureTodayHeader(content: string, date?: Date): { newContent: s
 		return { newContent, headerLineIndex, fallback: true };
 	}
 
-	const existingIndex = findTodayHeaderIndex(lines, separatorIndex, date);
+	const existingIndex = findTodayHeaderIndex(lines, separatorIndex, locale, date);
 	if (existingIndex !== -1) {
 		return { newContent: content, headerLineIndex: existingIndex, fallback: false };
 	}
@@ -71,8 +68,8 @@ export function validateDiaryStructure(content: string): string[] {
 	return errors;
 }
 
-export function addEntryUnderToday(content: string, entry: string, date?: Date): { newContent: string; entryLineIndex: number } {
-	const { newContent: contentWithHeader, headerLineIndex } = ensureTodayHeader(content, date);
+export function addEntryUnderToday(content: string, entry: string, locale: DateLocale, date?: Date): { newContent: string; entryLineIndex: number } {
+	const { newContent: contentWithHeader, headerLineIndex } = ensureTodayHeader(content, locale, date);
 	const lines = contentWithHeader.split("\n");
 
 	// Find insertion point: right after header and any existing entries
@@ -96,12 +93,9 @@ export function formatTextEntry(text: string): string {
 	return `- ${text}`;
 }
 
-export function formatReminderEntry(text: string, date?: Date): string {
+export function formatReminderEntry(text: string, locale: DateLocale, date?: Date): string {
 	const d = date ?? new Date();
-	const day = String(d.getDate()).padStart(2, "0");
-	const month = String(d.getMonth() + 1).padStart(2, "0");
-	const year = d.getFullYear();
-	return `- ${text}, ${day}.${month}.${year}`;
+	return `- ${text}, ${formatDate(d, locale)}`;
 }
 
 function findSecondSeparatorIndex(lines: string[]): number {

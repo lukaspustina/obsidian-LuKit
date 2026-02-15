@@ -23,7 +23,7 @@ describe("Vorgang vault.process() integration", () => {
 
 		let cursorLineIndex = 0;
 		await vault.process(file, (content) => {
-			const result = addVorgangSection(content, "Review", friday);
+			const result = addVorgangSection(content, "Review", "de", friday);
 			cursorLineIndex = result.cursorLineIndex;
 			return result.newContent;
 		});
@@ -41,7 +41,7 @@ describe("Vorgang vault.process() integration", () => {
 		const vault = createMockVault({ "vorgang.md": initial });
 
 		await vault.process(file, (content) => {
-			const { newContent } = addVorgangSection(content, "New Section", friday);
+			const { newContent } = addVorgangSection(content, "New Section", "de", friday);
 			return newContent;
 		});
 
@@ -72,15 +72,15 @@ describe("Vorgang + diary vault.process() integration", () => {
 
 		// Step 1: Add Vorgang section
 		await vault.process(vorgangFile, (content) => {
-			const { newContent } = addVorgangSection(content, "Review", friday);
+			const { newContent } = addVorgangSection(content, "Review", "de", friday);
 			return newContent;
 		});
 
 		// Step 2: Add diary entry
-		const headingText = formatVorgangHeadingText("Review", friday);
+		const headingText = formatVorgangHeadingText("Review", "de", friday);
 		const entry = formatDiaryEntry(vorgangFile.basename, headingText);
 		await vault.process(diaryFile, (content) => {
-			const { newContent } = addEntryUnderToday(content, entry, friday);
+			const { newContent } = addEntryUnderToday(content, entry, "de", friday);
 			return newContent;
 		});
 
@@ -99,7 +99,7 @@ describe("Vorgang + diary vault.process() integration", () => {
 		// Diary file not in vault — vault.process would throw if called
 		// The feature silently skips, so only the Vorgang file is modified
 		await vault.process(vorgangFile, (content) => {
-			const { newContent } = addVorgangSection(content, "New", friday);
+			const { newContent } = addVorgangSection(content, "New", "de", friday);
 			return newContent;
 		});
 

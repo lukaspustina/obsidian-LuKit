@@ -6,7 +6,7 @@ A modular Obsidian plugin that bundles workflow automations. Each use case is a 
 
 ### Work Diary
 
-Maintains a reverse-chronological work diary in a single note. Each day gets an h5 header with a German-locale date (e.g., `##### Fr, 06.02.2026`), followed by bullet points linking to other notes or plain text.
+Maintains a reverse-chronological work diary in a single note. Each day gets an h5 header with a locale-dependent date (e.g., `##### Fr, 06.02.2026`), followed by bullet points linking to other notes or plain text.
 
 **Commands:**
 
@@ -46,6 +46,18 @@ Auto-detects and converts old-format notes to the current format with a single c
 **Commands:**
 
 - **Migration: Convert note** — Auto-detects the note type, prompts for a frontmatter tag (Vorgang only, default: `"Vorgang"`), shows a confirmation dialog with the number of changes, and applies the migration. Safe to run multiple times (idempotent).
+
+## Settings
+
+### Date format
+
+Controls the date format used in diary headers, Vorgang sections, and reminders. Available options:
+
+| Setting | Date format | Weekdays | Example header |
+|---------|------------|----------|----------------|
+| German (default) | DD.MM.YYYY | So, Mo, Di, Mi, Do, Fr, Sa | `##### Fr, 06.02.2026` |
+| English | MM/DD/YYYY | Sun, Mon, Tue, Wed, Thu, Fri, Sat | `##### Fri, 02/06/2026` |
+| ISO | YYYY-MM-DD | *(none)* | `##### 2026-02-06` |
 
 ## Commands Reference
 
@@ -153,11 +165,12 @@ The `launchbar/` directory contains two [LaunchBar](https://www.obdev.at/product
 
 ### Config Reference (`~/.lukit.json`)
 
-| Key         | Required | Description                              | Default              |
-|-------------|----------|------------------------------------------|----------------------|
-| `diaryPath` | yes      | Absolute path to the diary note          | _(placeholder)_      |
-| `cliPath`   | yes      | Absolute path to `cli.js`               | _(auto-detected)_    |
-| `nodePath`  | no       | Absolute path to the `node` binary       | `/usr/local/bin/node`|
+| Key          | Required | Description                              | Default              |
+|--------------|----------|------------------------------------------|----------------------|
+| `diaryPath`  | yes      | Absolute path to the diary note          | _(placeholder)_      |
+| `dateLocale` | no       | Date format: `"de"`, `"en"`, or `"iso"` | `"de"`               |
+| `cliPath`    | yes      | Absolute path to `cli.js`               | _(auto-detected)_    |
+| `nodePath`   | no       | Absolute path to the `node` binary       | `/usr/local/bin/node`|
 
 ### Available Actions
 

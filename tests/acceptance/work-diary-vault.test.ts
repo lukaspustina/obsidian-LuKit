@@ -19,7 +19,7 @@ describe("Work diary vault.process() integration", () => {
 
 		let headerLineIndex = 0;
 		await vault.process(file, (content) => {
-			const result = ensureTodayHeader(content, friday);
+			const result = ensureTodayHeader(content, "de", friday);
 			headerLineIndex = result.headerLineIndex;
 			return result.newContent;
 		});
@@ -38,7 +38,7 @@ describe("Work diary vault.process() integration", () => {
 
 		const entry = formatDiaryEntry("ProjectX", "Tasks");
 		await vault.process(file, (content) => {
-			const { newContent } = addEntryUnderToday(content, entry, friday);
+			const { newContent } = addEntryUnderToday(content, entry, "de", friday);
 			return newContent;
 		});
 
@@ -53,7 +53,7 @@ describe("Work diary vault.process() integration", () => {
 
 		const entry = formatTextEntry("reviewed the budget");
 		await vault.process(file, (content) => {
-			const { newContent } = addEntryUnderToday(content, entry, friday);
+			const { newContent } = addEntryUnderToday(content, entry, "de", friday);
 			return newContent;
 		});
 
@@ -73,7 +73,7 @@ describe("Work diary vault.process() integration", () => {
 		await vault.process(file, (content) => {
 			// process() should see the latest content including "entry-from-sync"
 			expect(content).toContain("- entry-from-sync");
-			const { newContent } = addEntryUnderToday(content, entry, friday);
+			const { newContent } = addEntryUnderToday(content, entry, "de", friday);
 			return newContent;
 		});
 
@@ -89,7 +89,7 @@ describe("Work diary vault.process() integration", () => {
 
 		let fallback = false;
 		await vault.process(file, (content) => {
-			const result = ensureTodayHeader(content, friday);
+			const result = ensureTodayHeader(content, "de", friday);
 			fallback = result.fallback;
 			return result.newContent;
 		});
@@ -104,7 +104,7 @@ describe("Work diary vault.process() integration", () => {
 		const file = createMockTFile("diary.md");
 		const vault = createMockVault({ "diary.md": initial });
 
-		const entry = formatReminderEntry("Call dentist", friday);
+		const entry = formatReminderEntry("Call dentist", "de", friday);
 		await vault.process(file, (content) => {
 			const result = addReminder(content, entry);
 			if (!result) return content;
@@ -122,7 +122,7 @@ describe("Work diary vault.process() integration", () => {
 		const file = createMockTFile("diary.md");
 		const vault = createMockVault({ "diary.md": initial });
 
-		const entry = formatReminderEntry("New thought", friday);
+		const entry = formatReminderEntry("New thought", "de", friday);
 		await vault.process(file, (content) => {
 			const result = addReminder(content, entry);
 			if (!result) return content;
