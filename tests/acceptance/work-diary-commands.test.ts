@@ -134,6 +134,42 @@ describe("Add reminder command flow", () => {
 	});
 });
 
+describe("Add current note command flow", () => {
+	it("full flow: creates diary entry from active file with heading at cursor", () => {
+		const diaryContent = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026";
+		const noteName = "ProjectX";
+		const headingAtCursor = "Tasks";
+
+		const entry = formatDiaryEntry(noteName, headingAtCursor);
+		expect(entry).toBe("- [[ProjectX#Tasks|ProjectX: Tasks]]");
+
+		const { newContent, entryLineIndex } = addEntryUnderToday(diaryContent, entry, friday);
+		const lines = newContent.split("\n");
+		expect(lines[entryLineIndex]).toBe("- [[ProjectX#Tasks|ProjectX: Tasks]]");
+	});
+
+	it("full flow: creates diary entry with no heading when cursor is before any heading", () => {
+		const diaryContent = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026";
+		const noteName = "MeetingNotes";
+
+		const entry = formatDiaryEntry(noteName, null);
+		expect(entry).toBe("- [[MeetingNotes]]");
+
+		const { newContent } = addEntryUnderToday(diaryContent, entry, friday);
+		expect(newContent).toContain("- [[MeetingNotes]]");
+	});
+
+	it("appends after existing entries for today", () => {
+		const diaryContent = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- [[First]]";
+		const entry = formatDiaryEntry("Second", "Overview");
+
+		const { newContent } = addEntryUnderToday(diaryContent, entry, friday);
+		const lines = newContent.split("\n");
+		expect(lines[6]).toBe("- [[First]]");
+		expect(lines[7]).toBe("- [[Second#Overview|Second: Overview]]");
+	});
+});
+
 describe("Error cases", () => {
 	it("diary note not found — getDiaryFile returns null for empty path", () => {
 		// This tests the logic: if path is empty, no file is resolved

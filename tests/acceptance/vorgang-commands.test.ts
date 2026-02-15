@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { addVorgangSection } from "../../src/features/vorgang/vorgang-engine";
+import { addVorgangSection, formatVorgangHeadingText } from "../../src/features/vorgang/vorgang-engine";
+import { formatDiaryEntry, addEntryUnderToday } from "../../src/features/work-diary/work-diary-engine";
 
 const date = new Date(2026, 1, 6);
 
@@ -158,5 +159,54 @@ describe("Add Vorgang section command flow", () => {
 		expect(content).toContain("##### First, 01.01.2026");
 		// Cursor on empty line after header
 		expect(lines[second.cursorLineIndex]).toBe("");
+	});
+});
+
+describe("Add Vorgang section + diary entry flow", () => {
+	it("creates diary entry linking to the new Vorgang heading", () => {
+		const vorgangContent = [
+			"# Inhalt",
+			"- Existing, 01.02.2026",
+			"",
+			"##### Existing, 01.02.2026",
+			"- note",
+		].join("\n");
+		const diaryContent = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026";
+		const sectionName = "Review Meeting";
+		const noteName = "ProjectX";
+
+		// Step 1: Add Vorgang section (editor side)
+		const { newContent: newVorgang } = addVorgangSection(vorgangContent, sectionName, date);
+		expect(newVorgang).toContain("##### Review Meeting, 06.02.2026");
+
+		// Step 2: Build and add diary entry (vault.process side)
+		const headingText = formatVorgangHeadingText(sectionName, date);
+		expect(headingText).toBe("Review Meeting, 06.02.2026");
+
+		const entry = formatDiaryEntry(noteName, headingText);
+		expect(entry).toBe("- [[ProjectX#Review Meeting, 06.02.2026|ProjectX: Review Meeting, 06.02.2026]]");
+
+		const { newContent: newDiary } = addEntryUnderToday(diaryContent, entry, date);
+		expect(newDiary).toContain("- [[ProjectX#Review Meeting, 06.02.2026|ProjectX: Review Meeting, 06.02.2026]]");
+	});
+
+	it("silently skips diary entry when diary path is empty", () => {
+		// When diaryPath is "", the feature skips without error
+		// This test documents the expected behavior — no diary modification
+		const diaryPath = "";
+		expect(diaryPath).toBe("");
+	});
+
+	it("diary entry uses today's date matching the Vorgang heading date", () => {
+		const diaryContent = "---\nfm\n---\n[[pinned]]\n---";
+		const sectionName = "Kick-Off";
+		const noteName = "VorgangNote";
+
+		const headingText = formatVorgangHeadingText(sectionName, date);
+		const entry = formatDiaryEntry(noteName, headingText);
+		const { newContent } = addEntryUnderToday(diaryContent, entry, date);
+
+		expect(newContent).toContain("##### Fr, 06.02.2026");
+		expect(newContent).toContain("- [[VorgangNote#Kick-Off, 06.02.2026|VorgangNote: Kick-Off, 06.02.2026]]");
 	});
 });

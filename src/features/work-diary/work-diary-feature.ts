@@ -1,4 +1,5 @@
 import { Notice, TFile, WorkspaceLeaf } from "obsidian";
+import type { CachedMetadata, HeadingCache } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature } from "../../types";
@@ -48,6 +49,13 @@ export class WorkDiaryFeature implements LuKitFeature {
 			name: "Diary: Add reminder",
 			icon: LUKIT_ICON_ID,
 			callback: () => this.addReminderCmd(),
+		});
+
+		plugin.addCommand({
+			id: "diary-add-current-note",
+			name: "Diary: Add current note",
+			icon: LUKIT_ICON_ID,
+			callback: () => this.addCurrentNoteCmd(),
 		});
 	}
 
@@ -158,5 +166,53 @@ export class WorkDiaryFeature implements LuKitFeature {
 			}
 			new Notice("Reminder added.");
 		}).open();
+	}
+
+	private async addCurrentNoteCmd(): Promise<void> {
+		const diaryFile = this.getDiaryFile();
+		if (!diaryFile) return;
+
+		const activeFile = this.plugin.app.workspace.getActiveFile();
+		if (!activeFile) {
+			new Notice("LuKit: No active note open.");
+			return;
+		}
+
+		if (activeFile.path === diaryFile.path) {
+			new Notice("LuKit: Cannot add the diary note to itself.");
+			return;
+		}
+
+		const heading = this.getHeadingAtCursor(activeFile);
+		const entry = formatDiaryEntry(activeFile.basename, heading);
+
+		await this.plugin.app.vault.process(diaryFile, (content) => {
+			const { newContent } = addEntryUnderToday(content, entry);
+			return newContent;
+		});
+
+		new Notice("Diary entry added.");
+	}
+
+	private getHeadingAtCursor(file: TFile): string | null {
+		const cache: CachedMetadata | null = this.plugin.app.metadataCache.getFileCache(file);
+		if (!cache?.headings || cache.headings.length === 0) {
+			return null;
+		}
+
+		const editor = this.plugin.app.workspace.activeEditor?.editor;
+		if (!editor) {
+			return null;
+		}
+
+		const cursorLine = editor.getCursor().line;
+		let best: HeadingCache | null = null;
+		for (const h of cache.headings) {
+			if (h.position.start.line <= cursorLine) {
+				best = h;
+			}
+		}
+
+		return best?.heading ?? null;
 	}
 }
