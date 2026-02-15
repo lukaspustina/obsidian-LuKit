@@ -46,6 +46,19 @@ Auto-detects and converts old-format notes to the current format with a single c
 
 - **Migration: Convert note** — Auto-detects the note type, prompts for a frontmatter tag (Vorgang only, default: `"Vorgang"`), shows a confirmation dialog with the number of changes, and applies the migration. Safe to run multiple times (idempotent).
 
+## Commands Reference
+
+| Command | Description |
+|---|---|
+| **Diary: Ensure today's header** | Creates today's date header if missing, opens the diary note |
+| **Diary: Add linked entry** | Pick a note and heading via fuzzy search, inserts under today's header |
+| **Diary: Add text entry** | Type free text, inserts as a bullet under today's header |
+| **Diary: Add reminder** | Type a reminder, inserts under `# Erinnerungen` with date |
+| **Vorgang: Add section** | Prompts for a name, inserts TOC entry + h5 header section |
+| **Besprechung: Add summary** | Pick a meeting note, extract key sections, insert at cursor |
+| **Migration: Convert note** | Auto-detect note type and convert old format to current |
+| **Help** | Show the LuKit help dialog |
+
 ## CLI
 
 LuKit also provides a command-line interface for use outside of Obsidian.
