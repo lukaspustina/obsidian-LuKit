@@ -1,7 +1,7 @@
 # LuKit — Obsidian Plugin
 
 ## Project Overview
-LuKit is a modular Obsidian plugin (v1.8.1) that bundles workflow automations for note-taking workflows. Each use case is a self-contained "feature" in `src/features/<name>/`. Date formatting is configurable via the `dateLocale` setting (`"de"`, `"en"`, or `"iso"`), defaulting to German locale. Section names use German terms (`Inhalt`, `Fakten und Pointer`, `Erinnerungen`, `Nächste Schritte`).
+LuKit is a modular Obsidian plugin (v1.9.0) that bundles workflow automations for note-taking workflows. Each use case is a self-contained "feature" in `src/features/<name>/`. Date formatting is configurable via the `dateLocale` setting (`"de"`, `"en"`, or `"iso"`), defaulting to German locale. Section names use German terms (`Inhalt`, `Fakten und Pointer`, `Erinnerungen`, `Nächste Schritte`).
 
 ## Build & Test Commands
 - `npm install` — install dependencies
