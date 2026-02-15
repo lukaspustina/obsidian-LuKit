@@ -12,6 +12,7 @@ Maintains a reverse-chronological work diary in a single note. Each day gets an 
 
 - **Diary: Ensure today's header** — Creates today's date header if missing, opens the diary note and positions the cursor below it.
 - **Diary: Add linked entry** — Pick a note and heading via fuzzy search, inserts a linked entry under today's header. Stays in the current note.
+- **Diary: Add current note** — Adds the currently open note (with the heading at cursor position) as a diary entry in one step — no modals. Rejects if the active file is the diary note itself.
 - **Diary: Add text entry** — Type free text, inserts it as a bullet under today's header. Stays in the current note.
 - **Diary: Add reminder** — Type a quick thought or reminder, inserts it under a `# Erinnerungen` section between frontmatter and the diary separator (third `---`). Newest entries appear first, each tagged with the current date (e.g., `- Call dentist, 07.02.2026`).
 
@@ -23,7 +24,7 @@ Automates adding a new section to "Vorgang"-style notes. A Vorgang note has a `#
 
 **Commands:**
 
-- **Vorgang: Add section** — Prompts for a section name, inserts a TOC bullet under `# Inhalt` and an h5 header section, then places the cursor on a blank bullet below the new header. If no `# Inhalt` exists, one is created.
+- **Vorgang: Add section** — Prompts for a section name, inserts a TOC bullet under `# Inhalt` and an h5 header section, then places the cursor on a blank bullet below the new header. If no `# Inhalt` exists, one is created. Also adds a linked diary entry (e.g., `- [[Note#Section, DD.MM.YYYY|Note: Section, DD.MM.YYYY]]`) under today's header in the configured diary note. Silently skips the diary entry if no diary path is configured.
 
 ### Besprechung
 
@@ -52,9 +53,10 @@ Auto-detects and converts old-format notes to the current format with a single c
 |---|---|
 | **Diary: Ensure today's header** | Creates today's date header if missing, opens the diary note |
 | **Diary: Add linked entry** | Pick a note and heading via fuzzy search, inserts under today's header |
+| **Diary: Add current note** | Add the active note (with heading at cursor) as a diary entry — no modals |
 | **Diary: Add text entry** | Type free text, inserts as a bullet under today's header |
 | **Diary: Add reminder** | Type a reminder, inserts under `# Erinnerungen` with date |
-| **Vorgang: Add section** | Prompts for a name, inserts TOC entry + h5 header section |
+| **Vorgang: Add section** | Prompts for a name, inserts TOC entry + h5 header section + diary entry |
 | **Besprechung: Add summary** | Pick a meeting note, extract key sections, insert at cursor |
 | **Migration: Convert note** | Auto-detect note type and convert old format to current |
 | **Help** | Show the LuKit help dialog |

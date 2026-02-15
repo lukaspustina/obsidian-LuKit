@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
 	formatGermanDate,
+	formatVorgangHeadingText,
 	formatVorgangHeader,
 	formatVorgangBullet,
 	findInhaltSectionIndex,
@@ -27,6 +28,20 @@ describe("formatGermanDate", () => {
 	it("uses current date when none provided", () => {
 		const result = formatGermanDate();
 		expect(result).toMatch(/^\d{2}\.\d{2}\.\d{4}$/);
+	});
+});
+
+describe("formatVorgangHeadingText", () => {
+	it("returns name and date without ##### prefix", () => {
+		const date = new Date(2026, 1, 6);
+		expect(formatVorgangHeadingText("Abstimmung", date)).toBe(
+			"Abstimmung, 06.02.2026",
+		);
+	});
+
+	it("uses current date when none provided", () => {
+		const result = formatVorgangHeadingText("Test");
+		expect(result).toMatch(/^Test, \d{2}\.\d{2}\.\d{4}$/);
 	});
 });
 

@@ -18,6 +18,7 @@ Maintains a reverse-chronological diary in a single note. The diary note has fro
 - Entries are bullet points: linked (`- [[NoteName#Heading|NoteName: Heading]]`) or plain text (`- some text`)
 - Reminders go under `# Erinnerungen` between frontmatter and the third `---` separator, tagged with date (`- Call dentist, 07.02.2026`)
 - The third `---` separator is a critical structural element — diary entries go below it
+- "Add current note" command: adds the active note (with heading at cursor) as a diary entry — no modals, rejects if active file is the diary note
 - Engine: `work-diary-engine.ts` (pure logic), Feature: `work-diary-feature.ts` (Obsidian commands)
 - Settings: `diaryNotePath` (path to the single diary note)
 
@@ -27,6 +28,8 @@ Automates adding sections to "Vorgang" (case/process) notes. A Vorgang note has:
 - `# Inhalt` — table of contents with wikilink bullets (`- [[#Section Name, DD.MM.YYYY]]`)
 - `##### Section Name, DD.MM.YYYY` — h5 section headers with bullet content below
 - Adding a section creates both a TOC entry and an h5 header, placing cursor for immediate typing
+- Adding a section also creates a linked diary entry (`- [[Note#Section, DD.MM.YYYY|Note: Section, DD.MM.YYYY]]`) under today's header in the configured diary note; silently skips if no diary path is configured
+- `formatVorgangHeadingText(name, date?)` returns the heading text without the `##### ` prefix (e.g., `"Section, DD.MM.YYYY"`)
 - Engine: `vorgang-engine.ts`, Feature: `vorgang-feature.ts`
 
 ### Besprechung (`src/features/besprechung/`)

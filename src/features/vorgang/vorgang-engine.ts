@@ -6,8 +6,12 @@ export function formatGermanDate(date?: Date): string {
 	return `${day}.${month}.${year}`;
 }
 
+export function formatVorgangHeadingText(name: string, date?: Date): string {
+	return `${name}, ${formatGermanDate(date)}`;
+}
+
 export function formatVorgangHeader(name: string, date?: Date): string {
-	return `##### ${name}, ${formatGermanDate(date)}`;
+	return `##### ${formatVorgangHeadingText(name, date)}`;
 }
 
 export function formatVorgangBullet(name: string, date?: Date): string {
