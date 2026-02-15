@@ -112,3 +112,6 @@ Each feature has up to 3 files:
 - `main.ts` is a thin shell — no business logic
 - Each modal in its own file with a single responsibility
 - Keep pure logic separate from Obsidian API calls
+
+## Git
+- **Never add `Co-Authored-By` lines** to commit messages
