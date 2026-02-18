@@ -5,6 +5,7 @@ import {
 	findTodayHeaderIndex,
 	ensureTodayHeader,
 	addEntryUnderToday,
+	entryExistsUnderToday,
 	formatDiaryEntry,
 	formatTextEntry,
 	validateDiaryStructure,
@@ -387,6 +388,40 @@ describe("addReminder", () => {
 		expect(result).not.toBeNull();
 		expect(result!.newContent).toContain("[[link1]]");
 		expect(result!.newContent).toContain("[[link2]]");
+	});
+});
+
+describe("entryExistsUnderToday", () => {
+	const friday = new Date(2026, 1, 6);
+
+	it("returns true when entry exists under today's header", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- [[Note]]";
+		expect(entryExistsUnderToday(content, "- [[Note]]", "de", friday)).toBe(true);
+	});
+
+	it("returns false when entry is not under today's header", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- [[Other]]";
+		expect(entryExistsUnderToday(content, "- [[Note]]", "de", friday)).toBe(false);
+	});
+
+	it("returns false when today's header doesn't exist yet", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Do, 05.02.2026\n- [[Note]]";
+		expect(entryExistsUnderToday(content, "- [[Note]]", "de", friday)).toBe(false);
+	});
+
+	it("returns false when no third separator exists", () => {
+		const content = "---\nfm\n---\nsome content";
+		expect(entryExistsUnderToday(content, "- [[Note]]", "de", friday)).toBe(false);
+	});
+
+	it("returns false for entry that only exists under a different day", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- [[New]]\n\n##### Do, 05.02.2026\n- [[Note]]";
+		expect(entryExistsUnderToday(content, "- [[Note]]", "de", friday)).toBe(false);
+	});
+
+	it("returns true for exact match among multiple entries under today", () => {
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- [[Alpha]]\n- [[Beta]]\n- [[Gamma]]";
+		expect(entryExistsUnderToday(content, "- [[Beta]]", "de", friday)).toBe(true);
 	});
 });
 
