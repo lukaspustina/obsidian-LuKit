@@ -3,6 +3,7 @@ import { createMockVault, createMockTFile } from "../helpers/obsidian-mocks";
 import {
 	ensureTodayHeader,
 	addEntryUnderToday,
+	entryExistsUnderToday,
 	formatDiaryEntry,
 	formatTextEntry,
 	formatReminderEntry,
@@ -134,6 +135,43 @@ describe("Work diary vault.process() integration", () => {
 		const headingIdx = lines.indexOf("# Erinnerungen");
 		expect(lines[headingIdx + 1]).toBe("- New thought, 06.02.2026");
 		expect(lines[headingIdx + 2]).toBe("- Old, 05.02.2026");
+	});
+
+	it("add-current-note via process() skips duplicate entry", async () => {
+		const existingEntry = "- [[ProjectX#Tasks|ProjectX: Tasks]]";
+		const initial = `---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n${existingEntry}`;
+		const file = createMockTFile("diary.md");
+		const vault = createMockVault({ "diary.md": initial });
+
+		await vault.process(file, (content) => {
+			if (entryExistsUnderToday(content, existingEntry, "de", friday)) {
+				return content;
+			}
+			const { newContent } = addEntryUnderToday(content, existingEntry, "de", friday);
+			return newContent;
+		});
+
+		const result = vault.files.get("diary.md")!;
+		const count = result.split(existingEntry).length - 1;
+		expect(count).toBe(1);
+	});
+
+	it("add-current-note via process() adds entry when not yet present", async () => {
+		const initial = `---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026`;
+		const file = createMockTFile("diary.md");
+		const vault = createMockVault({ "diary.md": initial });
+		const entry = formatDiaryEntry("ProjectX", "Tasks");
+
+		await vault.process(file, (content) => {
+			if (entryExistsUnderToday(content, entry, "de", friday)) {
+				return content;
+			}
+			const { newContent } = addEntryUnderToday(content, entry, "de", friday);
+			return newContent;
+		});
+
+		const result = vault.files.get("diary.md")!;
+		expect(result).toContain("- [[ProjectX#Tasks|ProjectX: Tasks]]");
 	});
 
 	it("process() throws for non-existent file", async () => {

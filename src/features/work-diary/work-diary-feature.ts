@@ -6,6 +6,7 @@ import type { LuKitFeature } from "../../types";
 import {
 	ensureTodayHeader,
 	addEntryUnderToday,
+	entryExistsUnderToday,
 	formatDiaryEntry,
 	formatTextEntry,
 	formatReminderEntry,
@@ -191,10 +192,20 @@ export class WorkDiaryFeature implements LuKitFeature {
 		const heading = this.getHeadingAtCursor(activeFile);
 		const entry = formatDiaryEntry(activeFile.basename, heading);
 
+		let alreadyExists = false;
 		await this.plugin.app.vault.process(diaryFile, (content) => {
+			if (entryExistsUnderToday(content, entry, locale)) {
+				alreadyExists = true;
+				return content;
+			}
 			const { newContent } = addEntryUnderToday(content, entry, locale);
 			return newContent;
 		});
+
+		if (alreadyExists) {
+			new Notice("LuKit: Already in today's diary.");
+			return;
+		}
 
 		new Notice("Diary entry added.");
 	}

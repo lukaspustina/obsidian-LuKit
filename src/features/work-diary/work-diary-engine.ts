@@ -68,6 +68,20 @@ export function validateDiaryStructure(content: string): string[] {
 	return errors;
 }
 
+export function entryExistsUnderToday(content: string, entry: string, locale: DateLocale, date?: Date): boolean {
+	const lines = content.split("\n");
+	const separatorIndex = findThirdSeparatorIndex(lines);
+	if (separatorIndex === -1) return false;
+	const todayIndex = findTodayHeaderIndex(lines, separatorIndex, locale, date);
+	if (todayIndex === -1) return false;
+	let i = todayIndex + 1;
+	while (i < lines.length && lines[i].startsWith("- ")) {
+		if (lines[i] === entry) return true;
+		i++;
+	}
+	return false;
+}
+
 export function addEntryUnderToday(content: string, entry: string, locale: DateLocale, date?: Date): { newContent: string; entryLineIndex: number } {
 	const { newContent: contentWithHeader, headerLineIndex } = ensureTodayHeader(content, locale, date);
 	const lines = contentWithHeader.split("\n");
