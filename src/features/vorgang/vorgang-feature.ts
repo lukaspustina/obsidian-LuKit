@@ -4,7 +4,7 @@ import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature } from "../../types";
 import { addVorgangSection, formatVorgangHeadingText } from "./vorgang-engine";
 import { formatDiaryEntry, addEntryUnderToday } from "../work-diary/work-diary-engine";
-import { TextInputModal } from "../../shared/modals/text-input-modal";
+import { AddSectionModal } from "./add-section-modal";
 
 export class VorgangFeature implements LuKitFeature {
 	id = "vorgang";
@@ -32,12 +32,12 @@ export class VorgangFeature implements LuKitFeature {
 			return;
 		}
 
-		new TextInputModal(this.plugin.app, "Section name…", async (name) => {
-			await this.insertVorgangSection(file, name);
+		new AddSectionModal(this.plugin.app, async (name, date) => {
+			await this.insertVorgangSection(file, name, date);
 		}).open();
 	}
 
-	private async insertVorgangSection(activeFile: TFile, name: string): Promise<void> {
+	private async insertVorgangSection(activeFile: TFile, name: string, date: Date): Promise<void> {
 		const editor = this.plugin.app.workspace.activeEditor?.editor;
 		if (!editor) {
 			new Notice("LuKit: No active editor.");
@@ -46,21 +46,17 @@ export class VorgangFeature implements LuKitFeature {
 
 		const locale = this.plugin.settings.dateLocale;
 		const content = editor.getValue();
-		const { newContent, cursorLineIndex } = addVorgangSection(
-			content,
-			name,
-			locale,
-		);
+		const { newContent, cursorLineIndex } = addVorgangSection(content, name, locale, date);
 
 		editor.setValue(newContent);
 		const pos = { line: cursorLineIndex, ch: 0 };
 		editor.setCursor(pos);
 		editor.scrollIntoView({ from: pos, to: pos }, true);
 
-		await this.addDiaryEntryForSection(activeFile, name);
+		await this.addDiaryEntryForSection(activeFile, name, date);
 	}
 
-	private async addDiaryEntryForSection(activeFile: TFile, sectionName: string): Promise<void> {
+	private async addDiaryEntryForSection(activeFile: TFile, sectionName: string, date: Date): Promise<void> {
 		const diaryPath = this.plugin.settings.workDiary.diaryNotePath;
 		if (!diaryPath) return;
 
@@ -68,11 +64,11 @@ export class VorgangFeature implements LuKitFeature {
 		if (!(diaryAbstract instanceof TFile)) return;
 
 		const locale = this.plugin.settings.dateLocale;
-		const headingText = formatVorgangHeadingText(sectionName, locale);
+		const headingText = formatVorgangHeadingText(sectionName, locale, date);
 		const entry = formatDiaryEntry(activeFile.basename, headingText);
 
 		await this.plugin.app.vault.process(diaryAbstract, (content) => {
-			const { newContent } = addEntryUnderToday(content, entry, locale);
+			const { newContent } = addEntryUnderToday(content, entry, locale, date);
 			return newContent;
 		});
 	}
