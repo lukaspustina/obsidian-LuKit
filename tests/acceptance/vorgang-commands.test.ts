@@ -212,4 +212,37 @@ describe("Add Vorgang section + diary entry flow", () => {
 		expect(newContent).toContain("##### Fr, 06.02.2026");
 		expect(newContent).toContain("- [[VorgangNote#Kick-Off, 06.02.2026|VorgangNote: Kick-Off, 06.02.2026]]");
 	});
+
+	it("diary entry is placed under the chosen date's header, not today's", () => {
+		// Simulate: today is 2026-03-02, but user picks 2026-02-06 as the section date
+		const today = new Date(2026, 2, 2); // Mon, 02.03.2026
+		const chosenDate = new Date(2026, 1, 6); // Fr, 06.02.2026
+		const diaryContent = [
+			"---",
+			"fm",
+			"---",
+			"[[pinned]]",
+			"---",
+			"##### Mo, 02.03.2026",
+			"- existing entry",
+		].join("\n");
+		const sectionName = "Retroaktiv";
+		const noteName = "ProjektX";
+
+		const headingText = formatVorgangHeadingText(sectionName, "de", chosenDate);
+		const entry = formatDiaryEntry(noteName, headingText);
+		const { newContent } = addEntryUnderToday(diaryContent, entry, "de", chosenDate);
+
+		// Entry appears under the chosen date's header (created fresh)
+		expect(newContent).toContain("##### Fr, 06.02.2026");
+		expect(newContent).toContain("- [[ProjektX#Retroaktiv, 06.02.2026|ProjektX: Retroaktiv, 06.02.2026]]");
+
+		// Entry does NOT appear under today's header
+		const lines = newContent.split("\n");
+		const todayHeaderIdx = lines.indexOf("##### Mo, 02.03.2026");
+		const entryIdx = lines.indexOf("- [[ProjektX#Retroaktiv, 06.02.2026|ProjektX: Retroaktiv, 06.02.2026]]");
+		const chosenHeaderIdx = lines.indexOf("##### Fr, 06.02.2026");
+		expect(entryIdx).toBeGreaterThan(chosenHeaderIdx);
+		expect(entryIdx).not.toBeGreaterThan(todayHeaderIdx);
+	});
 });
