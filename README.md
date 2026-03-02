@@ -187,7 +187,7 @@ The `launchbar/` directory contains two [LaunchBar](https://www.obdev.at/product
 
 ### Manual
 
-1. Download `main.js` and `manifest.json` from the [latest GitHub release](../../releases/latest)
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest GitHub release](../../releases/latest)
 2. Copy them into your vault at `.obsidian/plugins/lukit/`
 3. Enable the plugin in Obsidian settings
 
