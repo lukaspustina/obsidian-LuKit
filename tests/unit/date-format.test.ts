@@ -3,6 +3,7 @@ import {
 	formatDate,
 	formatWeekday,
 	formatDateWithWeekday,
+	parseDateString,
 } from "../../src/shared/date-format";
 
 describe("formatDate", () => {
@@ -55,6 +56,53 @@ describe("formatWeekday", () => {
 	it("returns null for ISO locale", () => {
 		const date = new Date(2026, 1, 6);
 		expect(formatWeekday(date, "iso")).toBeNull();
+	});
+});
+
+describe("parseDateString", () => {
+	it("parses German date (DD.MM.YYYY)", () => {
+		const result = parseDateString("06.02.2026", "de");
+		expect(result).not.toBeNull();
+		expect(result!.getFullYear()).toBe(2026);
+		expect(result!.getMonth()).toBe(1); // Feb
+		expect(result!.getDate()).toBe(6);
+	});
+
+	it("parses English date (MM/DD/YYYY)", () => {
+		const result = parseDateString("02/06/2026", "en");
+		expect(result).not.toBeNull();
+		expect(result!.getFullYear()).toBe(2026);
+		expect(result!.getMonth()).toBe(1); // Feb
+		expect(result!.getDate()).toBe(6);
+	});
+
+	it("parses ISO date (YYYY-MM-DD)", () => {
+		const result = parseDateString("2026-02-06", "iso");
+		expect(result).not.toBeNull();
+		expect(result!.getFullYear()).toBe(2026);
+		expect(result!.getMonth()).toBe(1); // Feb
+		expect(result!.getDate()).toBe(6);
+	});
+
+	it("round-trips with formatDate for all locales", () => {
+		const date = new Date(2026, 1, 6);
+		for (const locale of ["de", "en", "iso"] as const) {
+			const str = formatDate(date, locale);
+			const parsed = parseDateString(str, locale);
+			expect(parsed).not.toBeNull();
+			expect(parsed!.getTime()).toBe(date.getTime());
+		}
+	});
+
+	it("returns null for wrong separator", () => {
+		expect(parseDateString("06/02/2026", "de")).toBeNull();
+		expect(parseDateString("06.02.2026", "en")).toBeNull();
+		expect(parseDateString("06.02.2026", "iso")).toBeNull();
+	});
+
+	it("returns null for empty or garbage input", () => {
+		expect(parseDateString("", "de")).toBeNull();
+		expect(parseDateString("not a date", "de")).toBeNull();
 	});
 });
 

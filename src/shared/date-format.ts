@@ -35,6 +35,26 @@ export function formatWeekday(date: Date, locale: DateLocale): string | null {
 	}
 }
 
+export function parseDateString(str: string, locale: DateLocale): Date | null {
+	switch (locale) {
+		case "de": {
+			const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(str);
+			if (!match) return null;
+			return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+		}
+		case "en": {
+			const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(str);
+			if (!match) return null;
+			return new Date(Number(match[3]), Number(match[1]) - 1, Number(match[2]));
+		}
+		case "iso": {
+			const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
+			if (!match) return null;
+			return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+		}
+	}
+}
+
 export function formatDateWithWeekday(date: Date, locale: DateLocale): string {
 	const dateStr = formatDate(date, locale);
 	const weekday = formatWeekday(date, locale);
