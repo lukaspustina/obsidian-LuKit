@@ -32,7 +32,8 @@ export class VorgangFeature implements LuKitFeature {
 			return;
 		}
 
-		new AddSectionModal(this.plugin.app, async (name, date) => {
+		const locale = this.plugin.settings.dateLocale;
+		new AddSectionModal(this.plugin.app, locale, async (name, date) => {
 			await this.insertVorgangSection(file, name, date);
 		}).open();
 	}
