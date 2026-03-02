@@ -24,7 +24,7 @@ Automates adding a new section to "Vorgang"-style notes. A Vorgang note has a `#
 
 **Commands:**
 
-- **Vorgang: Add section** — Prompts for a section name, inserts a TOC bullet under `# Inhalt` and an h5 header section, then places the cursor on a blank bullet below the new header. If no `# Inhalt` exists, one is created. Also adds a linked diary entry (e.g., `- [[Note#Section, DD.MM.YYYY|Note: Section, DD.MM.YYYY]]`) under today's header in the configured diary note. Silently skips the diary entry if no diary path is configured.
+- **Vorgang: Add section** — Prompts for a section name and date (defaults to today), inserts a TOC bullet under `# Inhalt` and an h5 header section, then places the cursor on a blank bullet below the new header. If no `# Inhalt` exists, one is created. Also adds a linked diary entry (e.g., `- [[Note#Section, DD.MM.YYYY|Note: Section, DD.MM.YYYY]]`) under the chosen date's header in the configured diary note. Silently skips the diary entry if no diary path is configured.
 
 ### Besprechung
 

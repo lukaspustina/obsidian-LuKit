@@ -28,7 +28,7 @@ Automates adding sections to "Vorgang" (case/process) notes. A Vorgang note has:
 - `# Inhalt` — table of contents with wikilink bullets (`- [[#Section Name, DD.MM.YYYY]]`)
 - `##### Section Name, DD.MM.YYYY` — h5 section headers with bullet content below
 - Adding a section creates both a TOC entry and an h5 header, placing cursor for immediate typing
-- Adding a section also creates a linked diary entry (`- [[Note#Section, DD.MM.YYYY|Note: Section, DD.MM.YYYY]]`) under today's header in the configured diary note; silently skips if no diary path is configured
+- Adding a section prompts for a name and a date (defaults to today); the diary entry is placed under the chosen date's header in the configured diary note; silently skips if no diary path is configured
 - `formatVorgangHeadingText(name, locale, date?)` returns the heading text without the `##### ` prefix (e.g., `"Section, DD.MM.YYYY"`)
 - Engine: `vorgang-engine.ts`, Feature: `vorgang-feature.ts`
 
