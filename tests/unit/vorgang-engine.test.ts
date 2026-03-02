@@ -347,4 +347,80 @@ describe("addVorgangSection", () => {
 		expect(newContent).toContain("- [[#Review, 2026-02-06]]");
 		expect(newContent).toContain("##### Review, 2026-02-06");
 	});
+
+	it("inserts past-dated TOC bullet between newer and older entries", () => {
+		const pastDate = new Date(2026, 0, 25); // 25.01.2026 — between the two existing entries
+		const content = [
+			"# Inhalt",
+			"- [[#Recent, 06.02.2026]]",
+			"- [[#Old, 15.01.2026]]",
+			"",
+			"##### Recent, 06.02.2026",
+			"- note",
+			"",
+			"##### Old, 15.01.2026",
+			"- note",
+		].join("\n");
+
+		const { newContent } = addVorgangSection(content, "Middle", "de", pastDate);
+		const lines = newContent.split("\n");
+
+		const recentIdx = lines.indexOf("- [[#Recent, 06.02.2026]]");
+		const middleIdx = lines.indexOf("- [[#Middle, 25.01.2026]]");
+		const oldIdx = lines.indexOf("- [[#Old, 15.01.2026]]");
+
+		expect(middleIdx).toBeGreaterThan(recentIdx);
+		expect(middleIdx).toBeLessThan(oldIdx);
+	});
+
+	it("inserts past-dated h5 section between newer and older sections", () => {
+		const pastDate = new Date(2026, 0, 25); // 25.01.2026
+		const content = [
+			"# Inhalt",
+			"- [[#Recent, 06.02.2026]]",
+			"- [[#Old, 15.01.2026]]",
+			"",
+			"##### Recent, 06.02.2026",
+			"- note",
+			"",
+			"##### Old, 15.01.2026",
+			"- note",
+		].join("\n");
+
+		const { newContent } = addVorgangSection(content, "Middle", "de", pastDate);
+		const lines = newContent.split("\n");
+
+		const recentH5 = lines.indexOf("##### Recent, 06.02.2026");
+		const middleH5 = lines.indexOf("##### Middle, 25.01.2026");
+		const oldH5 = lines.indexOf("##### Old, 15.01.2026");
+
+		expect(middleH5).toBeGreaterThan(recentH5);
+		expect(middleH5).toBeLessThan(oldH5);
+	});
+
+	it("appends TOC bullet and h5 at end when date is older than all existing entries", () => {
+		const oldDate = new Date(2026, 0, 1); // 01.01.2026 — older than everything
+		const content = [
+			"# Inhalt",
+			"- [[#Recent, 06.02.2026]]",
+			"- [[#Middle, 25.01.2026]]",
+			"",
+			"##### Recent, 06.02.2026",
+			"- note",
+			"",
+			"##### Middle, 25.01.2026",
+			"- note",
+		].join("\n");
+
+		const { newContent } = addVorgangSection(content, "Archive", "de", oldDate);
+		const lines = newContent.split("\n");
+
+		const middleBulletIdx = lines.indexOf("- [[#Middle, 25.01.2026]]");
+		const archiveBulletIdx = lines.indexOf("- [[#Archive, 01.01.2026]]");
+		const middleH5 = lines.indexOf("##### Middle, 25.01.2026");
+		const archiveH5 = lines.indexOf("##### Archive, 01.01.2026");
+
+		expect(archiveBulletIdx).toBeGreaterThan(middleBulletIdx);
+		expect(archiveH5).toBeGreaterThan(middleH5);
+	});
 });

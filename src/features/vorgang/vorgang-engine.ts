@@ -1,4 +1,4 @@
-import { formatDate } from "../../shared/date-format";
+import { formatDate, parseDateString } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
 
 export function formatVorgangHeadingText(name: string, locale: DateLocale, date?: Date): string {
@@ -59,9 +59,40 @@ export function findInhaltBulletRange(
 	return { firstBullet, afterLastBullet };
 }
 
-function findFirstH5Index(lines: string[], afterIndex: number): number {
-	for (let i = afterIndex; i < lines.length; i++) {
-		if (lines[i].startsWith("##### ")) {
+function extractDateFromLine(line: string, locale: DateLocale): Date | null {
+	const lastComma = line.lastIndexOf(", ");
+	if (lastComma === -1) return null;
+	const candidate = line.slice(lastComma + 2).replace(/\]\]+$/, "").trim();
+	return parseDateString(candidate, locale);
+}
+
+function findBulletInsertIndex(
+	lines: string[],
+	firstBullet: number,
+	afterLastBullet: number,
+	newDate: Date,
+	locale: DateLocale,
+): number {
+	for (let i = firstBullet; i < afterLastBullet; i++) {
+		if (!lines[i].startsWith("- ")) continue;
+		const existing = extractDateFromLine(lines[i], locale);
+		if (existing === null || existing <= newDate) {
+			return i;
+		}
+	}
+	return afterLastBullet;
+}
+
+function findH5InsertIndex(
+	lines: string[],
+	fromIndex: number,
+	newDate: Date,
+	locale: DateLocale,
+): number {
+	for (let i = fromIndex; i < lines.length; i++) {
+		if (!lines[i].startsWith("##### ")) continue;
+		const existing = extractDateFromLine(lines[i], locale);
+		if (existing === null || existing <= newDate) {
 			return i;
 		}
 	}
@@ -75,8 +106,9 @@ export function addVorgangSection(
 	date?: Date,
 ): { newContent: string; cursorLineIndex: number } {
 	const lines = content.split("\n");
-	const bullet = formatVorgangBullet(name, locale, date);
-	const header = formatVorgangHeader(name, locale, date);
+	const d = date ?? new Date();
+	const bullet = formatVorgangBullet(name, locale, d);
+	const header = formatVorgangHeader(name, locale, d);
 	const inhaltIndex = findInhaltSectionIndex(lines);
 
 	if (inhaltIndex === -1) {
@@ -106,11 +138,11 @@ export function addVorgangSection(
 		const bulletInsertAt = inhaltIndex + 1;
 		lines.splice(bulletInsertAt, 0, bullet);
 
-		// Find first ##### after the Inhalt section to insert h5 before it
-		const firstH5 = findFirstH5Index(lines, bulletInsertAt + 1);
-		if (firstH5 !== -1) {
-			lines.splice(firstH5, 0, "", header, "", "");
-			const cursorLineIndex = firstH5 + 2;
+		// Find correct h5 position by date
+		const h5InsertAt = findH5InsertIndex(lines, bulletInsertAt + 1, d, locale);
+		if (h5InsertAt !== -1) {
+			lines.splice(h5InsertAt, 0, "", header, "", "");
+			const cursorLineIndex = h5InsertAt + 2;
 			return { newContent: lines.join("\n"), cursorLineIndex };
 		}
 
@@ -122,16 +154,17 @@ export function addVorgangSection(
 	}
 
 	// Case 3: Normal — # Inhalt with existing bullets
-	// Insert bullet as first item under # Inhalt
-	lines.splice(bulletRange.firstBullet, 0, bullet);
+	// Insert bullet at correct date position
+	const bulletInsertAt = findBulletInsertIndex(lines, bulletRange.firstBullet, bulletRange.afterLastBullet, d, locale);
+	lines.splice(bulletInsertAt, 0, bullet);
 
-	// Find first ##### after the bullet list (adjusted for inserted line)
+	// Find correct h5 position by date (adjust for inserted bullet line)
 	const adjustedAfterLast = bulletRange.afterLastBullet + 1;
-	const firstH5 = findFirstH5Index(lines, adjustedAfterLast);
+	const h5InsertAt = findH5InsertIndex(lines, adjustedAfterLast, d, locale);
 
-	if (firstH5 !== -1) {
-		lines.splice(firstH5, 0, header, "", "");
-		const cursorLineIndex = firstH5 + 1;
+	if (h5InsertAt !== -1) {
+		lines.splice(h5InsertAt, 0, header, "", "");
+		const cursorLineIndex = h5InsertAt + 1;
 		return { newContent: lines.join("\n"), cursorLineIndex };
 	}
 
