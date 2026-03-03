@@ -215,6 +215,106 @@ describe("ensureTodayHeader", () => {
 		const result = ensureTodayHeader(content, "iso", friday);
 		expect(result.newContent).toContain("##### 2026-02-06");
 	});
+
+	it("inserts a past-date header below more-recent headers", () => {
+		const recent = new Date(2026, 1, 10); // 10.02.2026
+		const past = new Date(2026, 1, 3);   // 03.02.2026
+		const content = [
+			"---", "fm", "---", "[[pinned]]", "---",
+			"##### Di, 10.02.2026",
+			"- recent entry",
+		].join("\n");
+		const result = ensureTodayHeader(content, "de", past);
+		const lines = result.newContent.split("\n");
+		const recentIdx = lines.indexOf("##### Di, 10.02.2026");
+		const pastIdx = lines.indexOf("##### Di, 03.02.2026");
+		expect(pastIdx).toBeGreaterThan(recentIdx);
+	});
+
+	it("inserts a header between two existing headers in correct date order", () => {
+		const middle = new Date(2026, 1, 5); // 05.02.2026
+		const content = [
+			"---", "fm", "---", "[[pinned]]", "---",
+			"##### Fr, 06.02.2026",
+			"- newer",
+			"##### Mi, 04.02.2026",
+			"- older",
+		].join("\n");
+		const result = ensureTodayHeader(content, "de", middle);
+		const lines = result.newContent.split("\n");
+		const newerIdx = lines.indexOf("##### Fr, 06.02.2026");
+		const middleIdx = lines.indexOf("##### Do, 05.02.2026");
+		const olderIdx = lines.indexOf("##### Mi, 04.02.2026");
+		expect(newerIdx).toBeLessThan(middleIdx);
+		expect(middleIdx).toBeLessThan(olderIdx);
+	});
+
+	it("inserts the oldest-date header after all existing headers", () => {
+		const oldest = new Date(2026, 0, 1); // 01.01.2026
+		const content = [
+			"---", "fm", "---", "[[pinned]]", "---",
+			"##### Fr, 06.02.2026",
+			"- entry",
+		].join("\n");
+		const result = ensureTodayHeader(content, "de", oldest);
+		const lines = result.newContent.split("\n");
+		const existingIdx = lines.indexOf("##### Fr, 06.02.2026");
+		const oldestIdx = lines.indexOf("##### Do, 01.01.2026");
+		expect(oldestIdx).toBeGreaterThan(existingIdx);
+	});
+
+	it("correctly orders when existing header is a linked section (contains [[]])", () => {
+		// A Besprechung-linked header: ##### [[Note, 02.03.2026]]
+		const recentDate = new Date(2026, 2, 2);  // 02.03.2026
+		const olderDate = new Date(2026, 1, 6);   // 06.02.2026 — inserting this
+		const content = [
+			"---", "fm", "---", "[[pinned]]", "---",
+			"##### [[Besprechung - Intro, 02.03.2026]]",
+			"- entry",
+		].join("\n");
+		const result = ensureTodayHeader(content, "de", olderDate);
+		const lines = result.newContent.split("\n");
+		const linkedIdx = lines.indexOf("##### [[Besprechung - Intro, 02.03.2026]]");
+		const newIdx = lines.indexOf("##### Fr, 06.02.2026");
+		// Older date must appear below the more-recent linked header
+		expect(newIdx).toBeGreaterThan(linkedIdx);
+	});
+
+	it("handles existing header with no parseable date — inserts without crashing", () => {
+		// parseDiaryHeaderDate returns null for undated headers; findDiaryHeaderInsertPosition skips them
+		const date = new Date(2026, 1, 6); // Fr, 06.02.2026
+		const content = [
+			"---", "fm", "---", "[[pinned]]", "---",
+			"##### [[Undated note without a date]]",
+			"- entry",
+		].join("\n");
+		const result = ensureTodayHeader(content, "de", date);
+		expect(result.newContent).toContain("##### Fr, 06.02.2026");
+		// The undated header is preserved
+		expect(result.newContent).toContain("##### [[Undated note without a date]]");
+	});
+
+	it("strips trailing ]] from wikilinked header date for correct ordering", () => {
+		// parseDiaryHeaderDate strips /\]+$/ before parsing — verify ordering still correct
+		const wikilinked = new Date(2026, 2, 2);  // 02.03.2026
+		const plain = new Date(2026, 1, 6);        // 06.02.2026 (older)
+		const content = [
+			"---", "fm", "---", "[[pinned]]", "---",
+			"##### [[Meeting, 02.03.2026]]",
+			"- entry",
+			"##### Fr, 06.02.2026",
+			"- older entry",
+		].join("\n");
+		// Inserting 10.02.2026 — should land between the two existing headers
+		const middle = new Date(2026, 1, 10);
+		const result = ensureTodayHeader(content, "de", middle);
+		const lines = result.newContent.split("\n");
+		const wikiIdx = lines.indexOf("##### [[Meeting, 02.03.2026]]");
+		const midIdx = lines.indexOf("##### Di, 10.02.2026");
+		const oldIdx = lines.indexOf("##### Fr, 06.02.2026");
+		expect(wikiIdx).toBeLessThan(midIdx);
+		expect(midIdx).toBeLessThan(oldIdx);
+	});
 });
 
 describe("addEntryUnderToday", () => {
@@ -252,6 +352,43 @@ describe("addEntryUnderToday", () => {
 		expect(lines[result.entryLineIndex]).toBe("- [[New]]");
 		expect(result.entryLineIndex).toBe(7);
 	});
+
+	it("inserts after indented sub-bullets, not between a bullet and its sub-bullet", () => {
+		const content = [
+			"---", "fm", "---", "[[pinned]]", "---",
+			"##### Fr, 06.02.2026",
+			"- First entry",
+			"    - Sub-bullet of first",
+			"- Second entry",
+		].join("\n");
+		const result = addEntryUnderToday(content, "- [[New]]", "de", friday);
+		const lines = result.newContent.split("\n");
+		const subIdx = lines.indexOf("    - Sub-bullet of first");
+		const secondIdx = lines.indexOf("- Second entry");
+		const newIdx = result.entryLineIndex;
+		expect(lines[newIdx]).toBe("- [[New]]");
+		expect(newIdx).toBeGreaterThan(subIdx);
+		expect(newIdx).toBeGreaterThan(secondIdx);
+	});
+
+	it("skips sub-bullets indented with non-breaking spaces (\\u00A0)", () => {
+		const nbsp = "\u00A0";
+		const content = [
+			"---", "fm", "---", "[[pinned]]", "---",
+			"##### Fr, 06.02.2026",
+			"- First entry",
+			`${nbsp}${nbsp}${nbsp}${nbsp}- Sub-bullet with nbsp`,
+			"- Second entry",
+		].join("\n");
+		const result = addEntryUnderToday(content, "- [[New]]", "de", friday);
+		const lines = result.newContent.split("\n");
+		const subIdx = lines.indexOf(`${nbsp}${nbsp}${nbsp}${nbsp}- Sub-bullet with nbsp`);
+		const secondIdx = lines.indexOf("- Second entry");
+		const newIdx = result.entryLineIndex;
+		expect(lines[newIdx]).toBe("- [[New]]");
+		expect(newIdx).toBeGreaterThan(subIdx);
+		expect(newIdx).toBeGreaterThan(secondIdx);
+	});
 });
 
 describe("formatDiaryEntry", () => {
@@ -263,6 +400,33 @@ describe("formatDiaryEntry", () => {
 
 	it("formats with note only, no heading", () => {
 		expect(formatDiaryEntry("My Note", null)).toBe("- [[My Note]]");
+	});
+
+	it("strips wikilinks from heading to avoid nested brackets", () => {
+		const heading = "[[Besprechung - Intro, 02.03.2026]], 02.03.2026";
+		const result = formatDiaryEntry("Vorgang Note", heading);
+		expect(result).not.toContain("[[[[");
+		expect(result).not.toContain("[[Besprechung");
+		expect(result).toContain("Besprechung - Intro, 02.03.2026");
+		expect(result).toBe(
+			"- [[Vorgang Note#Besprechung - Intro, 02.03.2026, 02.03.2026|Vorgang Note: Besprechung - Intro, 02.03.2026, 02.03.2026]]"
+		);
+	});
+
+	it("strips wikilinks from a pure-wikilink heading (no trailing text)", () => {
+		const heading = "[[Besprechung - Introduction M. Müller M. Richardson L. Pustina, 02.03.2026]]";
+		const result = formatDiaryEntry("Vorgang Note", heading);
+		expect(result).not.toContain("[[Besprechung");
+		expect(result).toBe(
+			"- [[Vorgang Note#Besprechung - Introduction M. Müller M. Richardson L. Pustina, 02.03.2026|Vorgang Note: Besprechung - Introduction M. Müller M. Richardson L. Pustina, 02.03.2026]]"
+		);
+	});
+
+	it("strips wikilinks with pipe alias from heading", () => {
+		const heading = "[[Note|Display Name]], 06.02.2026";
+		const result = formatDiaryEntry("Vorgang Note", heading);
+		expect(result).toContain("Display Name");
+		expect(result).not.toContain("[[Note");
 	});
 });
 
@@ -422,6 +586,30 @@ describe("entryExistsUnderToday", () => {
 	it("returns true for exact match among multiple entries under today", () => {
 		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- [[Alpha]]\n- [[Beta]]\n- [[Gamma]]";
 		expect(entryExistsUnderToday(content, "- [[Beta]]", "de", friday)).toBe(true);
+	});
+
+	it("finds entry that appears after an indented sub-bullet", () => {
+		const content = [
+			"---", "fm", "---", "[[pinned]]", "---",
+			"##### Fr, 06.02.2026",
+			"- [[First]]",
+			"    - sub-bullet of first",
+			"- [[Second]]",
+		].join("\n");
+		expect(entryExistsUnderToday(content, "- [[Second]]", "de", friday)).toBe(true);
+	});
+
+	it("does not find entry from a different day even with sub-bullets present", () => {
+		const content = [
+			"---", "fm", "---", "[[pinned]]", "---",
+			"##### Fr, 06.02.2026",
+			"- [[First]]",
+			"    - sub-bullet",
+			"",
+			"##### Do, 05.02.2026",
+			"- [[Second]]",
+		].join("\n");
+		expect(entryExistsUnderToday(content, "- [[Second]]", "de", friday)).toBe(false);
 	});
 });
 

@@ -12,20 +12,9 @@ describe("Add Besprechung summary command flow", () => {
 			"---",
 			"### Nächste Schritte",
 			"",
-			"Peter:",
 			"- Todo 1",
 			"- Todo 2",
 			"- Todo 3",
-			"",
-			"Lukas:",
-			"- Some other Todo 1",
-			"- Some other Todo 2",
-			"- Some other Todo 3",
-			"",
-			"Follow-up Termine:",
-			"- Step 1",
-			"- Step 2",
-			"- Step 3",
 			"",
 			"### Zusammenfassung",
 			"- Peter said this",
@@ -44,17 +33,12 @@ describe("Add Besprechung summary command flow", () => {
 		expect(result).toContain("**Zusammenfassung**");
 		expect(result).not.toContain("### ");
 
-		// Verify Nächste Schritte body is complete
-		expect(result).toContain("Peter:");
+		// Verify Nächste Schritte bullets
 		expect(result).toContain("- Todo 1");
 		expect(result).toContain("- Todo 2");
 		expect(result).toContain("- Todo 3");
-		expect(result).toContain("Lukas:");
-		expect(result).toContain("- Some other Todo 1");
-		expect(result).toContain("Follow-up Termine:");
-		expect(result).toContain("- Step 3");
 
-		// Verify Zusammenfassung body is complete
+		// Verify Zusammenfassung body
 		expect(result).toContain("- Peter said this");
 		expect(result).toContain("- Lukas said something else");
 

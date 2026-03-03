@@ -237,12 +237,12 @@ describe("Add Vorgang section + diary entry flow", () => {
 		expect(newContent).toContain("##### Fr, 06.02.2026");
 		expect(newContent).toContain("- [[ProjektX#Retroaktiv, 06.02.2026|ProjektX: Retroaktiv, 06.02.2026]]");
 
-		// Entry does NOT appear under today's header
+		// Chosen date (06.02) is older → its header appears AFTER the more-recent header (02.03)
 		const lines = newContent.split("\n");
 		const todayHeaderIdx = lines.indexOf("##### Mo, 02.03.2026");
 		const entryIdx = lines.indexOf("- [[ProjektX#Retroaktiv, 06.02.2026|ProjektX: Retroaktiv, 06.02.2026]]");
 		const chosenHeaderIdx = lines.indexOf("##### Fr, 06.02.2026");
 		expect(entryIdx).toBeGreaterThan(chosenHeaderIdx);
-		expect(entryIdx).not.toBeGreaterThan(todayHeaderIdx);
+		expect(chosenHeaderIdx).toBeGreaterThan(todayHeaderIdx);
 	});
 });

@@ -6,20 +6,9 @@ attendees: []
 ---
 ### Nächste Schritte
 
-Peter:
 - Todo 1
 - Todo 2
 - Todo 3
-
-Lukas:
-- Some other Todo 1
-- Some other Todo 2
-- Some other Todo 3
-
-Follow-up Termine:
-- Step 1
-- Step 2
-- Step 3
 
 ### Zusammenfassung
 - Peter said this

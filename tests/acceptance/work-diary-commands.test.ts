@@ -67,11 +67,17 @@ describe("Add diary entry command flow", () => {
 		expect(lines[7]).toBe("- [[Second#Section|Second: Section]]");
 	});
 
-	it("does not modify file when user cancels (entry never created)", () => {
-		// Simulating cancel: no entry is generated, so no addEntryUnderToday call
-		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026";
-		// If user cancels modal, the chain stops and content remains unchanged
-		expect(content).toBe(content); // No mutation
+	it("does not modify content when no entry is passed (user cancelled)", () => {
+		// Simulating cancel: the modal callback is never invoked, so addEntryUnderToday is never called.
+		// Verify that calling addEntryUnderToday is the only thing that mutates content.
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- [[Existing]]";
+		// Without a call to addEntryUnderToday, content is unchanged.
+		const unchanged = content;
+		expect(unchanged).toBe(content);
+		// Calling it does change content.
+		const { newContent } = addEntryUnderToday(content, "- [[New]]", "de", friday);
+		expect(newContent).not.toBe(content);
+		expect(newContent).toContain("- [[New]]");
 	});
 });
 
@@ -93,6 +99,22 @@ describe("Add text entry command flow", () => {
 		expect(newContent).toContain("##### Fr, 06.02.2026");
 		expect(newContent).toContain("- new task");
 	});
+
+	it("files entry under a past date when user picks a different date", () => {
+		const thursday = new Date(2026, 1, 5);
+		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n- today entry";
+		const entry = formatTextEntry("late log from thursday");
+		const { newContent } = addEntryUnderToday(content, entry, "de", thursday);
+		expect(newContent).toContain("##### Do, 05.02.2026");
+		expect(newContent).toContain("- late log from thursday");
+		// Entry must not appear under friday's header
+		const lines = newContent.split("\n");
+		const fridayIdx = lines.indexOf("##### Fr, 06.02.2026");
+		const thursdayIdx = lines.indexOf("##### Do, 05.02.2026");
+		const entryIdx = lines.indexOf("- late log from thursday");
+		expect(entryIdx).toBeGreaterThan(thursdayIdx);
+		expect(fridayIdx).toBeLessThan(thursdayIdx);
+	});
 });
 
 describe("Add reminder command flow", () => {
@@ -105,6 +127,17 @@ describe("Add reminder command flow", () => {
 		expect(result).not.toBeNull();
 		expect(result!.newContent).toContain("# Erinnerungen");
 		expect(result!.newContent).toContain("- Call dentist, 06.02.2026");
+	});
+
+	it("uses the user-picked due date, not today", () => {
+		const nextFriday = new Date(2026, 1, 13);
+		const entry = formatReminderEntry("Renew contract", "de", nextFriday);
+		expect(entry).toBe("- Renew contract, 13.02.2026");
+
+		const content = "---\nfm\n---\n[[pinned]]\n\n---\n##### Fr, 06.02.2026";
+		const result = addReminder(content, entry);
+		expect(result).not.toBeNull();
+		expect(result!.newContent).toContain("- Renew contract, 13.02.2026");
 	});
 
 	it("adds newest reminder at top of existing section", () => {

@@ -1,6 +1,6 @@
 import { App, Modal } from "obsidian";
-import { formatDate, parseDateString } from "../../shared/date-format";
-import type { DateLocale } from "../../shared/date-format";
+import { formatDate, parseDateString } from "../date-format";
+import type { DateLocale } from "../date-format";
 
 const DATE_PLACEHOLDER: Record<DateLocale, string> = {
 	de: "DD.MM.YYYY",
@@ -8,27 +8,35 @@ const DATE_PLACEHOLDER: Record<DateLocale, string> = {
 	iso: "YYYY-MM-DD",
 };
 
-export class AddSectionModal extends Modal {
-	private onSubmit: (name: string, date: Date) => void;
+export class TextDateModal extends Modal {
+	private onSubmit: (text: string, date: Date) => void;
+	private textPlaceholder: string;
 	private locale: DateLocale;
-	private nameInputEl!: HTMLInputElement;
+	private defaultDate: Date;
+	private textInputEl!: HTMLInputElement;
 	private dateInputEl!: HTMLInputElement;
-	private initialDate: Date;
 
-	constructor(app: App, locale: DateLocale, onSubmit: (name: string, date: Date) => void, defaultDate?: Date) {
+	constructor(
+		app: App,
+		textPlaceholder: string,
+		locale: DateLocale,
+		onSubmit: (text: string, date: Date) => void,
+		defaultDate?: Date,
+	) {
 		super(app);
+		this.textPlaceholder = textPlaceholder;
 		this.locale = locale;
 		this.onSubmit = onSubmit;
-		this.initialDate = defaultDate ?? new Date();
+		this.defaultDate = defaultDate ?? new Date();
 	}
 
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.addClass("lukit-text-input-modal");
 
-		this.nameInputEl = contentEl.createEl("input", {
+		this.textInputEl = contentEl.createEl("input", {
 			type: "text",
-			placeholder: "Section name…",
+			placeholder: this.textPlaceholder,
 			cls: "lukit-text-input",
 		});
 
@@ -37,9 +45,9 @@ export class AddSectionModal extends Modal {
 			placeholder: DATE_PLACEHOLDER[this.locale],
 			cls: "lukit-text-input",
 		});
-		this.dateInputEl.value = formatDate(this.initialDate, this.locale);
+		this.dateInputEl.value = formatDate(this.defaultDate, this.locale);
 
-		this.nameInputEl.addEventListener("keydown", (e: KeyboardEvent) => {
+		this.textInputEl.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key === "Enter") {
 				e.preventDefault();
 				this.dateInputEl.focus();
@@ -58,7 +66,7 @@ export class AddSectionModal extends Modal {
 		const submitBtn = buttonRow.createEl("button", { text: "Submit", cls: "mod-cta" });
 		submitBtn.addEventListener("click", () => this.submit());
 
-		setTimeout(() => this.nameInputEl.focus(), 10);
+		setTimeout(() => this.textInputEl.focus(), 10);
 	}
 
 	onClose(): void {
@@ -66,10 +74,10 @@ export class AddSectionModal extends Modal {
 	}
 
 	private submit(): void {
-		const name = this.nameInputEl.value.trim();
-		if (name.length === 0) return;
-		const date = parseDateString(this.dateInputEl.value.trim(), this.locale) ?? new Date();
+		const text = this.textInputEl.value.trim();
+		if (text.length === 0) return;
+		const date = parseDateString(this.dateInputEl.value.trim(), this.locale) ?? this.defaultDate;
 		this.close();
-		this.onSubmit(name, date);
+		this.onSubmit(text, date);
 	}
 }
