@@ -49,26 +49,27 @@ export function getTopLevelSectionName(name: string): string {
 	return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
+function isFrontmatterLine(lines: string[], index: number, state: { inFrontmatter: boolean; opened: boolean }): boolean {
+	if (lines[index].trim() === "---") {
+		if (!state.opened) {
+			state.inFrontmatter = true;
+			state.opened = true;
+			return true;
+		}
+		if (state.inFrontmatter) {
+			state.inFrontmatter = false;
+			return true;
+		}
+	}
+	return state.inFrontmatter;
+}
+
 export function convertTopLevelBoldToH1(lines: string[]): number {
 	let changeCount = 0;
-	let inFrontmatter = false;
-	let frontmatterOpened = false;
+	const state = { inFrontmatter: false, opened: false };
 
 	for (let i = 0; i < lines.length; i++) {
-		if (lines[i].trim() === "---") {
-			if (!frontmatterOpened) {
-				inFrontmatter = true;
-				frontmatterOpened = true;
-				continue;
-			}
-			if (inFrontmatter) {
-				inFrontmatter = false;
-				continue;
-			}
-		}
-		if (inFrontmatter) {
-			continue;
-		}
+		if (isFrontmatterLine(lines, i, state)) continue;
 		const result = isStandaloneBold(lines[i]);
 		if (result && isKnownTopLevelSection(result.inner)) {
 			lines[i] = `# ${getTopLevelSectionName(result.inner)}`;
@@ -80,24 +81,10 @@ export function convertTopLevelBoldToH1(lines: string[]): number {
 
 export function convertEntryBoldToH5(lines: string[]): number {
 	let changeCount = 0;
-	let inFrontmatter = false;
-	let frontmatterOpened = false;
+	const state = { inFrontmatter: false, opened: false };
 
 	for (let i = 0; i < lines.length; i++) {
-		if (lines[i].trim() === "---") {
-			if (!frontmatterOpened) {
-				inFrontmatter = true;
-				frontmatterOpened = true;
-				continue;
-			}
-			if (inFrontmatter) {
-				inFrontmatter = false;
-				continue;
-			}
-		}
-		if (inFrontmatter) {
-			continue;
-		}
+		if (isFrontmatterLine(lines, i, state)) continue;
 		const result = isStandaloneBold(lines[i]);
 		if (result && !isKnownTopLevelSection(result.inner)) {
 			lines[i] = `##### ${result.inner}`;

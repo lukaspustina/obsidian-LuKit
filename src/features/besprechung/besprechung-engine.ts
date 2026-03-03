@@ -1,4 +1,11 @@
-export function extractSection(content: string, heading: string): string | null {
+export function extractCreatedDate(content: string): Date | null {
+	const match = /^created:\s*(.+)$/m.exec(content);
+	if (!match) return null;
+	const d = new Date(match[1].trim());
+	return isNaN(d.getTime()) ? null : d;
+}
+
+export function extractSection(content: string, heading: string, bulletsOnly = false): string | null {
 	const lines = content.split("\n");
 	const target = `### ${heading}`;
 
@@ -16,7 +23,11 @@ export function extractSection(content: string, heading: string): string | null 
 
 	let endIdx = lines.length;
 	for (let i = startIdx; i < lines.length; i++) {
-		if (lines[i].trimEnd().startsWith("### ")) {
+		if (/^#{1,3} /.test(lines[i])) {
+			endIdx = i;
+			break;
+		}
+		if (bulletsOnly && lines[i].trim() !== "" && !lines[i].startsWith("- ")) {
 			endIdx = i;
 			break;
 		}
@@ -46,7 +57,7 @@ export function formatBesprechungSummary(
 	const parts: string[] = [];
 
 	for (const heading of sectionHeadings) {
-		const body = extractSection(content, heading);
+		const body = extractSection(content, heading, true);
 		if (body) {
 			parts.push(`**${heading}**\n${body}`);
 		}

@@ -3,6 +3,7 @@ import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature } from "../../types";
 import { addVorgangSection, formatVorgangHeadingText } from "./vorgang-engine";
+import { extractDateFromTitle } from "../../shared/date-format";
 import { formatDiaryEntry, addEntryUnderToday } from "../work-diary/work-diary-engine";
 import { AddSectionModal } from "./add-section-modal";
 
@@ -33,9 +34,10 @@ export class VorgangFeature implements LuKitFeature {
 		}
 
 		const locale = this.plugin.settings.dateLocale;
+		const titleDate = extractDateFromTitle(file.basename, locale) ?? undefined;
 		new AddSectionModal(this.plugin.app, locale, async (name, date) => {
 			await this.insertVorgangSection(file, name, date);
-		}).open();
+		}, titleDate).open();
 	}
 
 	private async insertVorgangSection(activeFile: TFile, name: string, date: Date): Promise<void> {

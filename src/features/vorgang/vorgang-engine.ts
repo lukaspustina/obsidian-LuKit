@@ -1,4 +1,4 @@
-import { formatDate, parseDateString } from "../../shared/date-format";
+import { formatDate, parseDateString, extractDateFromTitle } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
 
 export function formatVorgangHeadingText(name: string, locale: DateLocale, date?: Date): string {
@@ -105,74 +105,107 @@ export function addVorgangSection(
 	locale: DateLocale,
 	date?: Date,
 ): { newContent: string; cursorLineIndex: number } {
-	const lines = content.split("\n");
 	const d = date ?? new Date();
 	const bullet = formatVorgangBullet(name, locale, d);
 	const header = formatVorgangHeader(name, locale, d);
+	return insertVorgangContent(content, bullet, header, [], d, locale);
+}
+
+export function addVorgangSectionLinked(
+	content: string,
+	noteName: string,
+	locale: DateLocale,
+	date: Date,
+	bodyLines: string[] = [],
+): { newContent: string; cursorLineIndex: number } {
+	const nameAlreadyHasDate = extractDateFromTitle(noteName, locale) !== null;
+	const bullet = nameAlreadyHasDate
+		? `- [[#${noteName}]]`
+		: formatVorgangBullet(noteName, locale, date);
+	const header = nameAlreadyHasDate
+		? `##### [[${noteName}]]`
+		: `##### [[${noteName}]], ${formatDate(date, locale)}`;
+	return insertVorgangContent(content, bullet, header, bodyLines, date, locale);
+}
+
+function insertVorgangContent(
+	content: string,
+	bullet: string,
+	header: string,
+	bodyLines: string[],
+	date: Date,
+	locale: DateLocale,
+): { newContent: string; cursorLineIndex: number } {
+	const lines = content.split("\n");
+	const hasBody = bodyLines.length > 0;
 	const inhaltIndex = findInhaltSectionIndex(lines);
 
 	if (inhaltIndex === -1) {
 		// Case 1: No # Inhalt — append everything at end
 		const trimmed = content.trimEnd();
-		const section = [
-			"",
-			"# Inhalt",
-			"",
-			bullet,
-			"",
-			header,
-			"",
-			"",
-		].join("\n");
+		if (hasBody) {
+			const section = ["", "# Inhalt", "", bullet, "", header, "", ...bodyLines, ""].join("\n");
+			const newContent = trimmed + section + "\n";
+			const newLines = newContent.split("\n");
+			return { newContent, cursorLineIndex: newLines.length - 2 };
+		}
+		const section = ["", "# Inhalt", "", bullet, "", header, "", ""].join("\n");
 		const newContent = trimmed + section + "\n";
 		const newLines = newContent.split("\n");
-		const cursorLineIndex = newLines.length - 3;
-		return { newContent, cursorLineIndex };
+		return { newContent, cursorLineIndex: newLines.length - 3 };
 	}
 
 	const bulletRange = findInhaltBulletRange(lines, inhaltIndex);
 
 	if (bulletRange === null) {
 		// Case 2: # Inhalt exists but no bullets
-		// Insert bullet after Inhalt header
 		const bulletInsertAt = inhaltIndex + 1;
 		lines.splice(bulletInsertAt, 0, bullet);
 
-		// Find correct h5 position by date
-		const h5InsertAt = findH5InsertIndex(lines, bulletInsertAt + 1, d, locale);
+		const h5InsertAt = findH5InsertIndex(lines, bulletInsertAt + 1, date, locale);
 		if (h5InsertAt !== -1) {
+			if (hasBody) {
+				lines.splice(h5InsertAt, 0, "", header, "", ...bodyLines, "");
+				return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 3 + bodyLines.length };
+			}
 			lines.splice(h5InsertAt, 0, "", header, "", "");
-			const cursorLineIndex = h5InsertAt + 2;
-			return { newContent: lines.join("\n"), cursorLineIndex };
+			return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 2 };
 		}
 
 		// No existing h5 — append at end
 		const trimmedLines = trimTrailingEmptyLines(lines);
+		if (hasBody) {
+			trimmedLines.push("", header, "", ...bodyLines, "");
+			return { newContent: trimmedLines.join("\n"), cursorLineIndex: trimmedLines.length - 1 };
+		}
 		trimmedLines.push("", header, "", "", "");
-		const cursorLineIndex = trimmedLines.length - 3;
-		return { newContent: trimmedLines.join("\n"), cursorLineIndex };
+		return { newContent: trimmedLines.join("\n"), cursorLineIndex: trimmedLines.length - 3 };
 	}
 
 	// Case 3: Normal — # Inhalt with existing bullets
-	// Insert bullet at correct date position
-	const bulletInsertAt = findBulletInsertIndex(lines, bulletRange.firstBullet, bulletRange.afterLastBullet, d, locale);
+	const bulletInsertAt = findBulletInsertIndex(lines, bulletRange.firstBullet, bulletRange.afterLastBullet, date, locale);
 	lines.splice(bulletInsertAt, 0, bullet);
 
-	// Find correct h5 position by date (adjust for inserted bullet line)
 	const adjustedAfterLast = bulletRange.afterLastBullet + 1;
-	const h5InsertAt = findH5InsertIndex(lines, adjustedAfterLast, d, locale);
+	const h5InsertAt = findH5InsertIndex(lines, adjustedAfterLast, date, locale);
 
 	if (h5InsertAt !== -1) {
+		if (hasBody) {
+			lines.splice(h5InsertAt, 0, header, "", ...bodyLines, "");
+			return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 2 + bodyLines.length };
+		}
 		lines.splice(h5InsertAt, 0, header, "", "");
-		const cursorLineIndex = h5InsertAt + 1;
-		return { newContent: lines.join("\n"), cursorLineIndex };
+		return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 1 };
 	}
 
 	// No existing h5 — append at end
 	const trimmedLines = trimTrailingEmptyLines(lines);
+	if (hasBody) {
+		trimmedLines.push("", header, "", ...bodyLines, "");
+		return { newContent: trimmedLines.join("\n"), cursorLineIndex: trimmedLines.length - 1 };
+	}
 	trimmedLines.push("", header, "", "", "");
-	const cursorLineIndex = trimmedLines.length - 3;
-	return { newContent: trimmedLines.join("\n"), cursorLineIndex };
+	return { newContent: trimmedLines.join("\n"), cursorLineIndex: trimmedLines.length - 3 };
 }
 
 function trimTrailingEmptyLines(lines: string[]): string[] {

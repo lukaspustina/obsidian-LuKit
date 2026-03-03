@@ -6,8 +6,9 @@ import {
 	findInhaltSectionIndex,
 	findInhaltBulletRange,
 	addVorgangSection,
+	addVorgangSectionLinked,
 } from "../../src/features/vorgang/vorgang-engine";
-import { formatDate } from "../../src/shared/date-format";
+import { formatDate, extractDateFromTitle } from "../../src/shared/date-format";
 
 describe("formatDate", () => {
 	it("formats a date with zero-padded day and month", () => {
@@ -422,5 +423,129 @@ describe("addVorgangSection", () => {
 
 		expect(archiveBulletIdx).toBeGreaterThan(middleBulletIdx);
 		expect(archiveH5).toBeGreaterThan(middleH5);
+	});
+});
+
+describe("addVorgangSectionLinked", () => {
+	const date = new Date(2026, 1, 6); // 06.02.2026
+
+	it("produces linked h5 header format", () => {
+		const content = "# Fakten\n\n# Inhalt\n- [[#Old, 05.01.2026]]\n\n##### Old, 05.01.2026\n- note";
+		const { newContent } = addVorgangSectionLinked(content, "Besprechung Alpha", "de", date);
+		expect(newContent).toContain("##### [[Besprechung Alpha]], 06.02.2026");
+	});
+
+	it("produces plain anchor bullet (no wikilink brackets)", () => {
+		const content = "# Inhalt\n- [[#Old, 05.01.2026]]\n\n##### Old, 05.01.2026\n- note";
+		const { newContent } = addVorgangSectionLinked(content, "Besprechung Alpha", "de", date);
+		expect(newContent).toContain("- [[#Besprechung Alpha, 06.02.2026]]");
+		expect(newContent).not.toContain("- [[#[[");
+	});
+
+	it("inserts body lines after the h5 header", () => {
+		const content = "# Inhalt\n";
+		const body = ["**Nächste Schritte**", "- Step 1", "- Step 2"];
+		const { newContent } = addVorgangSectionLinked(content, "Meeting Note", "de", date, body);
+		const lines = newContent.split("\n");
+		const h5Idx = lines.indexOf("##### [[Meeting Note]], 06.02.2026");
+		expect(h5Idx).toBeGreaterThan(-1);
+		expect(lines[h5Idx + 1]).toBe("");
+		expect(lines[h5Idx + 2]).toBe("**Nächste Schritte**");
+		expect(lines[h5Idx + 3]).toBe("- Step 1");
+		expect(lines[h5Idx + 4]).toBe("- Step 2");
+	});
+
+	it("inserts in date order relative to existing sections", () => {
+		const content = [
+			"# Inhalt",
+			"- [[#Recent, 10.02.2026]]",
+			"- [[#Old, 01.01.2026]]",
+			"",
+			"##### Recent, 10.02.2026",
+			"- note",
+			"",
+			"##### Old, 01.01.2026",
+			"- note",
+		].join("\n");
+		// date = 06.02.2026 → between Recent and Old
+		const { newContent } = addVorgangSectionLinked(content, "Mid Meeting", "de", date);
+		const lines = newContent.split("\n");
+		const recentBullet = lines.indexOf("- [[#Recent, 10.02.2026]]");
+		const midBullet = lines.indexOf("- [[#Mid Meeting, 06.02.2026]]");
+		const oldBullet = lines.indexOf("- [[#Old, 01.01.2026]]");
+		expect(recentBullet).toBeLessThan(midBullet);
+		expect(midBullet).toBeLessThan(oldBullet);
+
+		const recentH5 = lines.indexOf("##### Recent, 10.02.2026");
+		const midH5 = lines.indexOf("##### [[Mid Meeting]], 06.02.2026");
+		const oldH5 = lines.indexOf("##### Old, 01.01.2026");
+		expect(recentH5).toBeLessThan(midH5);
+		expect(midH5).toBeLessThan(oldH5);
+	});
+
+	it("creates # Inhalt when none exists", () => {
+		const content = "# Fakten und Pointer\n\nSome content";
+		const { newContent } = addVorgangSectionLinked(content, "New Meeting", "de", date);
+		expect(newContent).toContain("# Inhalt");
+		expect(newContent).toContain("- [[#New Meeting, 06.02.2026]]");
+		expect(newContent).toContain("##### [[New Meeting]], 06.02.2026");
+	});
+
+	it("without body behaves like addVorgangSection structurally", () => {
+		const content = "# Inhalt\n";
+		const { newContent: linked } = addVorgangSectionLinked(content, "A", "de", date);
+		const { newContent: plain } = addVorgangSection(content, "A", "de", date);
+		// Both should have a TOC bullet and an h5
+		expect(linked).toContain("- [[#A, 06.02.2026]]");
+		expect(plain).toContain("- [[#A, 06.02.2026]]");
+		// Header differs: linked wraps in [[]]
+		expect(linked).toContain("##### [[A]], 06.02.2026");
+		expect(plain).toContain("##### A, 06.02.2026");
+	});
+
+	it("does not append date when note name already ends with one", () => {
+		const base = "# Inhalt\n";
+		const d = new Date(2026, 2, 2); // 02.03.2026
+		const noteName = "Besprechung - Intro Müller, 02.03.2026";
+		const { newContent } = addVorgangSectionLinked(base, noteName, "de", d);
+		// Date must not appear twice
+		expect(newContent).not.toContain("02.03.2026, 02.03.2026");
+		// Header: just the wikilink, no extra date
+		expect(newContent).toContain(`##### [[${noteName}]]`);
+		expect(newContent).not.toContain(`##### [[${noteName}]], 02.03.2026`);
+		// Bullet: plain anchor without extra date
+		expect(newContent).toContain(`- [[#${noteName}]]`);
+	});
+});
+
+describe("extractDateFromTitle", () => {
+	it("extracts a German date from a Vorgang basename", () => {
+		const d = extractDateFromTitle("Vorgang Kundengespräch, 03.03.2026", "de");
+		expect(d).not.toBeNull();
+		expect(d!.getFullYear()).toBe(2026);
+		expect(d!.getMonth()).toBe(2); // March
+		expect(d!.getDate()).toBe(3);
+	});
+
+	it("extracts an English date", () => {
+		const d = extractDateFromTitle("Vorgang Client Call, 03/03/2026", "en");
+		expect(d).not.toBeNull();
+		expect(d!.getFullYear()).toBe(2026);
+		expect(d!.getMonth()).toBe(2);
+		expect(d!.getDate()).toBe(3);
+	});
+
+	it("extracts an ISO date", () => {
+		const d = extractDateFromTitle("Vorgang Planning, 2026-03-03", "iso");
+		expect(d).not.toBeNull();
+		expect(d!.getFullYear()).toBe(2026);
+	});
+
+	it("returns null when no date in title", () => {
+		expect(extractDateFromTitle("Vorgang Projekt Alpha", "de")).toBeNull();
+	});
+
+	it("returns null when trailing part is not a valid date", () => {
+		expect(extractDateFromTitle("Vorgang Something, not-a-date", "de")).toBeNull();
 	});
 });

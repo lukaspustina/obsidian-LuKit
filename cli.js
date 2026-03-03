@@ -32,6 +32,25 @@ function formatWeekday(date, locale) {
       return null;
   }
 }
+function parseDateString(str, locale) {
+  switch (locale) {
+    case "de": {
+      const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(str);
+      if (!match) return null;
+      return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+    }
+    case "en": {
+      const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(str);
+      if (!match) return null;
+      return new Date(Number(match[3]), Number(match[1]) - 1, Number(match[2]));
+    }
+    case "iso": {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
+      if (!match) return null;
+      return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    }
+  }
+}
 function formatDateWithWeekday(date, locale) {
   const dateStr = formatDate(date, locale);
   const weekday = formatWeekday(date, locale);
@@ -46,17 +65,18 @@ function formatTodayHeader(locale, date) {
   const d = date ?? /* @__PURE__ */ new Date();
   return `##### ${formatDateWithWeekday(d, locale)}`;
 }
-function findThirdSeparatorIndex(lines) {
-  let separatorCount = 0;
+function findNthSeparatorIndex(lines, n) {
+  let count = 0;
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].trim() === "---") {
-      separatorCount++;
-      if (separatorCount === 3) {
-        return i;
-      }
+      count++;
+      if (count === n) return i;
     }
   }
   return -1;
+}
+function findThirdSeparatorIndex(lines) {
+  return findNthSeparatorIndex(lines, 3);
 }
 function findTodayHeaderIndex(lines, afterLine, locale, date) {
   const header = formatTodayHeader(locale, date);
@@ -67,9 +87,28 @@ function findTodayHeaderIndex(lines, afterLine, locale, date) {
   }
   return -1;
 }
+function parseDiaryHeaderDate(header, locale) {
+  const text = header.slice("##### ".length).trim();
+  const lastComma = text.lastIndexOf(", ");
+  const raw = lastComma !== -1 ? text.slice(lastComma + 2).trim() : text;
+  return parseDateString(raw.replace(/\]+$/, ""), locale);
+}
+function findDiaryHeaderInsertPosition(lines, separatorIndex, date, locale) {
+  let lastH5Seen = -1;
+  for (let i = separatorIndex + 1; i < lines.length; i++) {
+    if (!lines[i].startsWith("##### ")) continue;
+    lastH5Seen = i;
+    const existing = parseDiaryHeaderDate(lines[i], locale);
+    if (existing !== null && existing < date) {
+      return i;
+    }
+  }
+  return lastH5Seen === -1 ? separatorIndex + 1 : lines.length;
+}
 function ensureTodayHeader(content, locale, date) {
+  const d = date ?? /* @__PURE__ */ new Date();
   const lines = content.split("\n");
-  const header = formatTodayHeader(locale, date);
+  const header = formatTodayHeader(locale, d);
   const separatorIndex = findThirdSeparatorIndex(lines);
   if (separatorIndex === -1) {
     const trimmedContent = content.trimEnd();
@@ -78,28 +117,36 @@ function ensureTodayHeader(content, locale, date) {
     const headerLineIndex = newLines2.indexOf(header);
     return { newContent, headerLineIndex, fallback: true };
   }
-  const existingIndex = findTodayHeaderIndex(lines, separatorIndex, locale, date);
+  const existingIndex = findTodayHeaderIndex(lines, separatorIndex, locale, d);
   if (existingIndex !== -1) {
     return { newContent: content, headerLineIndex: existingIndex, fallback: false };
   }
-  const before = lines.slice(0, separatorIndex + 1);
-  const after = lines.slice(separatorIndex + 1);
-  const newLines = [...before, header, ...after];
-  return { newContent: newLines.join("\n"), headerLineIndex: separatorIndex + 1, fallback: false };
+  const insertAt = findDiaryHeaderInsertPosition(lines, separatorIndex, d, locale);
+  const newLines = [...lines.slice(0, insertAt), header, ...lines.slice(insertAt)];
+  return { newContent: newLines.join("\n"), headerLineIndex: insertAt, fallback: false };
 }
 function addEntryUnderToday(content, entry, locale, date) {
   const { newContent: contentWithHeader, headerLineIndex } = ensureTodayHeader(content, locale, date);
   const lines = contentWithHeader.split("\n");
   let insertAt = headerLineIndex + 1;
-  while (insertAt < lines.length && lines[insertAt].startsWith("- ")) {
-    insertAt++;
+  while (insertAt < lines.length) {
+    const line = lines[insertAt];
+    if (line.startsWith("- ") || line.length > 0 && /^\s/.test(line)) {
+      insertAt++;
+    } else {
+      break;
+    }
   }
   lines.splice(insertAt, 0, entry);
   return { newContent: lines.join("\n"), entryLineIndex: insertAt };
 }
+function stripWikilinks(text) {
+  return text.replace(/\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/g, (_, target, display) => display ?? target);
+}
 function formatDiaryEntry(noteName, heading) {
   if (heading) {
-    return `- [[${noteName}#${heading}|${noteName}: ${heading}]]`;
+    const cleanHeading = stripWikilinks(heading);
+    return `- [[${noteName}#${cleanHeading}|${noteName}: ${cleanHeading}]]`;
   }
   return `- [[${noteName}]]`;
 }
@@ -111,16 +158,7 @@ function formatReminderEntry(text, locale, date) {
   return `- ${text}, ${formatDate(d, locale)}`;
 }
 function findSecondSeparatorIndex(lines) {
-  let count = 0;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim() === "---") {
-      count++;
-      if (count === 2) {
-        return i;
-      }
-    }
-  }
-  return -1;
+  return findNthSeparatorIndex(lines, 2);
 }
 function findErinnerungenIndex(lines, fromIndex, toIndex) {
   for (let i = fromIndex; i < toIndex; i++) {

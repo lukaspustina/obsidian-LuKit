@@ -1,10 +1,12 @@
-import { Notice } from "obsidian";
+import { Notice, TFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature } from "../../types";
-import { formatBesprechungSummary } from "./besprechung-engine";
+import { formatBesprechungSummary, extractCreatedDate } from "./besprechung-engine";
 import { renderBesprechungSettings } from "./besprechung-settings";
 import { FolderNoteSuggestModal } from "../../shared/modals/folder-note-suggest";
+import { addVorgangSectionLinked } from "../vorgang/vorgang-engine";
+import { extractDateFromTitle } from "../../shared/date-format";
 
 export class BesprechungFeature implements LuKitFeature {
 	id = "besprechung";
@@ -40,9 +42,9 @@ export class BesprechungFeature implements LuKitFeature {
 
 		const headings = this.plugin.settings.besprechung.sectionHeadings;
 
-		new FolderNoteSuggestModal(this.plugin.app, folderPath, "Pick a Besprechung…", async (file) => {
-			const content = await this.plugin.app.vault.read(file);
-			const summary = formatBesprechungSummary(content, headings);
+		new FolderNoteSuggestModal(this.plugin.app, folderPath, "Pick a Besprechung…", async (besprechungFile) => {
+			const besprechungContent = await this.plugin.app.vault.read(besprechungFile);
+			const summary = formatBesprechungSummary(besprechungContent, headings);
 
 			if (!summary) {
 				const names = headings.join(" or ");
@@ -56,8 +58,37 @@ export class BesprechungFeature implements LuKitFeature {
 				return;
 			}
 
-			const cursor = activeEditor.getCursor();
-			activeEditor.replaceRange(summary, cursor);
+			const activeFile = this.plugin.app.workspace.getActiveFile();
+			if (activeFile && this.isVorgangNote(activeFile)) {
+				const locale = this.plugin.settings.dateLocale;
+				const date = extractDateFromTitle(activeFile.basename, locale)
+					?? extractCreatedDate(besprechungContent)
+					?? new Date();
+				const vorgangContent = activeEditor.getValue();
+				const { newContent, cursorLineIndex } = addVorgangSectionLinked(
+					vorgangContent,
+					besprechungFile.basename,
+					locale,
+					date,
+					summary.split("\n"),
+				);
+				activeEditor.setValue(newContent);
+				const pos = { line: cursorLineIndex, ch: 0 };
+				activeEditor.setCursor(pos);
+				activeEditor.scrollIntoView({ from: pos, to: pos }, true);
+			} else {
+				const cursor = activeEditor.getCursor();
+				activeEditor.replaceRange(summary, cursor);
+			}
 		}).open();
+	}
+
+	private isVorgangNote(file: TFile): boolean {
+		if (file.basename.startsWith("Vorgang")) return true;
+		const cache = this.plugin.app.metadataCache.getFileCache(file);
+		const tags = cache?.frontmatter?.tags;
+		if (typeof tags === "string") return tags === "Vorgang";
+		if (Array.isArray(tags)) return (tags as string[]).includes("Vorgang");
+		return false;
 	}
 }

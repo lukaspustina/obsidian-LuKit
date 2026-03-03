@@ -55,6 +55,13 @@ export function parseDateString(str: string, locale: DateLocale): Date | null {
 	}
 }
 
+export function extractDateFromTitle(title: string, locale: DateLocale): Date | null {
+	const lastComma = title.lastIndexOf(", ");
+	if (lastComma === -1) return null;
+	const candidate = title.slice(lastComma + 2).trim();
+	return parseDateString(candidate, locale);
+}
+
 export function formatDateWithWeekday(date: Date, locale: DateLocale): string {
 	const dateStr = formatDate(date, locale);
 	const weekday = formatWeekday(date, locale);

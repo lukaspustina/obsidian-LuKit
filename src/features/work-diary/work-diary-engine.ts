@@ -1,4 +1,4 @@
-import { formatDate, formatDateWithWeekday } from "../../shared/date-format";
+import { formatDate, formatDateWithWeekday, parseDateString } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
 
 export function formatTodayHeader(locale: DateLocale, date?: Date): string {
@@ -6,17 +6,19 @@ export function formatTodayHeader(locale: DateLocale, date?: Date): string {
 	return `##### ${formatDateWithWeekday(d, locale)}`;
 }
 
-export function findThirdSeparatorIndex(lines: string[]): number {
-	let separatorCount = 0;
+function findNthSeparatorIndex(lines: string[], n: number): number {
+	let count = 0;
 	for (let i = 0; i < lines.length; i++) {
 		if (lines[i].trim() === "---") {
-			separatorCount++;
-			if (separatorCount === 3) {
-				return i;
-			}
+			count++;
+			if (count === n) return i;
 		}
 	}
 	return -1;
+}
+
+export function findThirdSeparatorIndex(lines: string[]): number {
+	return findNthSeparatorIndex(lines, 3);
 }
 
 export function findTodayHeaderIndex(lines: string[], afterLine: number, locale: DateLocale, date?: Date): number {
@@ -29,9 +31,35 @@ export function findTodayHeaderIndex(lines: string[], afterLine: number, locale:
 	return -1;
 }
 
+function parseDiaryHeaderDate(header: string, locale: DateLocale): Date | null {
+	const text = header.slice("##### ".length).trim();
+	const lastComma = text.lastIndexOf(", ");
+	const raw = lastComma !== -1 ? text.slice(lastComma + 2).trim() : text;
+	return parseDateString(raw.replace(/\]+$/, ""), locale);
+}
+
+function findDiaryHeaderInsertPosition(
+	lines: string[],
+	separatorIndex: number,
+	date: Date,
+	locale: DateLocale,
+): number {
+	let lastH5Seen = -1;
+	for (let i = separatorIndex + 1; i < lines.length; i++) {
+		if (!lines[i].startsWith("##### ")) continue;
+		lastH5Seen = i;
+		const existing = parseDiaryHeaderDate(lines[i], locale);
+		if (existing !== null && existing < date) {
+			return i;
+		}
+	}
+	return lastH5Seen === -1 ? separatorIndex + 1 : lines.length;
+}
+
 export function ensureTodayHeader(content: string, locale: DateLocale, date?: Date): { newContent: string; headerLineIndex: number; fallback: boolean } {
+	const d = date ?? new Date();
 	const lines = content.split("\n");
-	const header = formatTodayHeader(locale, date);
+	const header = formatTodayHeader(locale, d);
 
 	const separatorIndex = findThirdSeparatorIndex(lines);
 
@@ -44,16 +72,15 @@ export function ensureTodayHeader(content: string, locale: DateLocale, date?: Da
 		return { newContent, headerLineIndex, fallback: true };
 	}
 
-	const existingIndex = findTodayHeaderIndex(lines, separatorIndex, locale, date);
+	const existingIndex = findTodayHeaderIndex(lines, separatorIndex, locale, d);
 	if (existingIndex !== -1) {
 		return { newContent: content, headerLineIndex: existingIndex, fallback: false };
 	}
 
-	// Insert header after separator, with a blank line in between
-	const before = lines.slice(0, separatorIndex + 1);
-	const after = lines.slice(separatorIndex + 1);
-	const newLines = [...before, header, ...after];
-	return { newContent: newLines.join("\n"), headerLineIndex: separatorIndex + 1, fallback: false };
+	// Insert header at the correct date-ordered position (reverse-chronological)
+	const insertAt = findDiaryHeaderInsertPosition(lines, separatorIndex, d, locale);
+	const newLines = [...lines.slice(0, insertAt), header, ...lines.slice(insertAt)];
+	return { newContent: newLines.join("\n"), headerLineIndex: insertAt, fallback: false };
 }
 
 export function validateDiaryStructure(content: string): string[] {
@@ -75,8 +102,10 @@ export function entryExistsUnderToday(content: string, entry: string, locale: Da
 	const todayIndex = findTodayHeaderIndex(lines, separatorIndex, locale, date);
 	if (todayIndex === -1) return false;
 	let i = todayIndex + 1;
-	while (i < lines.length && lines[i].startsWith("- ")) {
-		if (lines[i] === entry) return true;
+	while (i < lines.length) {
+		const line = lines[i];
+		if (!line.startsWith("- ") && !(line.length > 0 && /^\s/.test(line))) break;
+		if (line === entry) return true;
 		i++;
 	}
 	return false;
@@ -86,19 +115,29 @@ export function addEntryUnderToday(content: string, entry: string, locale: DateL
 	const { newContent: contentWithHeader, headerLineIndex } = ensureTodayHeader(content, locale, date);
 	const lines = contentWithHeader.split("\n");
 
-	// Find insertion point: right after header and any existing entries
+	// Find insertion point: after header, all top-level bullets, and any indented sub-content
 	let insertAt = headerLineIndex + 1;
-	while (insertAt < lines.length && lines[insertAt].startsWith("- ")) {
-		insertAt++;
+	while (insertAt < lines.length) {
+		const line = lines[insertAt];
+		if (line.startsWith("- ") || (line.length > 0 && /^\s/.test(line))) {
+			insertAt++;
+		} else {
+			break;
+		}
 	}
 
 	lines.splice(insertAt, 0, entry);
 	return { newContent: lines.join("\n"), entryLineIndex: insertAt };
 }
 
+export function stripWikilinks(text: string): string {
+	return text.replace(/\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/g, (_, target, display: string | undefined) => display ?? target);
+}
+
 export function formatDiaryEntry(noteName: string, heading: string | null): string {
 	if (heading) {
-		return `- [[${noteName}#${heading}|${noteName}: ${heading}]]`;
+		const cleanHeading = stripWikilinks(heading);
+		return `- [[${noteName}#${cleanHeading}|${noteName}: ${cleanHeading}]]`;
 	}
 	return `- [[${noteName}]]`;
 }
@@ -113,16 +152,7 @@ export function formatReminderEntry(text: string, locale: DateLocale, date?: Dat
 }
 
 function findSecondSeparatorIndex(lines: string[]): number {
-	let count = 0;
-	for (let i = 0; i < lines.length; i++) {
-		if (lines[i].trim() === "---") {
-			count++;
-			if (count === 2) {
-				return i;
-			}
-		}
-	}
-	return -1;
+	return findNthSeparatorIndex(lines, 2);
 }
 
 function findErinnerungenIndex(lines: string[], fromIndex: number, toIndex: number): number {

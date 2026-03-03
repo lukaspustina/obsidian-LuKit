@@ -13,8 +13,8 @@ Maintains a reverse-chronological work diary in a single note. Each day gets an 
 - **Diary: Ensure today's header** — Creates today's date header if missing, opens the diary note and positions the cursor below it.
 - **Diary: Add linked entry** — Pick a note and heading via fuzzy search, inserts a linked entry under today's header. Stays in the current note.
 - **Diary: Add current note** — Adds the currently open note (with the heading at cursor position) as a diary entry in one step — no modals. Rejects if the active file is the diary note itself.
-- **Diary: Add text entry** — Type free text, inserts it as a bullet under today's header. Stays in the current note.
-- **Diary: Add reminder** — Type a quick thought or reminder, inserts it under a `# Erinnerungen` section between frontmatter and the diary separator (third `---`). Newest entries appear first, each tagged with the current date (e.g., `- Call dentist, 07.02.2026`).
+- **Diary: Add text entry** — Type free text and pick a date (defaults to today), inserts it as a bullet under that date's header. Stays in the current note.
+- **Diary: Add reminder** — Type a reminder and pick a due date (defaults to today), inserts it under a `# Erinnerungen` section between frontmatter and the diary separator (third `---`). Newest entries appear first, each tagged with the chosen date (e.g., `- Call dentist, 13.02.2026`).
 
 **Setup:** Set the diary note path in Settings > LuKit.
 
@@ -66,8 +66,8 @@ Controls the date format used in diary headers, Vorgang sections, and reminders.
 | **Diary: Ensure today's header** | Creates today's date header if missing, opens the diary note |
 | **Diary: Add linked entry** | Pick a note and heading via fuzzy search, inserts under today's header |
 | **Diary: Add current note** | Add the active note (with heading at cursor) as a diary entry — no modals |
-| **Diary: Add text entry** | Type free text, inserts as a bullet under today's header |
-| **Diary: Add reminder** | Type a reminder, inserts under `# Erinnerungen` with date |
+| **Diary: Add text entry** | Type free text and pick a date, inserts as a bullet under that date's header |
+| **Diary: Add reminder** | Type a reminder and pick a due date, inserts under `# Erinnerungen` |
 | **Vorgang: Add section** | Prompts for a name, inserts TOC entry + h5 header section + diary entry |
 | **Besprechung: Add summary** | Pick a meeting note, extract key sections, insert at cursor |
 | **Migration: Convert note** | Auto-detect note type and convert old format to current |

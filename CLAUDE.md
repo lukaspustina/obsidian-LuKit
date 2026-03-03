@@ -16,7 +16,8 @@ LuKit is a modular Obsidian plugin (v1.10.0) that bundles workflow automations f
 Maintains a reverse-chronological diary in a single note. The diary note has frontmatter, then an optional `# Erinnerungen` section, then a third `---` separator, below which are date-headed entries.
 - Date headers: h5 with locale-dependent format (e.g., `##### Fr, 06.02.2026` for `de`, `##### Fri, 02/06/2026` for `en`, `##### 2026-02-06` for `iso`)
 - Entries are bullet points: linked (`- [[NoteName#Heading|NoteName: Heading]]`) or plain text (`- some text`)
-- Reminders go under `# Erinnerungen` between frontmatter and the third `---` separator, tagged with date (`- Call dentist, 07.02.2026`)
+- "Add text entry" and "Add reminder" commands prompt for text and a date (via `TextDateModal`, defaults to today); entries and reminders are filed under the chosen date's header
+- Reminders go under `# Erinnerungen` between frontmatter and the third `---` separator, tagged with the chosen date (`- Call dentist, 13.02.2026`)
 - The third `---` separator is a critical structural element — diary entries go below it
 - "Add current note" command: adds the active note (with heading at cursor) as a diary entry — no modals, rejects if active file is the diary note
 - Engine: `work-diary-engine.ts` (pure logic), Feature: `work-diary-feature.ts` (Obsidian commands)
@@ -30,7 +31,7 @@ Automates adding sections to "Vorgang" (case/process) notes. A Vorgang note has:
 - Adding a section creates both a TOC entry and an h5 header, placing cursor for immediate typing
 - Adding a section prompts for a name and a date (defaults to today); the diary entry is placed under the chosen date's header in the configured diary note; silently skips if no diary path is configured
 - `formatVorgangHeadingText(name, locale, date?)` returns the heading text without the `##### ` prefix (e.g., `"Section, DD.MM.YYYY"`)
-- Engine: `vorgang-engine.ts`, Feature: `vorgang-feature.ts`
+- Engine: `vorgang-engine.ts`, Feature: `vorgang-feature.ts`, Modal: `add-section-modal.ts` (feature-specific two-field modal: section name + date)
 
 ### Besprechung (`src/features/besprechung/`)
 Extracts key sections from meeting notes and inserts formatted summaries at cursor.
@@ -57,7 +58,7 @@ Command-line interface for use outside Obsidian. Commands: `add-text-to-diary`, 
 - `src/settings.ts` — main settings tab, composes sections from features
 - `src/cli.ts` — CLI entry point, parsed with minimal deps (no Obsidian imports)
 - `src/shared/date-format.ts` — shared date formatting module (`DateLocale` type, `formatDate`, `formatWeekday`, `formatDateWithWeekday`)
-- `src/shared/modals/` — reusable modals (`confirm-modal`, `text-input-modal`, `note-suggest`, `folder-note-suggest`, `heading-suggest`, `help-modal`)
+- `src/shared/modals/` — reusable modals (`confirm-modal`, `text-input-modal`, `text-date-modal`, `note-suggest`, `folder-note-suggest`, `heading-suggest`, `help-modal`)
 - `src/features/<name>/` — self-contained feature modules
 
 ### Feature Module Pattern

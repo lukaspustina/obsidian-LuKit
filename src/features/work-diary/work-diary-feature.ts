@@ -1,4 +1,5 @@
 import { Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { extractDateFromTitle } from "../../shared/date-format";
 import type { CachedMetadata, HeadingCache } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
@@ -11,11 +12,12 @@ import {
 	formatTextEntry,
 	formatReminderEntry,
 	addReminder,
+	stripWikilinks,
 } from "./work-diary-engine";
 import { renderWorkDiarySettings } from "./work-diary-settings";
 import { NoteSuggestModal } from "../../shared/modals/note-suggest";
 import { HeadingSuggestModal } from "../../shared/modals/heading-suggest";
-import { TextInputModal } from "../../shared/modals/text-input-modal";
+import { TextDateModal } from "../../shared/modals/text-date-modal";
 
 export class WorkDiaryFeature implements LuKitFeature {
 	id = "work-diary";
@@ -121,12 +123,11 @@ export class WorkDiaryFeature implements LuKitFeature {
 		const locale = this.plugin.settings.dateLocale;
 		new NoteSuggestModal(this.plugin.app, (selectedFile) => {
 			new HeadingSuggestModal(this.plugin.app, selectedFile, async (heading) => {
-				const entry = formatDiaryEntry(
-					selectedFile.basename,
-					heading,
-				);
+				const cleanedHeading = heading ? stripWikilinks(heading) : null;
+				const entry = formatDiaryEntry(selectedFile.basename, cleanedHeading);
+				const date = extractDateFromTitle(cleanedHeading ?? selectedFile.basename, locale) ?? new Date();
 				await this.plugin.app.vault.process(file, (content) => {
-					const { newContent } = addEntryUnderToday(content, entry, locale);
+					const { newContent } = addEntryUnderToday(content, entry, locale, date);
 					return newContent;
 				});
 				new Notice("Diary entry added.");
@@ -139,10 +140,10 @@ export class WorkDiaryFeature implements LuKitFeature {
 		if (!file) return;
 
 		const locale = this.plugin.settings.dateLocale;
-		new TextInputModal(this.plugin.app, "Diary entry…", async (text) => {
+		new TextDateModal(this.plugin.app, "Diary entry…", locale, async (text, date) => {
 			const entry = formatTextEntry(text);
 			await this.plugin.app.vault.process(file, (content) => {
-				const { newContent } = addEntryUnderToday(content, entry, locale);
+				const { newContent } = addEntryUnderToday(content, entry, locale, date);
 				return newContent;
 			});
 			new Notice("Text entry added.");
@@ -154,8 +155,8 @@ export class WorkDiaryFeature implements LuKitFeature {
 		if (!file) return;
 
 		const locale = this.plugin.settings.dateLocale;
-		new TextInputModal(this.plugin.app, "Reminder…", async (text) => {
-			const entry = formatReminderEntry(text, locale);
+		new TextDateModal(this.plugin.app, "Reminder…", locale, async (text, date) => {
+			const entry = formatReminderEntry(text, locale, date);
 			let success = false;
 			await this.plugin.app.vault.process(file, (content) => {
 				const result = addReminder(content, entry);
@@ -190,15 +191,17 @@ export class WorkDiaryFeature implements LuKitFeature {
 
 		const locale = this.plugin.settings.dateLocale;
 		const heading = this.getHeadingAtCursor(activeFile);
-		const entry = formatDiaryEntry(activeFile.basename, heading);
+		const cleanedHeading = heading ? stripWikilinks(heading) : null;
+		const entry = formatDiaryEntry(activeFile.basename, cleanedHeading);
+		const date = extractDateFromTitle(cleanedHeading ?? activeFile.basename, locale) ?? new Date();
 
 		let alreadyExists = false;
 		await this.plugin.app.vault.process(diaryFile, (content) => {
-			if (entryExistsUnderToday(content, entry, locale)) {
+			if (entryExistsUnderToday(content, entry, locale, date)) {
 				alreadyExists = true;
 				return content;
 			}
-			const { newContent } = addEntryUnderToday(content, entry, locale);
+			const { newContent } = addEntryUnderToday(content, entry, locale, date);
 			return newContent;
 		});
 
