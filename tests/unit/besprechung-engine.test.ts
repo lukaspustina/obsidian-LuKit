@@ -190,7 +190,29 @@ describe("formatBesprechungSummary", () => {
 		expect(result).toContain("- Bullet with **bold** and [[link]]");
 	});
 
-	it("stops at a non-bullet line within a section", () => {
+	it("removes blank lines adjacent to label lines", () => {
+		const content = [
+			"### Nächste Schritte",
+			"",
+			"Lukas:",
+			"",
+			"- Bullet 1",
+			"- Bullet 2",
+			"",
+			"Wolfram:",
+			"",
+			"- Bullet 3",
+			"### Zusammenfassung",
+			"- Summary",
+		].join("\n");
+
+		const result = formatBesprechungSummary(content);
+		expect(result).toContain("Lukas:\n- Bullet 1");
+		expect(result).toContain("- Bullet 2\nWolfram:");
+		expect(result).toContain("Wolfram:\n- Bullet 3");
+	});
+
+	it("includes label lines and subsequent bullets within a section", () => {
 		const content = [
 			"### Nächste Schritte",
 			"- First bullet",
@@ -202,8 +224,8 @@ describe("formatBesprechungSummary", () => {
 
 		const result = formatBesprechungSummary(content);
 		expect(result).toContain("- First bullet");
-		expect(result).not.toContain("Some label:");
-		expect(result).not.toContain("- Second bullet");
+		expect(result).toContain("Some label:");
+		expect(result).toContain("- Second bullet (after label)");
 	});
 
 	it("extracts custom section headings", () => {
