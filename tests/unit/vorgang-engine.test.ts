@@ -442,17 +442,16 @@ describe("addVorgangSectionLinked", () => {
 		expect(newContent).not.toContain("- [[#[[");
 	});
 
-	it("inserts body lines after the h5 header", () => {
+	it("inserts body lines directly after the h5 header (no blank line)", () => {
 		const content = "# Inhalt\n";
 		const body = ["**Nächste Schritte**", "- Step 1", "- Step 2"];
 		const { newContent } = addVorgangSectionLinked(content, "Meeting Note", "de", date, body);
 		const lines = newContent.split("\n");
 		const h5Idx = lines.indexOf("##### [[Meeting Note]], 06.02.2026");
 		expect(h5Idx).toBeGreaterThan(-1);
-		expect(lines[h5Idx + 1]).toBe("");
-		expect(lines[h5Idx + 2]).toBe("**Nächste Schritte**");
-		expect(lines[h5Idx + 3]).toBe("- Step 1");
-		expect(lines[h5Idx + 4]).toBe("- Step 2");
+		expect(lines[h5Idx + 1]).toBe("**Nächste Schritte**");
+		expect(lines[h5Idx + 2]).toBe("- Step 1");
+		expect(lines[h5Idx + 3]).toBe("- Step 2");
 	});
 
 	it("inserts in date order relative to existing sections", () => {

@@ -144,7 +144,7 @@ function insertVorgangContent(
 		// Case 1: No # Inhalt — append everything at end
 		const trimmed = content.trimEnd();
 		if (hasBody) {
-			const section = ["", "# Inhalt", "", bullet, "", header, "", ...bodyLines, ""].join("\n");
+			const section = ["", "# Inhalt", "", bullet, "", header, ...bodyLines, ""].join("\n");
 			const newContent = trimmed + section + "\n";
 			const newLines = newContent.split("\n");
 			return { newContent, cursorLineIndex: newLines.length - 2 };
@@ -165,8 +165,8 @@ function insertVorgangContent(
 		const h5InsertAt = findH5InsertIndex(lines, bulletInsertAt + 1, date, locale);
 		if (h5InsertAt !== -1) {
 			if (hasBody) {
-				lines.splice(h5InsertAt, 0, "", header, "", ...bodyLines, "");
-				return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 3 + bodyLines.length };
+				lines.splice(h5InsertAt, 0, "", header, ...bodyLines, "");
+				return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 2 + bodyLines.length };
 			}
 			lines.splice(h5InsertAt, 0, "", header, "", "");
 			return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 2 };
@@ -175,7 +175,7 @@ function insertVorgangContent(
 		// No existing h5 — append at end
 		const trimmedLines = trimTrailingEmptyLines(lines);
 		if (hasBody) {
-			trimmedLines.push("", header, "", ...bodyLines, "");
+			trimmedLines.push("", header, ...bodyLines, "");
 			return { newContent: trimmedLines.join("\n"), cursorLineIndex: trimmedLines.length - 1 };
 		}
 		trimmedLines.push("", header, "", "", "");
@@ -191,8 +191,8 @@ function insertVorgangContent(
 
 	if (h5InsertAt !== -1) {
 		if (hasBody) {
-			lines.splice(h5InsertAt, 0, header, "", ...bodyLines, "");
-			return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 2 + bodyLines.length };
+			lines.splice(h5InsertAt, 0, header, ...bodyLines, "");
+			return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 1 + bodyLines.length };
 		}
 		lines.splice(h5InsertAt, 0, header, "", "");
 		return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 1 };
@@ -201,7 +201,7 @@ function insertVorgangContent(
 	// No existing h5 — append at end
 	const trimmedLines = trimTrailingEmptyLines(lines);
 	if (hasBody) {
-		trimmedLines.push("", header, "", ...bodyLines, "");
+		trimmedLines.push("", header, ...bodyLines, "");
 		return { newContent: trimmedLines.join("\n"), cursorLineIndex: trimmedLines.length - 1 };
 	}
 	trimmedLines.push("", header, "", "", "");

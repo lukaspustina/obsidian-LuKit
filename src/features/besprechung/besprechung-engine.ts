@@ -50,6 +50,23 @@ export function extractSection(content: string, heading: string, bulletsOnly = f
 	return body.join("\n");
 }
 
+function removeBlankAdjacentToLabel(body: string): string {
+	const lines = body.split("\n");
+	const result: string[] = [];
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		const prev = result[result.length - 1];
+		const next = lines[i + 1];
+		const isBlank = line.trim() === "";
+		const isLabel = (s: string | undefined) => s !== undefined && s.trim() !== "" && !s.startsWith("- ");
+		if (isBlank && (isLabel(prev) || isLabel(next))) {
+			continue;
+		}
+		result.push(line);
+	}
+	return result.join("\n");
+}
+
 export function formatBesprechungSummary(
 	content: string,
 	sectionHeadings: string[] = ["Nächste Schritte", "Zusammenfassung"],
@@ -57,9 +74,9 @@ export function formatBesprechungSummary(
 	const parts: string[] = [];
 
 	for (const heading of sectionHeadings) {
-		const body = extractSection(content, heading, true);
+		const body = extractSection(content, heading);
 		if (body) {
-			parts.push(`**${heading}**\n${body}`);
+			parts.push(`**${heading}**\n${removeBlankAdjacentToLabel(body)}`);
 		}
 	}
 

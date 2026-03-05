@@ -44,7 +44,13 @@ export default class LuKitPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const saved = (await this.loadData()) ?? {};
+		this.settings = {
+			...DEFAULT_SETTINGS,
+			...saved,
+			workDiary: { ...DEFAULT_SETTINGS.workDiary, ...(saved.workDiary ?? {}) },
+			besprechung: { ...DEFAULT_SETTINGS.besprechung, ...(saved.besprechung ?? {}) },
+		};
 	}
 
 	async saveSettings(): Promise<void> {
