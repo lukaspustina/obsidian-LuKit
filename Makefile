@@ -1,25 +1,27 @@
-.PHONY: install build dev test lint clean release
+.PHONY: install build dev test lint clean release help
 
-install:
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*##"}; {printf "  %-10s %s\n", $$1, $$2}'
+
+install: ## Install dependencies
 	npm ci
 
-build:
+build: ## Typecheck and bundle main.js + cli.js
 	npm run build
 
-dev:
+dev: ## Bundle in watch mode (no typecheck)
 	npm run dev
 
-test:
+test: ## Run all tests
 	npm run test
 
-lint:
+lint: ## Typecheck without emitting
 	tsc --noEmit
 
-clean:
+clean: ## Remove build artifacts
 	rm -f main.js cli.js
 
-# Usage: make release V=1.2.3
-release:
+release: ## Build, test, commit, tag and publish (V=x.y.z)
 	@test -n "$(V)" || (echo "Error: set V=x.y.z" && exit 1)
 	npm version $(V) --no-git-tag-version
 	node version-bump.mjs
