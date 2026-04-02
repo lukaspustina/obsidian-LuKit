@@ -1,10 +1,7 @@
 import { Setting } from "obsidian";
 import type LuKitPlugin from "../../main";
 
-export interface BesprechungSettings {
-	folderPath: string;
-	sectionHeadings: string[];
-}
+export type { BesprechungSettings } from "../../types";
 
 export function renderBesprechungSettings(
 	containerEl: HTMLElement,

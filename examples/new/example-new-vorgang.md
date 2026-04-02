@@ -27,6 +27,6 @@ tags:
 ##### Erstattung Guthaben: 100,49, 17.09.2025
 - Hauskonto
 
-##### Abschlussrechnung, 12.09.2025**
+##### Abschlussrechnung, 12.09.2025
 - Rechnung
 

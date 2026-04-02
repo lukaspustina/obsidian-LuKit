@@ -104,6 +104,38 @@ describe("extractSection", () => {
 	});
 });
 
+describe("extractSection with bulletsOnly=true", () => {
+	it("stops at first non-bullet non-blank line", () => {
+		const content = [
+			"### Section",
+			"- Bullet 1",
+			"Label:",
+			"- Bullet 2",
+		].join("\n");
+		expect(extractSection(content, "Section", true)).toBe("- Bullet 1");
+	});
+
+	it("includes all bullets when no label lines present", () => {
+		const content = "### Section\n- A\n- B\n- C";
+		expect(extractSection(content, "Section", true)).toBe("- A\n- B\n- C");
+	});
+
+	it("passes through blank lines between bullets", () => {
+		const content = "### Section\n- A\n\n- B";
+		expect(extractSection(content, "Section", true)).toBe("- A\n\n- B");
+	});
+
+	it("returns null when no bullets at all", () => {
+		const content = "### Section\nJust prose.";
+		expect(extractSection(content, "Section", true)).toBeNull();
+	});
+
+	it("defaults to bulletsOnly=false — includes non-bullet lines", () => {
+		const content = "### Section\n- Bullet\nProse line";
+		expect(extractSection(content, "Section")).toBe("- Bullet\nProse line");
+	});
+});
+
 describe("formatBesprechungSummary", () => {
 	it("formats both sections when present", () => {
 		const content = [

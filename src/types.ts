@@ -1,7 +1,14 @@
 import type LuKitPlugin from "./main";
-import type { WorkDiarySettings } from "./features/work-diary/work-diary-settings";
-import type { BesprechungSettings } from "./features/besprechung/besprechung-settings";
 import type { DateLocale } from "./shared/date-format";
+
+export interface WorkDiarySettings {
+	diaryNotePath: string;
+}
+
+export interface BesprechungSettings {
+	folderPath: string;
+	sectionHeadings: string[];
+}
 
 export interface LuKitFeature {
 	id: string;
@@ -28,3 +35,12 @@ export const DEFAULT_SETTINGS: LuKitSettings = {
 		sectionHeadings: ["Nächste Schritte", "Zusammenfassung"],
 	},
 };
+
+export function mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings {
+	return {
+		...DEFAULT_SETTINGS,
+		...saved,
+		workDiary: { ...DEFAULT_SETTINGS.workDiary, ...(saved.workDiary ?? {}) },
+		besprechung: { ...DEFAULT_SETTINGS.besprechung, ...(saved.besprechung ?? {}) },
+	};
+}

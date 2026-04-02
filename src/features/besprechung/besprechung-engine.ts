@@ -1,6 +1,7 @@
 export function extractCreatedDate(content: string): Date | null {
 	const match = /^created:\s*(.+)$/m.exec(content);
 	if (!match) return null;
+	// new Date() accepts ISO date strings from frontmatter; isNaN guards against invalid values
 	const d = new Date(match[1].trim());
 	return isNaN(d.getTime()) ? null : d;
 }
@@ -35,19 +36,16 @@ export function extractSection(content: string, heading: string, bulletsOnly = f
 
 	const body = lines.slice(startIdx, endIdx);
 
-	// Trim leading and trailing blank lines
-	while (body.length > 0 && body[0].trim() === "") {
-		body.shift();
-	}
-	while (body.length > 0 && body[body.length - 1].trim() === "") {
-		body.pop();
-	}
+	let start = 0;
+	let end = body.length;
+	while (start < end && body[start].trim() === "") start++;
+	while (end > start && body[end - 1].trim() === "") end--;
 
-	if (body.length === 0) {
+	if (start >= end) {
 		return null;
 	}
 
-	return body.join("\n");
+	return body.slice(start, end).join("\n");
 }
 
 function removeBlankAdjacentToLabel(body: string): string {

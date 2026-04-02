@@ -4,7 +4,7 @@ import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature } from "../../types";
 import { addVorgangSection, formatVorgangHeadingText } from "./vorgang-engine";
 import { extractDateFromTitle } from "../../shared/date-format";
-import { formatDiaryEntry, addEntryUnderToday } from "../work-diary/work-diary-engine";
+import { formatDiaryEntry, addEntryUnderToday } from "../../shared/diary";
 import { AddSectionModal } from "./add-section-modal";
 
 export class VorgangFeature implements LuKitFeature {
@@ -48,10 +48,17 @@ export class VorgangFeature implements LuKitFeature {
 		}
 
 		const locale = this.plugin.settings.dateLocale;
-		const content = editor.getValue();
-		const { newContent, cursorLineIndex } = addVorgangSection(content, name, locale, date);
-
-		editor.setValue(newContent);
+		let content: string;
+		let newContent: string;
+		let cursorLineIndex: number;
+		try {
+			content = editor.getValue();
+			({ newContent, cursorLineIndex } = addVorgangSection(content, name, locale, date));
+			editor.setValue(newContent);
+		} catch (e) {
+			new Notice("LuKit: Failed to insert section: " + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
 		const pos = { line: cursorLineIndex, ch: 0 };
 		editor.setCursor(pos);
 		editor.scrollIntoView({ from: pos, to: pos }, true);
@@ -64,15 +71,22 @@ export class VorgangFeature implements LuKitFeature {
 		if (!diaryPath) return;
 
 		const diaryAbstract = this.plugin.app.vault.getAbstractFileByPath(diaryPath);
-		if (!(diaryAbstract instanceof TFile)) return;
+		if (!(diaryAbstract instanceof TFile)) {
+			new Notice("LuKit: Diary note not found; diary entry skipped.");
+			return;
+		}
 
 		const locale = this.plugin.settings.dateLocale;
 		const headingText = formatVorgangHeadingText(sectionName, locale, date);
 		const entry = formatDiaryEntry(activeFile.basename, headingText);
 
-		await this.plugin.app.vault.process(diaryAbstract, (content) => {
-			const { newContent } = addEntryUnderToday(content, entry, locale, date);
-			return newContent;
-		});
+		try {
+			await this.plugin.app.vault.process(diaryAbstract, (content) => {
+				const { newContent } = addEntryUnderToday(content, entry, locale, date);
+				return newContent;
+			});
+		} catch (e) {
+			new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+		}
 	}
 }

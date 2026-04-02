@@ -51,6 +51,9 @@ function parseDateString(str, locale) {
     }
   }
 }
+function isDateLocale(v) {
+  return v === "de" || v === "en" || v === "iso";
+}
 function formatDateWithWeekday(date, locale) {
   const dateStr = formatDate(date, locale);
   const weekday = formatWeekday(date, locale);
@@ -144,11 +147,12 @@ function stripWikilinks(text) {
   return text.replace(/\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/g, (_, target, display) => display ?? target);
 }
 function formatDiaryEntry(noteName, heading) {
+  const safeName = noteName.replace(/\]\]|\|/g, "");
   if (heading) {
-    const cleanHeading = stripWikilinks(heading);
-    return `- [[${noteName}#${cleanHeading}|${noteName}: ${cleanHeading}]]`;
+    const cleanHeading = stripWikilinks(heading).replace(/\]\]|\|/g, "");
+    return `- [[${safeName}#${cleanHeading}|${safeName}: ${cleanHeading}]]`;
   }
-  return `- [[${noteName}]]`;
+  return `- [[${safeName}]]`;
 }
 function formatTextEntry(text) {
   return `- ${text}`;
@@ -216,10 +220,11 @@ function loadLocale() {
   if ((0, import_fs.existsSync)(configPath)) {
     try {
       const config = JSON.parse((0, import_fs.readFileSync)(configPath, "utf-8"));
-      if (config.dateLocale === "de" || config.dateLocale === "en" || config.dateLocale === "iso") {
+      if (isDateLocale(config.dateLocale)) {
         return config.dateLocale;
       }
     } catch {
+      console.warn("Warning: ~/.lukit.json could not be parsed; using default locale 'de'.");
     }
   }
   return "de";
@@ -227,7 +232,7 @@ function loadLocale() {
 function printUsage() {
   console.log("Usage: lukit <command> [args...]\n");
   console.log("Commands:");
-  for (const [name, cmd] of Object.entries(commands)) {
+  for (const [, cmd] of Object.entries(commands)) {
     console.log(`  ${cmd.usage}`);
   }
   console.log("\nOptions:");
@@ -239,7 +244,7 @@ function runAddTextToDiary(args) {
     console.error("Usage: lukit add-text-to-diary <diary-path> <text>");
     process.exit(1);
   }
-  const diaryPath = args[0];
+  const diaryPath = (0, import_path.resolve)(args[0]);
   const text = args[1].trim();
   if (text.length === 0) {
     console.error("Error: Text cannot be empty.");
@@ -250,10 +255,15 @@ function runAddTextToDiary(args) {
     process.exit(1);
   }
   const locale = loadLocale();
-  const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
-  const entry = formatTextEntry(text);
-  const { newContent } = addEntryUnderToday(content, entry, locale);
-  (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
+  try {
+    const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
+    const entry = formatTextEntry(text);
+    const { newContent } = addEntryUnderToday(content, entry, locale);
+    (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
+  } catch (e) {
+    console.error("Error: " + (e instanceof Error ? e.message : String(e)));
+    process.exit(1);
+  }
   console.log(`Added entry to ${diaryPath}`);
 }
 function runEnsureTodayHeader(args) {
@@ -262,15 +272,22 @@ function runEnsureTodayHeader(args) {
     console.error("Usage: lukit ensure-today-header <diary-path>");
     process.exit(1);
   }
-  const diaryPath = args[0];
+  const diaryPath = (0, import_path.resolve)(args[0]);
   if (!(0, import_fs.existsSync)(diaryPath)) {
     console.error(`Error: File not found: ${diaryPath}`);
     process.exit(1);
   }
   const locale = loadLocale();
-  const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
-  const { newContent, fallback } = ensureTodayHeader(content, locale);
-  (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
+  let fallback = false;
+  try {
+    const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
+    const result = ensureTodayHeader(content, locale);
+    fallback = result.fallback;
+    (0, import_fs.writeFileSync)(diaryPath, result.newContent, "utf-8");
+  } catch (e) {
+    console.error("Error: " + (e instanceof Error ? e.message : String(e)));
+    process.exit(1);
+  }
   if (fallback) {
     console.warn("Warning: Diary note is missing the third separator (---). Header was appended at end.");
   }
@@ -282,7 +299,7 @@ function runAddDiaryEntry(args) {
     console.error("Usage: lukit add-diary-entry <diary-path> <note-name> [heading]");
     process.exit(1);
   }
-  const diaryPath = args[0];
+  const diaryPath = (0, import_path.resolve)(args[0]);
   const noteName = args[1];
   const heading = args.length >= 3 ? args[2] : null;
   if (!(0, import_fs.existsSync)(diaryPath)) {
@@ -290,10 +307,15 @@ function runAddDiaryEntry(args) {
     process.exit(1);
   }
   const locale = loadLocale();
-  const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
-  const entry = formatDiaryEntry(noteName, heading);
-  const { newContent } = addEntryUnderToday(content, entry, locale);
-  (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
+  try {
+    const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
+    const entry = formatDiaryEntry(noteName, heading);
+    const { newContent } = addEntryUnderToday(content, entry, locale);
+    (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
+  } catch (e) {
+    console.error("Error: " + (e instanceof Error ? e.message : String(e)));
+    process.exit(1);
+  }
   console.log(`Added diary entry to ${diaryPath}`);
 }
 function runAddReminder(args) {
@@ -302,7 +324,7 @@ function runAddReminder(args) {
     console.error("Usage: lukit add-reminder <diary-path> <text>");
     process.exit(1);
   }
-  const diaryPath = args[0];
+  const diaryPath = (0, import_path.resolve)(args[0]);
   const text = args[1].trim();
   if (text.length === 0) {
     console.error("Error: Text cannot be empty.");
@@ -313,14 +335,19 @@ function runAddReminder(args) {
     process.exit(1);
   }
   const locale = loadLocale();
-  const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
-  const entry = formatReminderEntry(text, locale);
-  const result = addReminder(content, entry);
-  if (!result) {
-    console.error("Error: Diary note is missing the third separator (---). Cannot add reminder.");
+  try {
+    const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
+    const entry = formatReminderEntry(text, locale);
+    const result = addReminder(content, entry);
+    if (!result) {
+      console.error("Error: Diary note is missing the third separator (---). Cannot add reminder.");
+      process.exit(1);
+    }
+    (0, import_fs.writeFileSync)(diaryPath, result.newContent, "utf-8");
+  } catch (e) {
+    console.error("Error: " + (e instanceof Error ? e.message : String(e)));
     process.exit(1);
   }
-  (0, import_fs.writeFileSync)(diaryPath, result.newContent, "utf-8");
   console.log(`Added reminder to ${diaryPath}`);
 }
 function runInitConfig(_args) {

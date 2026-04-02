@@ -62,6 +62,10 @@ export function extractDateFromTitle(title: string, locale: DateLocale): Date | 
 	return parseDateString(candidate, locale);
 }
 
+export function isDateLocale(v: unknown): v is DateLocale {
+	return v === "de" || v === "en" || v === "iso";
+}
+
 export function formatDateWithWeekday(date: Date, locale: DateLocale): string {
 	const dateStr = formatDate(date, locale);
 	const weekday = formatWeekday(date, locale);

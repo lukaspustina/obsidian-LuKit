@@ -4,6 +4,8 @@ import {
 	formatWeekday,
 	formatDateWithWeekday,
 	parseDateString,
+	extractDateFromTitle,
+	isDateLocale,
 } from "../../src/shared/date-format";
 
 describe("formatDate", () => {
@@ -103,6 +105,40 @@ describe("parseDateString", () => {
 	it("returns null for empty or garbage input", () => {
 		expect(parseDateString("", "de")).toBeNull();
 		expect(parseDateString("not a date", "de")).toBeNull();
+	});
+});
+
+describe("extractDateFromTitle — locale mismatch", () => {
+	it("returns null when German date is parsed with English locale", () => {
+		expect(extractDateFromTitle("Meeting, 06.02.2026", "en")).toBeNull();
+	});
+
+	it("returns null when English date is parsed with German locale", () => {
+		expect(extractDateFromTitle("Meeting, 02/06/2026", "de")).toBeNull();
+	});
+
+	it("returns null when ISO date is parsed with German locale", () => {
+		expect(extractDateFromTitle("Meeting, 2026-02-06", "de")).toBeNull();
+	});
+
+	it("returns null when German date is parsed with ISO locale", () => {
+		expect(extractDateFromTitle("Meeting, 06.02.2026", "iso")).toBeNull();
+	});
+});
+
+describe("isDateLocale", () => {
+	it("returns true for valid locale values", () => {
+		expect(isDateLocale("de")).toBe(true);
+		expect(isDateLocale("en")).toBe(true);
+		expect(isDateLocale("iso")).toBe(true);
+	});
+
+	it("returns false for invalid values", () => {
+		expect(isDateLocale("fr")).toBe(false);
+		expect(isDateLocale("")).toBe(false);
+		expect(isDateLocale(null)).toBe(false);
+		expect(isDateLocale(42)).toBe(false);
+		expect(isDateLocale(undefined)).toBe(false);
 	});
 });
 

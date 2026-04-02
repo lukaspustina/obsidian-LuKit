@@ -8,7 +8,6 @@ import {
 	entryExistsUnderToday,
 	formatDiaryEntry,
 	formatTextEntry,
-	validateDiaryStructure,
 	formatReminderEntry,
 	addReminder,
 } from "../../src/features/work-diary/work-diary-engine";
@@ -613,26 +612,3 @@ describe("entryExistsUnderToday", () => {
 	});
 });
 
-describe("validateDiaryStructure", () => {
-	it("returns no errors for valid diary structure", () => {
-		const content = "---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026";
-		expect(validateDiaryStructure(content)).toEqual([]);
-	});
-
-	it("returns error when third separator is missing", () => {
-		const content = "---\nfm\n---\nsome content";
-		const errors = validateDiaryStructure(content);
-		expect(errors).toHaveLength(1);
-		expect(errors[0]).toContain("third separator");
-	});
-
-	it("returns error for empty content", () => {
-		const errors = validateDiaryStructure("");
-		expect(errors).toHaveLength(1);
-	});
-
-	it("returns no errors when only frontmatter and third separator exist", () => {
-		const content = "---\nfm\n---\n[[pinned]]\n---";
-		expect(validateDiaryStructure(content)).toEqual([]);
-	});
-});

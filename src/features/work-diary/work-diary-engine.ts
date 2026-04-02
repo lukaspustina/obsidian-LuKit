@@ -38,6 +38,9 @@ function parseDiaryHeaderDate(header: string, locale: DateLocale): Date | null {
 	return parseDateString(raw.replace(/\]+$/, ""), locale);
 }
 
+// Scans entries below the separator; returns the index of the first h5 header whose date
+// is strictly older than `date`, inserting the new header just before it (reverse-chronological).
+// Returns lines.length if no older header exists (append at end).
 function findDiaryHeaderInsertPosition(
 	lines: string[],
 	separatorIndex: number,
@@ -83,18 +86,6 @@ export function ensureTodayHeader(content: string, locale: DateLocale, date?: Da
 	return { newContent: newLines.join("\n"), headerLineIndex: insertAt, fallback: false };
 }
 
-export function validateDiaryStructure(content: string): string[] {
-	const lines = content.split("\n");
-	const errors: string[] = [];
-
-	const separatorIndex = findThirdSeparatorIndex(lines);
-	if (separatorIndex === -1) {
-		errors.push("Missing third separator (---). Diary entries may be misplaced.");
-	}
-
-	return errors;
-}
-
 export function entryExistsUnderToday(content: string, entry: string, locale: DateLocale, date?: Date): boolean {
 	const lines = content.split("\n");
 	const separatorIndex = findThirdSeparatorIndex(lines);
@@ -135,11 +126,12 @@ export function stripWikilinks(text: string): string {
 }
 
 export function formatDiaryEntry(noteName: string, heading: string | null): string {
+	const safeName = noteName.replace(/\]\]|\|/g, "");
 	if (heading) {
-		const cleanHeading = stripWikilinks(heading);
-		return `- [[${noteName}#${cleanHeading}|${noteName}: ${cleanHeading}]]`;
+		const cleanHeading = stripWikilinks(heading).replace(/\]\]|\|/g, "");
+		return `- [[${safeName}#${cleanHeading}|${safeName}: ${cleanHeading}]]`;
 	}
-	return `- [[${noteName}]]`;
+	return `- [[${safeName}]]`;
 }
 
 export function formatTextEntry(text: string): string {

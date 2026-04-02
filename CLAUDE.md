@@ -1,7 +1,7 @@
 # LuKit — Obsidian Plugin
 
 ## Project Overview
-LuKit is a modular Obsidian plugin (v1.10.0) that bundles workflow automations for note-taking workflows. Each use case is a self-contained "feature" in `src/features/<name>/`. Date formatting is configurable via the `dateLocale` setting (`"de"`, `"en"`, or `"iso"`), defaulting to German locale. Section names use German terms (`Inhalt`, `Fakten und Pointer`, `Erinnerungen`, `Nächste Schritte`).
+LuKit is a modular Obsidian plugin (v1.12.2) that bundles workflow automations for note-taking workflows. Each use case is a self-contained "feature" in `src/features/<name>/`. Date formatting is configurable via the `dateLocale` setting (`"de"`, `"en"`, or `"iso"`), defaulting to German locale. Section names use German terms (`Inhalt`, `Fakten und Pointer`, `Erinnerungen`, `Nächste Schritte`).
 
 ## Build & Test Commands
 - `npm install` — install dependencies
@@ -31,6 +31,7 @@ Automates adding sections to "Vorgang" (case/process) notes. A Vorgang note has:
 - Adding a section creates both a TOC entry and an h5 header, placing cursor for immediate typing
 - Adding a section prompts for a name and a date (defaults to today); the diary entry is placed under the chosen date's header in the configured diary note; silently skips if no diary path is configured
 - `formatVorgangHeadingText(name, locale, date?)` returns the heading text without the `##### ` prefix (e.g., `"Section, DD.MM.YYYY"`)
+- `addVorgangSectionLinked(content, noteName, locale, date, bodyLines?)` inserts a linked h5 section (e.g., `##### [[NoteName]]`) with optional body lines; used by BesprechungFeature to embed meeting summaries into a Vorgang note
 - Engine: `vorgang-engine.ts`, Feature: `vorgang-feature.ts`, Modal: `add-section-modal.ts` (feature-specific two-field modal: section name + date)
 
 ### Besprechung (`src/features/besprechung/`)
@@ -57,15 +58,16 @@ Command-line interface for use outside Obsidian. Commands: `add-text-to-diary`, 
 - `src/types.ts` — shared interfaces (`LuKitFeature`, settings types, `DEFAULT_SETTINGS`)
 - `src/settings.ts` — main settings tab, composes sections from features
 - `src/cli.ts` — CLI entry point, parsed with minimal deps (no Obsidian imports)
-- `src/shared/date-format.ts` — shared date formatting module (`DateLocale` type, `formatDate`, `formatWeekday`, `formatDateWithWeekday`)
+- `src/shared/date-format.ts` — shared date formatting module (`DateLocale` type, `formatDate`, `formatWeekday`, `formatDateWithWeekday`, `parseDateString`, `extractDateFromTitle`)
 - `src/shared/modals/` — reusable modals (`confirm-modal`, `text-input-modal`, `text-date-modal`, `note-suggest`, `folder-note-suggest`, `heading-suggest`, `help-modal`)
 - `src/features/<name>/` — self-contained feature modules
 
 ### Feature Module Pattern
-Each feature has up to 3 files:
+Each feature has up to 4 files:
 - `<name>-engine.ts` — **pure logic**, no Obsidian imports, directly testable. Operates on strings/arrays.
 - `<name>-feature.ts` — implements `LuKitFeature`, registers Obsidian commands, reads/writes files via Obsidian API.
 - `<name>-settings.ts` — settings interface and defaults (optional, not all features have settings).
+- Feature-specific modals (e.g., `add-section-modal.ts` for vorgang).
 
 ### Test Structure
 - `tests/unit/` — unit tests for `*-engine.ts` pure logic (no Obsidian mocks needed)

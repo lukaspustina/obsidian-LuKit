@@ -49,27 +49,32 @@ export function getTopLevelSectionName(name: string): string {
 	return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-function isFrontmatterLine(lines: string[], index: number, state: { inFrontmatter: boolean; opened: boolean }): boolean {
-	if (lines[index].trim() === "---") {
-		if (!state.opened) {
-			state.inFrontmatter = true;
-			state.opened = true;
-			return true;
+function isFrontmatterLine(
+	line: string,
+	inFrontmatter: boolean,
+	opened: boolean,
+): { result: boolean; inFrontmatter: boolean; opened: boolean } {
+	if (line.trim() === "---") {
+		if (!opened) {
+			return { result: true, inFrontmatter: true, opened: true };
 		}
-		if (state.inFrontmatter) {
-			state.inFrontmatter = false;
-			return true;
+		if (inFrontmatter) {
+			return { result: true, inFrontmatter: false, opened };
 		}
 	}
-	return state.inFrontmatter;
+	return { result: inFrontmatter, inFrontmatter, opened };
 }
 
 export function convertTopLevelBoldToH1(lines: string[]): number {
 	let changeCount = 0;
-	const state = { inFrontmatter: false, opened: false };
+	let inFrontmatter = false;
+	let opened = false;
 
 	for (let i = 0; i < lines.length; i++) {
-		if (isFrontmatterLine(lines, i, state)) continue;
+		const fm = isFrontmatterLine(lines[i], inFrontmatter, opened);
+		inFrontmatter = fm.inFrontmatter;
+		opened = fm.opened;
+		if (fm.result) continue;
 		const result = isStandaloneBold(lines[i]);
 		if (result && isKnownTopLevelSection(result.inner)) {
 			lines[i] = `# ${getTopLevelSectionName(result.inner)}`;
@@ -81,10 +86,14 @@ export function convertTopLevelBoldToH1(lines: string[]): number {
 
 export function convertEntryBoldToH5(lines: string[]): number {
 	let changeCount = 0;
-	const state = { inFrontmatter: false, opened: false };
+	let inFrontmatter = false;
+	let opened = false;
 
 	for (let i = 0; i < lines.length; i++) {
-		if (isFrontmatterLine(lines, i, state)) continue;
+		const fm = isFrontmatterLine(lines[i], inFrontmatter, opened);
+		inFrontmatter = fm.inFrontmatter;
+		opened = fm.opened;
+		if (fm.result) continue;
 		const result = isStandaloneBold(lines[i]);
 		if (result && !isKnownTopLevelSection(result.inner)) {
 			lines[i] = `##### ${result.inner}`;

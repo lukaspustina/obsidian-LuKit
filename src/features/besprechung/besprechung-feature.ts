@@ -43,7 +43,13 @@ export class BesprechungFeature implements LuKitFeature {
 		const headings = this.plugin.settings.besprechung.sectionHeadings;
 
 		new FolderNoteSuggestModal(this.plugin.app, folderPath, "Pick a Besprechung…", async (besprechungFile) => {
-			const besprechungContent = await this.plugin.app.vault.read(besprechungFile);
+			let besprechungContent: string;
+			try {
+				besprechungContent = await this.plugin.app.vault.read(besprechungFile);
+			} catch (e) {
+				new Notice("LuKit: Could not read besprechung file: " + (e instanceof Error ? e.message : String(e)));
+				return;
+			}
 			const summary = formatBesprechungSummary(besprechungContent, headings);
 
 			if (!summary) {
@@ -84,7 +90,6 @@ export class BesprechungFeature implements LuKitFeature {
 	}
 
 	private isVorgangNote(file: TFile): boolean {
-		if (file.basename.startsWith("Vorgang")) return true;
 		const cache = this.plugin.app.metadataCache.getFileCache(file);
 		const tags = cache?.frontmatter?.tags;
 		if (typeof tags === "string") return tags === "Vorgang";

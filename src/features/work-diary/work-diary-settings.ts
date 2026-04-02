@@ -1,9 +1,7 @@
 import { Setting } from "obsidian";
 import type LuKitPlugin from "../../main";
 
-export interface WorkDiarySettings {
-	diaryNotePath: string;
-}
+export type { WorkDiarySettings } from "../../types";
 
 export function renderWorkDiarySettings(
 	containerEl: HTMLElement,
