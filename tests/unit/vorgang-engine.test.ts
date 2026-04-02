@@ -399,6 +399,22 @@ describe("addVorgangSection", () => {
 		expect(middleH5).toBeLessThan(oldH5);
 	});
 
+	it("inserts same-date bullet before existing same-date bullet", () => {
+		const content = [
+			"# Inhalt",
+			"- [[#Old Section, 06.02.2026]]",
+			"",
+			"##### Old Section, 06.02.2026",
+			"- note",
+		].join("\n");
+
+		const { newContent } = addVorgangSection(content, "New Section", "de", date);
+		const lines = newContent.split("\n");
+		const newBulletIdx = lines.indexOf("- [[#New Section, 06.02.2026]]");
+		const oldBulletIdx = lines.indexOf("- [[#Old Section, 06.02.2026]]");
+		expect(newBulletIdx).toBeLessThan(oldBulletIdx);
+	});
+
 	it("appends TOC bullet and h5 at end when date is older than all existing entries", () => {
 		const oldDate = new Date(2026, 0, 1); // 01.01.2026 — older than everything
 		const content = [

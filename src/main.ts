@@ -1,7 +1,7 @@
 import { addIcon, Plugin } from "obsidian";
 import { LuKitSettingTab } from "./settings";
 import type { LuKitFeature, LuKitSettings } from "./types";
-import { DEFAULT_SETTINGS, LUKIT_ICON_ID } from "./types";
+import { LUKIT_ICON_ID, mergeSettings } from "./types";
 import { WorkDiaryFeature } from "./features/work-diary/work-diary-feature";
 import { VorgangFeature } from "./features/vorgang/vorgang-feature";
 import { BesprechungFeature } from "./features/besprechung/besprechung-feature";
@@ -24,7 +24,11 @@ export default class LuKitPlugin extends Plugin {
 		this.features.push(new MigrationFeature());
 
 		for (const feature of this.features) {
-			feature.onload(this);
+			try {
+				feature.onload(this);
+			} catch (e) {
+				console.error(`LuKit: Failed to load feature ${feature.id}:`, e);
+			}
 		}
 
 		this.addCommand({
@@ -44,13 +48,7 @@ export default class LuKitPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		const saved = (await this.loadData()) ?? {};
-		this.settings = {
-			...DEFAULT_SETTINGS,
-			...saved,
-			workDiary: { ...DEFAULT_SETTINGS.workDiary, ...(saved.workDiary ?? {}) },
-			besprechung: { ...DEFAULT_SETTINGS.besprechung, ...(saved.besprechung ?? {}) },
-		};
+		this.settings = mergeSettings((await this.loadData()) ?? {});
 	}
 
 	async saveSettings(): Promise<void> {

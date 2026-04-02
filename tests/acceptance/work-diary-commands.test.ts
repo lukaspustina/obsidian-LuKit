@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
 	ensureTodayHeader,
 	addEntryUnderToday,
+	entryExistsUnderToday,
 	formatDiaryEntry,
 	formatTextEntry,
 	formatTodayHeader,
@@ -204,11 +205,10 @@ describe("Add current note command flow", () => {
 });
 
 describe("Error cases", () => {
-	it("diary note not found — getDiaryFile returns null for empty path", () => {
-		// This tests the logic: if path is empty, no file is resolved
-		const path = "";
-		expect(path).toBe("");
-		// In the actual feature, this triggers a Notice and returns null
+	it("duplicate guard — entryExistsUnderToday returns true when entry already present", () => {
+		const entry = formatDiaryEntry("ProjectX", "Tasks");
+		const content = `---\nfm\n---\n[[pinned]]\n---\n##### Fr, 06.02.2026\n${entry}`;
+		expect(entryExistsUnderToday(content, entry, "de", friday)).toBe(true);
 	});
 
 	it("handles content with no frontmatter gracefully", () => {

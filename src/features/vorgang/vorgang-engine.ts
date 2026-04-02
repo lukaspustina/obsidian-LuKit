@@ -1,4 +1,4 @@
-import { formatDate, parseDateString, extractDateFromTitle } from "../../shared/date-format";
+import { formatDate, extractDateFromTitle } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
 
 export function formatVorgangHeadingText(name: string, locale: DateLocale, date?: Date): string {
@@ -59,13 +59,6 @@ export function findInhaltBulletRange(
 	return { firstBullet, afterLastBullet };
 }
 
-function extractDateFromLine(line: string, locale: DateLocale): Date | null {
-	const lastComma = line.lastIndexOf(", ");
-	if (lastComma === -1) return null;
-	const candidate = line.slice(lastComma + 2).replace(/\]\]+$/, "").trim();
-	return parseDateString(candidate, locale);
-}
-
 function findBulletInsertIndex(
 	lines: string[],
 	firstBullet: number,
@@ -75,7 +68,7 @@ function findBulletInsertIndex(
 ): number {
 	for (let i = firstBullet; i < afterLastBullet; i++) {
 		if (!lines[i].startsWith("- ")) continue;
-		const existing = extractDateFromLine(lines[i], locale);
+		const existing = extractDateFromTitle(lines[i].replace(/\]+$/, ""), locale);
 		if (existing === null || existing <= newDate) {
 			return i;
 		}
@@ -91,7 +84,7 @@ function findH5InsertIndex(
 ): number {
 	for (let i = fromIndex; i < lines.length; i++) {
 		if (!lines[i].startsWith("##### ")) continue;
-		const existing = extractDateFromLine(lines[i], locale);
+		const existing = extractDateFromTitle(lines[i], locale);
 		if (existing === null || existing <= newDate) {
 			return i;
 		}
@@ -111,6 +104,7 @@ export function addVorgangSection(
 	return insertVorgangContent(content, bullet, header, [], d, locale);
 }
 
+// Used by besprechung-feature.ts to insert a meeting note section with body lines.
 export function addVorgangSectionLinked(
 	content: string,
 	noteName: string,
@@ -141,7 +135,7 @@ function insertVorgangContent(
 	const inhaltIndex = findInhaltSectionIndex(lines);
 
 	if (inhaltIndex === -1) {
-		// Case 1: No # Inhalt — append everything at end
+		// Case 1: No # Inhalt section yet — build full structure from scratch and append
 		const trimmed = content.trimEnd();
 		if (hasBody) {
 			const section = ["", "# Inhalt", "", bullet, "", header, ...bodyLines, ""].join("\n");
@@ -158,7 +152,7 @@ function insertVorgangContent(
 	const bulletRange = findInhaltBulletRange(lines, inhaltIndex);
 
 	if (bulletRange === null) {
-		// Case 2: # Inhalt exists but no bullets
+		// Case 2: # Inhalt exists but has no bullets yet
 		const bulletInsertAt = inhaltIndex + 1;
 		lines.splice(bulletInsertAt, 0, bullet);
 
@@ -182,7 +176,7 @@ function insertVorgangContent(
 		return { newContent: trimmedLines.join("\n"), cursorLineIndex: trimmedLines.length - 3 };
 	}
 
-	// Case 3: Normal — # Inhalt with existing bullets
+	// Case 3: Normal — # Inhalt with existing bullets; insert in date order
 	const bulletInsertAt = findBulletInsertIndex(lines, bulletRange.firstBullet, bulletRange.afterLastBullet, date, locale);
 	lines.splice(bulletInsertAt, 0, bullet);
 

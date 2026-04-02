@@ -89,7 +89,7 @@ export class WorkDiaryFeature implements LuKitFeature {
 		await leaf.openFile(file);
 		const editor = this.plugin.app.workspace.activeEditor?.editor;
 		if (editor) {
-			const pos = { line: lineIndex + 1, ch: 0 };
+			const pos = { line: lineIndex, ch: 0 };
 			editor.setCursor(pos);
 			editor.scrollIntoView({ from: pos, to: pos }, true);
 		}
@@ -102,12 +102,17 @@ export class WorkDiaryFeature implements LuKitFeature {
 		const locale = this.plugin.settings.dateLocale;
 		let headerLineIndex = 0;
 		let fallback = false;
-		await this.plugin.app.vault.process(file, (content) => {
-			const result = ensureTodayHeader(content, locale);
-			headerLineIndex = result.headerLineIndex;
-			fallback = result.fallback;
-			return result.newContent;
-		});
+		try {
+			await this.plugin.app.vault.process(file, (content) => {
+				const result = ensureTodayHeader(content, locale);
+				headerLineIndex = result.headerLineIndex;
+				fallback = result.fallback;
+				return result.newContent;
+			});
+		} catch (e) {
+			new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
 
 		if (fallback) {
 			new Notice("LuKit: Diary note is missing the third separator (---). Header was appended at end.");
@@ -126,10 +131,15 @@ export class WorkDiaryFeature implements LuKitFeature {
 				const cleanedHeading = heading ? stripWikilinks(heading) : null;
 				const entry = formatDiaryEntry(selectedFile.basename, cleanedHeading);
 				const date = extractDateFromTitle(cleanedHeading ?? selectedFile.basename, locale) ?? new Date();
-				await this.plugin.app.vault.process(file, (content) => {
-					const { newContent } = addEntryUnderToday(content, entry, locale, date);
-					return newContent;
-				});
+				try {
+					await this.plugin.app.vault.process(file, (content) => {
+						const { newContent } = addEntryUnderToday(content, entry, locale, date);
+						return newContent;
+					});
+				} catch (e) {
+					new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+					return;
+				}
 				new Notice("Diary entry added.");
 			}).open();
 		}).open();
@@ -142,10 +152,15 @@ export class WorkDiaryFeature implements LuKitFeature {
 		const locale = this.plugin.settings.dateLocale;
 		new TextDateModal(this.plugin.app, "Diary entry…", locale, async (text, date) => {
 			const entry = formatTextEntry(text);
-			await this.plugin.app.vault.process(file, (content) => {
-				const { newContent } = addEntryUnderToday(content, entry, locale, date);
-				return newContent;
-			});
+			try {
+				await this.plugin.app.vault.process(file, (content) => {
+					const { newContent } = addEntryUnderToday(content, entry, locale, date);
+					return newContent;
+				});
+			} catch (e) {
+				new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+				return;
+			}
 			new Notice("Text entry added.");
 		}).open();
 	}
@@ -158,14 +173,19 @@ export class WorkDiaryFeature implements LuKitFeature {
 		new TextDateModal(this.plugin.app, "Reminder…", locale, async (text, date) => {
 			const entry = formatReminderEntry(text, locale, date);
 			let success = false;
-			await this.plugin.app.vault.process(file, (content) => {
-				const result = addReminder(content, entry);
-				if (!result) {
-					return content;
-				}
-				success = true;
-				return result.newContent;
-			});
+			try {
+				await this.plugin.app.vault.process(file, (content) => {
+					const result = addReminder(content, entry);
+					if (!result) {
+						return content;
+					}
+					success = true;
+					return result.newContent;
+				});
+			} catch (e) {
+				new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+				return;
+			}
 			if (!success) {
 				new Notice("LuKit: Diary note is missing the third separator (---). Cannot add reminder.");
 				return;
@@ -196,14 +216,19 @@ export class WorkDiaryFeature implements LuKitFeature {
 		const date = extractDateFromTitle(cleanedHeading ?? activeFile.basename, locale) ?? new Date();
 
 		let alreadyExists = false;
-		await this.plugin.app.vault.process(diaryFile, (content) => {
-			if (entryExistsUnderToday(content, entry, locale, date)) {
-				alreadyExists = true;
-				return content;
-			}
-			const { newContent } = addEntryUnderToday(content, entry, locale, date);
-			return newContent;
-		});
+		try {
+			await this.plugin.app.vault.process(diaryFile, (content) => {
+				if (entryExistsUnderToday(content, entry, locale, date)) {
+					alreadyExists = true;
+					return content;
+				}
+				const { newContent } = addEntryUnderToday(content, entry, locale, date);
+				return newContent;
+			});
+		} catch (e) {
+			new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
 
 		if (alreadyExists) {
 			new Notice("LuKit: Already in today's diary.");

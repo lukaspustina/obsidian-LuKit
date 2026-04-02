@@ -215,6 +215,26 @@ describe("CLI: add-reminder", () => {
 	});
 });
 
+describe("CLI: argument parsing", () => {
+	it("unknown command exits with non-zero code", () => {
+		expect(() =>
+			execFileSync("npx", ["tsx", "src/cli.ts", "unknown-command"], {
+				cwd: process.cwd(),
+				encoding: "utf-8",
+			})
+		).toThrow();
+	});
+
+	it("add-text-to-diary with missing args exits with non-zero code", () => {
+		expect(() =>
+			execFileSync("npx", ["tsx", "src/cli.ts", "add-text-to-diary"], {
+				cwd: process.cwd(),
+				encoding: "utf-8",
+			})
+		).toThrow();
+	});
+});
+
 describe("CLI: init-config", () => {
 	let tmpDir: string;
 

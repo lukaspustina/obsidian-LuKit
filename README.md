@@ -82,18 +82,20 @@ npm run build:cli    # build the CLI
 node cli.js --help   # show available commands
 ```
 
+> **Note**: The examples below use `node cli.js`. After `npm link`, the `lukit` alias becomes available globally.
+
 ### add-text-to-diary
 
 Adds a plain-text entry under today's date header in a diary note.
 
 ```sh
-lukit add-text-to-diary <diary-path> <text>
+node cli.js add-text-to-diary <diary-path> <text>
 ```
 
 Example:
 
 ```sh
-lukit add-text-to-diary path/to/diary.md "reviewed the budget"
+node cli.js add-text-to-diary path/to/diary.md "reviewed the budget"
 ```
 
 ### ensure-today-header
@@ -101,13 +103,13 @@ lukit add-text-to-diary path/to/diary.md "reviewed the budget"
 Ensures today's date header exists in a diary note. Warns if the diary structure is missing the third separator.
 
 ```sh
-lukit ensure-today-header <diary-path>
+node cli.js ensure-today-header <diary-path>
 ```
 
 Example:
 
 ```sh
-lukit ensure-today-header path/to/diary.md
+node cli.js ensure-today-header path/to/diary.md
 ```
 
 ### add-diary-entry
@@ -115,14 +117,14 @@ lukit ensure-today-header path/to/diary.md
 Adds a linked note entry under today's date header. Optionally specify a heading.
 
 ```sh
-lukit add-diary-entry <diary-path> <note-name> [heading]
+node cli.js add-diary-entry <diary-path> <note-name> [heading]
 ```
 
 Examples:
 
 ```sh
-lukit add-diary-entry path/to/diary.md "ProjectX" "Tasks"
-lukit add-diary-entry path/to/diary.md "MeetingNotes"
+node cli.js add-diary-entry path/to/diary.md "ProjectX" "Tasks"
+node cli.js add-diary-entry path/to/diary.md "MeetingNotes"
 ```
 
 ### add-reminder
@@ -130,13 +132,13 @@ lukit add-diary-entry path/to/diary.md "MeetingNotes"
 Adds a reminder entry under a `# Erinnerungen` section between frontmatter and the diary separator.
 
 ```sh
-lukit add-reminder <diary-path> <text>
+node cli.js add-reminder <diary-path> <text>
 ```
 
 Example:
 
 ```sh
-lukit add-reminder path/to/diary.md "Call dentist"
+node cli.js add-reminder path/to/diary.md "Call dentist"
 ```
 
 ### init-config
@@ -144,7 +146,7 @@ lukit add-reminder path/to/diary.md "Call dentist"
 Creates a `~/.lukit.json` config file used by the LaunchBar actions. Auto-detects `nodePath` and `cliPath`; you only need to edit `diaryPath`.
 
 ```sh
-lukit init-config
+node cli.js init-config
 ```
 
 Refuses to overwrite an existing config file.
@@ -158,7 +160,7 @@ The `launchbar/` directory contains two [LaunchBar](https://www.obdev.at/product
 1. Build the CLI and generate the config file:
    ```sh
    npm run build:cli
-   node cli.js init-config
+   node cli.js init-config   # or: lukit init-config after npm link
    ```
 2. Edit `~/.lukit.json` — set `diaryPath` to the absolute path of your diary note.
 3. Double-click the `.lbaction` bundles in `launchbar/` to install them in LaunchBar.
@@ -193,9 +195,12 @@ The `launchbar/` directory contains two [LaunchBar](https://www.obdev.at/product
 
 ## Development
 
+**Prerequisites**: Node.js ≥ 18, npm.
+
 ```sh
 npm install
-npm run build    # typecheck + bundle
-npm run dev      # bundle in watch mode
-npm run test     # run tests
+npm run build      # typecheck + bundle
+npm run build:cli  # bundle CLI only
+npm run dev        # bundle in watch mode
+npm run test       # run tests
 ```
