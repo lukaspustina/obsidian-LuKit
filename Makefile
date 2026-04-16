@@ -21,6 +21,12 @@ lint: ## Typecheck without emitting
 clean: ## Remove build artifacts
 	rm -f main.js cli.js
 
+local-install: build ## Install plugin into a vault (VAULT=/path/to/vault)
+	@test -n "$(VAULT)" || (echo "Error: set VAULT=/path/to/vault" && exit 1)
+	@test -d "$(VAULT)/.obsidian" || (echo "Error: $(VAULT) is not an Obsidian vault" && exit 1)
+	mkdir -p "$(VAULT)/.obsidian/plugins/lukit"
+	cp main.js manifest.json styles.css "$(VAULT)/.obsidian/plugins/lukit/"
+
 release: ## Build, test, commit, tag and publish (V=x.y.z)
 	@test -n "$(V)" || (echo "Error: set V=x.y.z" && exit 1)
 	npm version $(V) --no-git-tag-version
