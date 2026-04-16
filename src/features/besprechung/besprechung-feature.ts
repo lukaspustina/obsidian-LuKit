@@ -65,7 +65,7 @@ export class BesprechungFeature implements LuKitFeature {
 			}
 
 			const activeFile = this.plugin.app.workspace.getActiveFile();
-			if (activeFile && this.isVorgangNote(activeFile)) {
+			if (activeFile && this.isSectionNote(activeFile)) {
 				const locale = this.plugin.settings.dateLocale;
 				const date = extractDateFromTitle(activeFile.basename, locale)
 					?? extractCreatedDate(besprechungContent)
@@ -89,11 +89,13 @@ export class BesprechungFeature implements LuKitFeature {
 		}).open();
 	}
 
-	private isVorgangNote(file: TFile): boolean {
+	private static readonly SECTION_NOTE_TAGS = ["Vorgang", "Person", "Bestellung", "Bewerbung"];
+
+	private isSectionNote(file: TFile): boolean {
 		const cache = this.plugin.app.metadataCache.getFileCache(file);
 		const tags = cache?.frontmatter?.tags;
-		if (typeof tags === "string") return tags === "Vorgang";
-		if (Array.isArray(tags)) return (tags as string[]).includes("Vorgang");
+		if (typeof tags === "string") return BesprechungFeature.SECTION_NOTE_TAGS.includes(tags);
+		if (Array.isArray(tags)) return (tags as string[]).some(t => BesprechungFeature.SECTION_NOTE_TAGS.includes(t));
 		return false;
 	}
 }
