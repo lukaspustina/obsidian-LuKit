@@ -1,7 +1,7 @@
 {
 	"id": "lukit",
 	"name": "LuKit",
-	"version": "1.12.3",
+	"version": "1.12.4",
 	"minAppVersion": "1.0.0",
 	"description": "Lukas' toolkit — modular workflow automations for Obsidian",
 	"author": "Lukas",
