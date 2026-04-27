@@ -84,7 +84,8 @@ function findH5InsertIndex(
 ): number {
 	for (let i = fromIndex; i < lines.length; i++) {
 		if (!lines[i].startsWith("##### ")) continue;
-		const existing = extractDateFromTitle(lines[i], locale);
+		// Strip trailing ]] so linked headers (`##### [[Name, DATE]]`) parse correctly.
+		const existing = extractDateFromTitle(lines[i].replace(/\]+$/, ""), locale);
 		if (existing === null || existing <= newDate) {
 			return i;
 		}

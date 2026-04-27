@@ -532,6 +532,27 @@ describe("addVorgangSectionLinked", () => {
 		expect(newContent).toContain(`- [[#${noteName}]]`);
 	});
 
+	it("places new h5 correctly relative to existing linked-form h5 headers", () => {
+		// Existing h5 is in linked form `##### [[Name, DATE]]` (date inside brackets).
+		// Without stripping trailing ]], extractDateFromTitle fails on the existing h5,
+		// causing the new entry to be misplaced above it.
+		const content = [
+			"# Inhalt",
+			"- [[#Existing, 19.03.2026]]",
+			"",
+			"##### [[Existing, 19.03.2026]]",
+			"- note",
+		].join("\n");
+		const olderDate = new Date(2026, 2, 12); // 12.03.2026 — older than existing
+		const { newContent } = addVorgangSectionLinked(content, "New Older", "de", olderDate);
+		const lines = newContent.split("\n");
+		const existingH5 = lines.indexOf("##### [[Existing, 19.03.2026]]");
+		const newH5 = lines.indexOf("##### [[New Older]], 12.03.2026");
+		expect(existingH5).toBeGreaterThan(-1);
+		expect(newH5).toBeGreaterThan(-1);
+		expect(existingH5).toBeLessThan(newH5);
+	});
+
 	it("sorts by note-name date when fallback date diverges from name", () => {
 		// Existing TOC: 23.04.2026 (top), 11.03.2026 (bottom).
 		// New besprechung name carries 19.03.2026; fallback date is today (27.04.2026).
