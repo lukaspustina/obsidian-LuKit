@@ -30,9 +30,12 @@ Automates adding a new section to "Vorgang"-style notes. A Vorgang note has a `#
 
 Extracts key sections from meeting notes (Besprechungsnotizen) and inserts them at the cursor in the active note. Picks a note from a configurable folder via fuzzy search, extracts configurable h3 sections (default: `### Nächste Schritte` and `### Zusammenfassung`), converts the h3 headers to bold, and inserts the formatted summary.
 
+When the active note is tagged `Vorgang`, `Person`, `Bestellung`, or `Bewerbung`, the summary is inserted as a linked h5 section under `# Inhalt` (with TOC bullet) instead of at the cursor.
+
 **Commands:**
 
-- **Besprechung: Add summary** — Pick a meeting note from the configured folder, extract the key sections, and insert at the cursor position.
+- **Besprechung: Add summary** — Pick a meeting note from the configured folder, extract the key sections, and insert at the cursor position (or as a linked section if the active note is a Vorgang/Person/Bestellung/Bewerbung).
+- **Besprechung: Add multiple summaries** — Same as above, but the picker re-opens after each insertion (with already-picked files hidden) until you press ESC.
 
 **Setup:** Set the Besprechung folder path and section headings in Settings > LuKit. Section headings are comma-separated (e.g. `Nächste Schritte, Zusammenfassung, Agenda`).
 
@@ -69,7 +72,8 @@ Controls the date format used in diary headers, Vorgang sections, and reminders.
 | **Diary: Add text entry** | Type free text and pick a date, inserts as a bullet under that date's header |
 | **Diary: Add reminder** | Type a reminder and pick a due date, inserts under `# Erinnerungen` |
 | **Vorgang: Add section** | Prompts for a name, inserts TOC entry + h5 header section + diary entry |
-| **Besprechung: Add summary** | Pick a meeting note, extract key sections, insert at cursor |
+| **Besprechung: Add summary** | Pick a meeting note, extract key sections, insert at cursor (or as a linked section in Vorgang/Person/Bestellung/Bewerbung notes) |
+| **Besprechung: Add multiple summaries** | Picker re-opens after each insertion (already-picked files hidden) until ESC |
 | **Migration: Convert note** | Auto-detect note type and convert old format to current |
 | **Help** | Show the LuKit help dialog |
 
