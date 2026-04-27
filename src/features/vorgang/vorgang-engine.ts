@@ -105,6 +105,15 @@ export function addVorgangSection(
 	return insertVorgangContent(content, bullet, header, [], d, locale);
 }
 
+// Returns the bullet string that addVorgangSectionLinked would insert for this note.
+// Used by besprechung-feature.ts to detect duplicates before inserting.
+export function formatLinkedBullet(noteName: string, locale: DateLocale, date: Date): string {
+	const nameAlreadyHasDate = extractDateFromTitle(noteName, locale) !== null;
+	return nameAlreadyHasDate
+		? `- [[#${noteName}]]`
+		: formatVorgangBullet(noteName, locale, date);
+}
+
 // Used by besprechung-feature.ts to insert a meeting note section with body lines.
 export function addVorgangSectionLinked(
 	content: string,
@@ -118,9 +127,7 @@ export function addVorgangSectionLinked(
 	// When the note name carries its own date, sort by that date so placement
 	// matches the displayed date in the bullet/header.
 	const sortDate = nameDate ?? date;
-	const bullet = nameAlreadyHasDate
-		? `- [[#${noteName}]]`
-		: formatVorgangBullet(noteName, locale, date);
+	const bullet = formatLinkedBullet(noteName, locale, date);
 	const header = nameAlreadyHasDate
 		? `##### [[${noteName}]]`
 		: `##### [[${noteName}]], ${formatDate(date, locale)}`;

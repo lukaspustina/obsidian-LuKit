@@ -5,7 +5,7 @@ import type { LuKitFeature } from "../../types";
 import { formatBesprechungSummary, extractCreatedDate } from "./besprechung-engine";
 import { renderBesprechungSettings } from "./besprechung-settings";
 import { FolderNoteSuggestModal } from "../../shared/modals/folder-note-suggest";
-import { addVorgangSectionLinked } from "../vorgang/vorgang-engine";
+import { addVorgangSectionLinked, formatLinkedBullet } from "../vorgang/vorgang-engine";
 import { extractDateFromTitle } from "../../shared/date-format";
 
 export class BesprechungFeature implements LuKitFeature {
@@ -113,6 +113,11 @@ export class BesprechungFeature implements LuKitFeature {
 				?? extractCreatedDate(besprechungContent)
 				?? new Date();
 			const vorgangContent = activeEditor.getValue();
+			const expectedBullet = formatLinkedBullet(besprechungFile.basename, locale, date);
+			if (vorgangContent.includes(expectedBullet)) {
+				new Notice(`LuKit: "${besprechungFile.basename}" is already linked. Skipped.`);
+				return;
+			}
 			const { newContent, cursorLineIndex } = addVorgangSectionLinked(
 				vorgangContent,
 				besprechungFile.basename,

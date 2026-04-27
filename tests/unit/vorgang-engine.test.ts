@@ -3,6 +3,7 @@ import {
 	formatVorgangHeadingText,
 	formatVorgangHeader,
 	formatVorgangBullet,
+	formatLinkedBullet,
 	findInhaltSectionIndex,
 	findInhaltBulletRange,
 	addVorgangSection,
@@ -439,6 +440,27 @@ describe("addVorgangSection", () => {
 
 		expect(archiveBulletIdx).toBeGreaterThan(middleBulletIdx);
 		expect(archiveH5).toBeGreaterThan(middleH5);
+	});
+});
+
+describe("formatLinkedBullet", () => {
+	it("uses bare anchor when note name already ends with a date", () => {
+		const noteName = "Besprechung - Foo, 19.03.2026";
+		const date = new Date(2026, 3, 27); // unrelated fallback
+		expect(formatLinkedBullet(noteName, "de", date)).toBe(`- [[#${noteName}]]`);
+	});
+
+	it("appends date when note name has no date", () => {
+		const date = new Date(2026, 1, 6);
+		expect(formatLinkedBullet("Plain Note", "de", date)).toBe("- [[#Plain Note, 06.02.2026]]");
+	});
+
+	it("matches what addVorgangSectionLinked actually inserts (dup check use case)", () => {
+		const noteName = "Besprechung - X, 19.03.2026";
+		const fallbackDate = new Date(2026, 3, 27);
+		const { newContent } = addVorgangSectionLinked("# Inhalt\n", noteName, "de", fallbackDate);
+		const expected = formatLinkedBullet(noteName, "de", fallbackDate);
+		expect(newContent).toContain(expected);
 	});
 });
 
