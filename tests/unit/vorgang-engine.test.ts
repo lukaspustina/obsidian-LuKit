@@ -531,6 +531,42 @@ describe("addVorgangSectionLinked", () => {
 		// Bullet: plain anchor without extra date
 		expect(newContent).toContain(`- [[#${noteName}]]`);
 	});
+
+	it("sorts by note-name date when fallback date diverges from name", () => {
+		// Existing TOC: 23.04.2026 (top), 11.03.2026 (bottom).
+		// New besprechung name carries 19.03.2026; fallback date is today (27.04.2026).
+		// Without the fix, sort would use 27.04.2026 and place the new entry above 23.04.2026.
+		const content = [
+			"# Inhalt",
+			"- [[#Recent, 23.04.2026]]",
+			"- [[#Older, 11.03.2026]]",
+			"",
+			"##### Recent, 23.04.2026",
+			"- note",
+			"",
+			"##### Older, 11.03.2026",
+			"- note",
+		].join("\n");
+		const fallbackDate = new Date(2026, 3, 27); // 27.04.2026 — later than all existing entries
+		const noteName = "Besprechung - Progress Update, 19.03.2026";
+		const { newContent } = addVorgangSectionLinked(content, noteName, "de", fallbackDate);
+		const lines = newContent.split("\n");
+
+		const recentBullet = lines.indexOf("- [[#Recent, 23.04.2026]]");
+		const newBullet = lines.indexOf(`- [[#${noteName}]]`);
+		const olderBullet = lines.indexOf("- [[#Older, 11.03.2026]]");
+		expect(recentBullet).toBeGreaterThan(-1);
+		expect(newBullet).toBeGreaterThan(-1);
+		expect(olderBullet).toBeGreaterThan(-1);
+		expect(recentBullet).toBeLessThan(newBullet);
+		expect(newBullet).toBeLessThan(olderBullet);
+
+		const recentH5 = lines.indexOf("##### Recent, 23.04.2026");
+		const newH5 = lines.indexOf(`##### [[${noteName}]]`);
+		const olderH5 = lines.indexOf("##### Older, 11.03.2026");
+		expect(recentH5).toBeLessThan(newH5);
+		expect(newH5).toBeLessThan(olderH5);
+	});
 });
 
 describe("extractDateFromTitle", () => {

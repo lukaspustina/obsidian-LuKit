@@ -112,14 +112,18 @@ export function addVorgangSectionLinked(
 	date: Date,
 	bodyLines: string[] = [],
 ): { newContent: string; cursorLineIndex: number } {
-	const nameAlreadyHasDate = extractDateFromTitle(noteName, locale) !== null;
+	const nameDate = extractDateFromTitle(noteName, locale);
+	const nameAlreadyHasDate = nameDate !== null;
+	// When the note name carries its own date, sort by that date so placement
+	// matches the displayed date in the bullet/header.
+	const sortDate = nameDate ?? date;
 	const bullet = nameAlreadyHasDate
 		? `- [[#${noteName}]]`
 		: formatVorgangBullet(noteName, locale, date);
 	const header = nameAlreadyHasDate
 		? `##### [[${noteName}]]`
 		: `##### [[${noteName}]], ${formatDate(date, locale)}`;
-	return insertVorgangContent(content, bullet, header, bodyLines, date, locale);
+	return insertVorgangContent(content, bullet, header, bodyLines, sortDate, locale);
 }
 
 function insertVorgangContent(
