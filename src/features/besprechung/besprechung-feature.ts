@@ -67,7 +67,9 @@ export class BesprechungFeature implements LuKitFeature {
 		}
 
 		new FolderNoteSuggestModal(this.plugin.app, folderPath, "Pick a Besprechung…", (besprechungFile) => {
-			void this.insertBesprechungSummary(besprechungFile);
+			this.insertBesprechungSummary(besprechungFile).catch((err: unknown) => {
+				new Notice(`LuKit: ${err instanceof Error ? err.message : String(err)}`);
+			});
 		}).open();
 	}
 
@@ -88,7 +90,11 @@ export class BesprechungFeature implements LuKitFeature {
 				async (besprechungFile) => {
 					const lastQuery = modal.inputEl.value;
 					picked.add(besprechungFile.path);
-					await this.insertBesprechungSummary(besprechungFile);
+					try {
+						await this.insertBesprechungSummary(besprechungFile);
+					} catch (err: unknown) {
+						new Notice(`LuKit: ${err instanceof Error ? err.message : String(err)}`);
+					}
 					openPicker(lastQuery);
 				},
 				picked,
@@ -254,40 +260,50 @@ export class BesprechungFeature implements LuKitFeature {
 			?? new Date();
 		const expectedBullet = formatLinkedBullet(besprechung.basename, locale, date);
 
-		try {
-			if (vorgangContent.includes(expectedBullet)) {
-				await this.markFiled(besprechung, vorgang, pendingTag);
-				new Notice(`LuKit: "${besprechung.basename}" already linked in "${vorgang.basename}". Removed "${pendingTag}".`);
-				return;
-			}
+		const alreadyLinked = vorgangContent.includes(expectedBullet);
 
-			const { newContent } = addVorgangSectionLinked(
-				vorgangContent,
-				besprechung.basename,
-				locale,
-				date,
-				summary.split("\n"),
-			);
-			await this.plugin.app.vault.modify(vorgang, newContent);
-			await this.markFiled(besprechung, vorgang, pendingTag);
-			new Notice(`LuKit: Filed "${besprechung.basename}" under "${vorgang.basename}".`);
+		try {
+			if (!alreadyLinked) {
+				const { newContent } = addVorgangSectionLinked(
+					vorgangContent,
+					besprechung.basename,
+					locale,
+					date,
+					summary.split("\n"),
+				);
+				await this.plugin.app.vault.modify(vorgang, newContent);
+			}
+			// Step 1: stamp filed_into/filed_at on the besprechung. If this fails,
+			// surface "Failed to file" — the besprechung is still visibly pending.
+			await this.plugin.app.fileManager.processFrontMatter(besprechung, (fm) => {
+				markFiledInFrontmatter(fm, vorgang.basename, new Date());
+			});
 		} catch (e) {
-			// Pending tag stays so the user can retry.
+			// Pending tag stays; user can retry.
 			new Notice(`LuKit: Failed to file "${besprechung.basename}" into "${vorgang.basename}": ` + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
+
+		// Step 2: remove the pending tag in its own try/catch. Filing already
+		// succeeded — partial failure here is reported separately so the user
+		// knows the besprechung is filed but still tagged.
+		try {
+			await this.removePendingTag(besprechung, pendingTag);
+		} catch (e) {
+			new Notice(`LuKit: filed "${besprechung.basename}" but failed to remove tag "${pendingTag}": ` + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
+
+		if (alreadyLinked) {
+			new Notice(`LuKit: "${besprechung.basename}" already linked in "${vorgang.basename}". Removed "${pendingTag}".`);
+		} else {
+			new Notice(`LuKit: Filed "${besprechung.basename}" under "${vorgang.basename}".`);
 		}
 	}
 
 	private async removePendingTag(file: TFile, tag: string): Promise<void> {
 		await this.plugin.app.fileManager.processFrontMatter(file, (fm) => {
 			removeTagFromFrontmatter(fm, tag);
-		});
-	}
-
-	private async markFiled(besprechung: TFile, vorgang: TFile, pendingTag: string): Promise<void> {
-		const now = new Date();
-		await this.plugin.app.fileManager.processFrontMatter(besprechung, (fm) => {
-			removeTagFromFrontmatter(fm, pendingTag);
-			markFiledInFrontmatter(fm, vorgang.basename, now);
 		});
 	}
 

@@ -45,6 +45,9 @@ function loadLocale(): DateLocale {
 			if (isDateLocale(config.dateLocale)) {
 				return config.dateLocale;
 			}
+			if (config.dateLocale !== undefined) {
+				console.warn(`LuKit: invalid dateLocale "${config.dateLocale}" in config — falling back to "de"`);
+			}
 		} catch {
 			console.warn("Warning: ~/.lukit.json could not be parsed; using default locale 'de'.");
 		}

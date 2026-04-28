@@ -108,9 +108,9 @@ No other helpers are promoted; scope is limited to these six.
 
 **REQ-11** ✓ `mergeSettings` in `src/types.ts` (signature: `mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings`) shall validate `dateLocale` against the `DateLocale` type set `("de" | "en" | "iso")`; invalid values shall fall through to the default `"de"` and emit `console.warn` with the rejected value. Tests shall cover: empty data, partial data, invalid `dateLocale`, full round-trip.
 
-**REQ-12** `insertBesprechungSummary` and `addBesprechungSummariesCmd` in `besprechung-feature.ts` shall surface async rejections via `new Notice(...)`. Bare `void` calls that swallow rejections shall be replaced with `.catch(err => new Notice(\`LuKit: \${err.message}\`))`.
+**REQ-12** ✓ `insertBesprechungSummary` and `addBesprechungSummariesCmd` in `besprechung-feature.ts` shall surface async rejections via `new Notice(...)`. Bare `void` calls that swallow rejections shall be replaced with `.catch(err => new Notice(\`LuKit: \${err.message}\`))`.
 
-**REQ-13** `BesprechungFeature.fileBesprechungIntoVorgang` shall decompose `markFiled` into two separate `processFrontMatter` calls:
+**REQ-13** ✓ `BesprechungFeature.fileBesprechungIntoVorgang` shall decompose `markFiled` into two separate `processFrontMatter` calls:
 1. Inside the existing outer try block: write `filed_into` and `filed_at` metadata via `markFiledInFrontmatter`.
 2. In its own try/catch: remove the pending tag via `removeTagFromFrontmatter`.
 
@@ -159,7 +159,7 @@ This requirement depends on Phase 1.B step 4 having moved `parseDiaryHeaderDate`
 
 **REQ-24** The CLI `add-diary-entry` command shall reject an empty `<note-name>` argument with stderr `"note-name must not be empty\n"` and exit code 2.
 
-**REQ-25** `loadLocale()` in `src/cli.ts` shall call `console.warn(\`LuKit: invalid dateLocale "\${value}" in config — falling back to "de"\`)` when `isDateLocale` returns false for the configured value.
+**REQ-25** ✓ `loadLocale()` in `src/cli.ts` shall call `console.warn(\`LuKit: invalid dateLocale "\${value}" in config — falling back to "de"\`)` when `isDateLocale` returns false for the configured value.
 
 **REQ-26** `HelpModal` shall render by calling `plugin.features.flatMap(f => f.helpEntries())`. `LuKitFeature` shall gain a new optional method:
 ```typescript
@@ -490,7 +490,7 @@ Steps:
 
 ---
 
-### Phase 1.E — Observability
+### Phase 1.E — Observability ✓ DONE
 
 **Files**: `src/features/besprechung/besprechung-feature.ts`, `src/cli.ts`
 
