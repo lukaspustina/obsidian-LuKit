@@ -69,7 +69,10 @@ export class VorgangFeature implements LuKitFeature {
 
 	private async addDiaryEntryForSection(activeFile: TFile, sectionName: string, date: Date): Promise<void> {
 		const diaryPath = getDiaryNotePath(this.plugin);
-		if (!diaryPath) return;
+		if (!diaryPath) {
+			new Notice("Diary entry skipped — set Diary note path in LuKit settings");
+			return;
+		}
 
 		const diaryAbstract = this.plugin.app.vault.getAbstractFileByPath(diaryPath);
 		if (!(diaryAbstract instanceof TFile)) {

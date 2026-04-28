@@ -56,30 +56,30 @@ export class MigrationFeature implements LuKitFeature {
 		new TextInputModal(
 			this.plugin.app,
 			"Frontmatter tag",
-			(tag) => {
+			async (tag) => {
+				let preview;
+				try {
+					const content = await this.plugin.app.vault.read(file);
+					preview = migrateVorgangNote(content, { addTag: tag });
+				} catch (e) {
+					new Notice("LuKit: Could not read note for migration: " + (e instanceof Error ? e.message : String(e)));
+					return;
+				}
+				const diff = countChangedLines(await this.plugin.app.vault.read(file), preview.newContent);
 				new ConfirmModal(
 					this.plugin.app,
-					`Migrate "${file.basename}" to current Vorgang format?`,
+					`${diff} line(s) will change. Migrate "${file.basename}" to current Vorgang format?`,
 					async () => {
-						let changeCount = 0;
 						try {
-							await this.plugin.app.vault.process(
-								file,
-								(current) => {
-									const result = migrateVorgangNote(current, { addTag: tag });
-									changeCount = result.changeCount;
-									return result.newContent;
-								},
-							);
+							await this.plugin.app.vault.process(file, () => preview.newContent);
 						} catch (e) {
 							new Notice("LuKit: Migration failed: " + (e instanceof Error ? e.message : String(e)));
 							return;
 						}
-
-						if (changeCount === 0) {
+						if (preview.changeCount === 0) {
 							new Notice("LuKit: Nothing to migrate.");
 						} else {
-							new Notice(`LuKit: Migrated ${changeCount} entries.`);
+							new Notice(`LuKit: Migrated ${preview.changeCount} entries.`);
 						}
 					},
 				).open();
@@ -88,29 +88,44 @@ export class MigrationFeature implements LuKitFeature {
 		).open();
 	}
 
-	private migrateDiary(file: TFile): void {
+	private async migrateDiary(file: TFile): Promise<void> {
+		let preview;
+		let original: string;
+		try {
+			original = await this.plugin.app.vault.read(file);
+			preview = migrateDiaryNote(original);
+		} catch (e) {
+			new Notice("LuKit: Could not read note for migration: " + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
+		const diff = countChangedLines(original, preview.newContent);
 		new ConfirmModal(
 			this.plugin.app,
-			`Migrate "${file.basename}" to current Diary format?`,
+			`${diff} line(s) will change. Migrate "${file.basename}" to current Diary format?`,
 			async () => {
-				let changeCount = 0;
 				try {
-					await this.plugin.app.vault.process(file, (current) => {
-						const result = migrateDiaryNote(current);
-						changeCount = result.changeCount;
-						return result.newContent;
-					});
+					await this.plugin.app.vault.process(file, () => preview.newContent);
 				} catch (e) {
 					new Notice("LuKit: Migration failed: " + (e instanceof Error ? e.message : String(e)));
 					return;
 				}
-
-				if (changeCount === 0) {
+				if (preview.changeCount === 0) {
 					new Notice("LuKit: Nothing to migrate.");
 				} else {
-					new Notice(`LuKit: Migrated ${changeCount} entries.`);
+					new Notice(`LuKit: Migrated ${preview.changeCount} entries.`);
 				}
 			},
 		).open();
 	}
+}
+
+function countChangedLines(before: string, after: string): number {
+	const a = before.split("\n");
+	const b = after.split("\n");
+	const max = Math.max(a.length, b.length);
+	let diff = 0;
+	for (let i = 0; i < max; i++) {
+		if (a[i] !== b[i]) diff++;
+	}
+	return diff;
 }

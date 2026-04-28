@@ -56,6 +56,24 @@ export function formatLinkedBullet(noteName: string, locale: DateLocale, date: D
 		: `- [[#${noteName}, ${formatDate(date, locale)}]]`;
 }
 
+// Extracts the canonical note name from a wikilink bullet. Handles:
+//   `[[#NoteName, DATE]]`         (bare anchor — same-file heading link)
+//   `[[NoteName, DATE]]`          (file link)
+//   `[[NoteName#Section]]`        (file + heading anchor)
+//   `[[Note|Display]]`            (file with display text)
+//   `[[Folder/NoteName.md|...]]`  (folder path with extension)
+// Returns the note name without folder, anchor, display, or `.md` extension,
+// or null when no wikilink is present.
+export function extractWikilinkTarget(bullet: string): string | null {
+	const match = /\[\[#?([^\]#|]+)/.exec(bullet);
+	if (!match) return null;
+	let target = match[1].trim();
+	const slash = target.lastIndexOf("/");
+	if (slash !== -1) target = target.slice(slash + 1);
+	if (target.endsWith(".md")) target = target.slice(0, -3);
+	return target;
+}
+
 // Strips trailing `]]` from a string. Used when parsing dates out of wikilink-
 // shaped lines (e.g. `##### [[Name, 19.03.2026]]`) so the date parser sees a
 // clean `DD.MM.YYYY` candidate.

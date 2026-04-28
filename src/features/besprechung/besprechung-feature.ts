@@ -13,7 +13,12 @@ import {
 import { renderBesprechungSettings } from "./besprechung-settings";
 import { FolderNoteSuggestModal } from "../../shared/modals/folder-note-suggest";
 import { SectionNoteSuggestModal } from "../../shared/modals/section-note-suggest";
-import { addVorgangSectionLinked, formatLinkedBullet } from "../vorgang/vorgang-engine";
+import { addVorgangSectionLinked } from "../vorgang/vorgang-engine";
+import {
+	findInhaltSectionIndex,
+	findInhaltBulletRange,
+	extractWikilinkTarget,
+} from "../../shared/note-structure";
 import { extractDateFromTitle } from "../../shared/date-format";
 
 export class BesprechungFeature implements LuKitFeature {
@@ -133,9 +138,8 @@ export class BesprechungFeature implements LuKitFeature {
 				?? extractCreatedDate(besprechungContent)
 				?? new Date();
 			const vorgangContent = activeEditor.getValue();
-			const expectedBullet = formatLinkedBullet(besprechungFile.basename, locale, date);
-			if (vorgangContent.includes(expectedBullet)) {
-				new Notice(`LuKit: "${besprechungFile.basename}" is already linked. Skipped.`);
+			if (this.vorgangAlreadyLinks(vorgangContent, besprechungFile.basename)) {
+				new Notice(`LuKit: "${besprechungFile.basename}" already linked in "${activeFile.basename}"`);
 				return;
 			}
 			const { newContent, cursorLineIndex } = addVorgangSectionLinked(
@@ -153,6 +157,24 @@ export class BesprechungFeature implements LuKitFeature {
 			const cursor = activeEditor.getCursor();
 			activeEditor.replaceRange(summary, cursor);
 		}
+	}
+
+	// Checks whether the Vorgang's `# Inhalt` TOC contains a wikilink resolving
+	// to the given besprechung basename. Robust against date-resolution drift
+	// because it parses the link target from each bullet rather than matching
+	// the rendered bullet string.
+	private vorgangAlreadyLinks(vorgangContent: string, besprechungBasename: string): boolean {
+		const lines = vorgangContent.split("\n");
+		const inhaltIndex = findInhaltSectionIndex(lines);
+		if (inhaltIndex === -1) return false;
+		const range = findInhaltBulletRange(lines, inhaltIndex);
+		if (range === null) return false;
+		for (let i = range.firstBullet; i < range.afterLastBullet; i++) {
+			if (!lines[i].startsWith("- ")) continue;
+			const target = extractWikilinkTarget(lines[i]);
+			if (target === besprechungBasename) return true;
+		}
+		return false;
 	}
 
 	private static readonly SECTION_NOTE_TAGS: ReadonlySet<string> = new Set(["Vorgang", "Person", "Bestellung", "Bewerbung"]);
@@ -258,9 +280,7 @@ export class BesprechungFeature implements LuKitFeature {
 		const date = extractDateFromTitle(vorgang.basename, locale)
 			?? extractCreatedDate(besprechungContent)
 			?? new Date();
-		const expectedBullet = formatLinkedBullet(besprechung.basename, locale, date);
-
-		const alreadyLinked = vorgangContent.includes(expectedBullet);
+		const alreadyLinked = this.vorgangAlreadyLinks(vorgangContent, besprechung.basename);
 
 		try {
 			if (!alreadyLinked) {
@@ -295,7 +315,7 @@ export class BesprechungFeature implements LuKitFeature {
 		}
 
 		if (alreadyLinked) {
-			new Notice(`LuKit: "${besprechung.basename}" already linked in "${vorgang.basename}". Removed "${pendingTag}".`);
+			new Notice(`LuKit: "${besprechung.basename}" already linked in "${vorgang.basename}"`);
 		} else {
 			new Notice(`LuKit: Filed "${besprechung.basename}" under "${vorgang.basename}".`);
 		}

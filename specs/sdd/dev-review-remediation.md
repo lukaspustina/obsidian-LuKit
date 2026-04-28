@@ -151,9 +151,9 @@ This requirement depends on Phase 1.B step 4 having moved `parseDiaryHeaderDate`
 
 **REQ-20** ✓ `TextInputModal.submit()` and `TextDateModal.submit()` shall display an inline error "Text required." when the text field is empty, rather than silently no-opping. The modal shall stay open.
 
-**REQ-21** Besprechung duplicate-detection shall match by note name (wikilink target), not by rendered bullet string. The check shall parse existing `# Inhalt` TOC bullets using the regex `\[\[([^\]#|]+)` to extract the note name before any `#` or `|`, and compare against the candidate note's basename. Re-insertion shall be blocked regardless of date-resolution drift. On a hit, the canonical Notice text shall be `"LuKit: \"${besprechung.basename}\" already linked in \"${vorgang.basename}\""` (no surrounding quotes change between insert paths and pending-filing paths; the message is identical).
+**REQ-21** ✓ Besprechung duplicate-detection shall match by note name (wikilink target), not by rendered bullet string. The check shall parse existing `# Inhalt` TOC bullets using the regex `\[\[([^\]#|]+)` to extract the note name before any `#` or `|`, and compare against the candidate note's basename. Re-insertion shall be blocked regardless of date-resolution drift. On a hit, the canonical Notice text shall be `"LuKit: \"${besprechung.basename}\" already linked in \"${vorgang.basename}\""` (no surrounding quotes change between insert paths and pending-filing paths; the message is identical).
 
-**REQ-22** `VorgangFeature.addDiaryEntryForSection` shall show `new Notice("Diary entry skipped — set Diary note path in LuKit settings")` when `getDiaryNotePath(plugin)` returns an empty string. The Vorgang section is still inserted.
+**REQ-22** ✓ `VorgangFeature.addDiaryEntryForSection` shall show `new Notice("Diary entry skipped — set Diary note path in LuKit settings")` when `getDiaryNotePath(plugin)` returns an empty string. The Vorgang section is still inserted.
 
 **REQ-23** The CLI shall count only positional arguments (flags stripped before counting) per command. When the positional count exceeds the expected count, it shall write `"Usage: lukit <command> ... — extra args (did you forget to quote text?)\n"` to stderr and exit with code 2. No file shall be written.
 
@@ -175,11 +175,11 @@ export interface HelpEntry {
 ```
 Each feature shall implement `helpEntries()` listing every command it registers. A Vitest snapshot test shall call `plugin.features.flatMap(f => f.helpEntries?.() ?? [])` and assert with `expect(entries).toMatchSnapshot()`. Updating the snapshot is the only way to ship a new command; drift is detected automatically.
 
-**REQ-27** `MigrationFeature.migrateCmd` shall compute a diff count (lines changed) from the engine output before opening the confirm dialog. The confirm body shall include "X line(s) will change." before the user confirms.
+**REQ-27** ✓ `MigrationFeature.migrateCmd` shall compute a diff count (lines changed) from the engine output before opening the confirm dialog. The confirm body shall include "X line(s) will change." before the user confirms.
 
-**REQ-28** `WorkDiaryFeature.addCurrentNoteCmd` "Already in diary" Notice shall reflect the actual target date derived from the heading or title, not literally "today". The message shall be `"Already in diary for \${formattedDate}"`.
+**REQ-28** ✓ `WorkDiaryFeature.addCurrentNoteCmd` "Already in diary" Notice shall reflect the actual target date derived from the heading or title, not literally "today". The message shall be `"Already in diary for \${formattedDate}"`.
 
-**REQ-29** `HeadingSuggestModal` shall not pre-fill the query input with `headings[1]` when "No heading" is the first displayed item. The pre-fill shall be removed; the modal opens with an empty input.
+**REQ-29** ✓ `HeadingSuggestModal` shall not pre-fill the query input with `headings[1]` when "No heading" is the first displayed item. The pre-fill shall be removed; the modal opens with an empty input.
 
 **REQ-30** The CLI shall recognise `--help` in any position in `argv`. When a known command name precedes `--help` (e.g. `add-diary-entry --help`), it shall print per-command usage to stdout and exit 0. When `--help` appears with no recognised command, it shall print the global usage and exit 0.
 
@@ -536,7 +536,7 @@ Steps:
 
 ---
 
-### Phase 2.B — Behaviour fixes
+### Phase 2.B — Behaviour fixes ✓ DONE
 
 **Files**: `src/features/besprechung/besprechung-feature.ts`, `src/features/besprechung/besprechung-engine.ts`, `src/features/vorgang/vorgang-feature.ts`, `src/features/work-diary/work-diary-feature.ts`, `src/shared/modals/heading-suggest.ts`, `src/features/migration/migration-feature.ts`
 

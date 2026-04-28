@@ -1,5 +1,5 @@
 import { Notice, TFile, WorkspaceLeaf } from "obsidian";
-import { extractDateFromTitle } from "../../shared/date-format";
+import { extractDateFromTitle, formatDate } from "../../shared/date-format";
 import type { CachedMetadata, HeadingCache } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
@@ -231,7 +231,7 @@ export class WorkDiaryFeature implements LuKitFeature {
 		}
 
 		if (alreadyExists) {
-			new Notice("LuKit: Already in today's diary.");
+			new Notice(`LuKit: Already in diary for ${formatDate(date, locale)}`);
 			return;
 		}
 
