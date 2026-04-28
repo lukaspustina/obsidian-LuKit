@@ -63,7 +63,12 @@ function formatDateWithWeekday(date, locale) {
   return dateStr;
 }
 
-// src/features/work-diary/work-diary-engine.ts
+// src/shared/note-structure.ts
+function stripTrailingBrackets(s) {
+  return s.replace(/\]+$/, "");
+}
+
+// src/shared/diary.ts
 function formatTodayHeader(locale, date) {
   const d = date ?? /* @__PURE__ */ new Date();
   return `##### ${formatDateWithWeekday(d, locale)}`;
@@ -94,7 +99,7 @@ function parseDiaryHeaderDate(header, locale) {
   const text = header.slice("##### ".length).trim();
   const lastComma = text.lastIndexOf(", ");
   const raw = lastComma !== -1 ? text.slice(lastComma + 2).trim() : text;
-  return parseDateString(raw.replace(/\]+$/, ""), locale);
+  return parseDateString(stripTrailingBrackets(raw), locale);
 }
 function findDiaryHeaderInsertPosition(lines, separatorIndex, date, locale) {
   let lastH5Seen = -1;
@@ -157,12 +162,24 @@ function formatDiaryEntry(noteName, heading) {
 function formatTextEntry(text) {
   return `- ${text}`;
 }
+
+// src/features/work-diary/work-diary-engine.ts
 function formatReminderEntry(text, locale, date) {
   const d = date ?? /* @__PURE__ */ new Date();
   return `- ${text}, ${formatDate(d, locale)}`;
 }
+function findNthSeparatorIndex2(lines, n) {
+  let count = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === "---") {
+      count++;
+      if (count === n) return i;
+    }
+  }
+  return -1;
+}
 function findSecondSeparatorIndex(lines) {
-  return findNthSeparatorIndex(lines, 2);
+  return findNthSeparatorIndex2(lines, 2);
 }
 function findErinnerungenIndex(lines, fromIndex, toIndex) {
   for (let i = fromIndex; i < toIndex; i++) {
