@@ -155,9 +155,9 @@ This requirement depends on Phase 1.B step 4 having moved `parseDiaryHeaderDate`
 
 **REQ-22** ✓ `VorgangFeature.addDiaryEntryForSection` shall show `new Notice("Diary entry skipped — set Diary note path in LuKit settings")` when `getDiaryNotePath(plugin)` returns an empty string. The Vorgang section is still inserted.
 
-**REQ-23** The CLI shall count only positional arguments (flags stripped before counting) per command. When the positional count exceeds the expected count, it shall write `"Usage: lukit <command> ... — extra args (did you forget to quote text?)\n"` to stderr and exit with code 2. No file shall be written.
+**REQ-23** ✓ The CLI shall count only positional arguments (flags stripped before counting) per command. When the positional count exceeds the expected count, it shall write `"Usage: lukit <command> ... — extra args (did you forget to quote text?)\n"` to stderr and exit with code 2. No file shall be written.
 
-**REQ-24** The CLI `add-diary-entry` command shall reject an empty `<note-name>` argument with stderr `"note-name must not be empty\n"` and exit code 2.
+**REQ-24** ✓ The CLI `add-diary-entry` command shall reject an empty `<note-name>` argument with stderr `"note-name must not be empty\n"` and exit code 2.
 
 **REQ-25** ✓ `loadLocale()` in `src/cli.ts` shall call `console.warn(\`LuKit: invalid dateLocale "\${value}" in config — falling back to "de"\`)` when `isDateLocale` returns false for the configured value.
 
@@ -181,9 +181,9 @@ Each feature shall implement `helpEntries()` listing every command it registers.
 
 **REQ-29** ✓ `HeadingSuggestModal` shall not pre-fill the query input with `headings[1]` when "No heading" is the first displayed item. The pre-fill shall be removed; the modal opens with an empty input.
 
-**REQ-30** The CLI shall recognise `--help` in any position in `argv`. When a known command name precedes `--help` (e.g. `add-diary-entry --help`), it shall print per-command usage to stdout and exit 0. When `--help` appears with no recognised command, it shall print the global usage and exit 0.
+**REQ-30** ✓ The CLI shall recognise `--help` in any position in `argv`. When a known command name precedes `--help` (e.g. `add-diary-entry --help`), it shall print per-command usage to stdout and exit 0. When `--help` appears with no recognised command, it shall print the global usage and exit 0.
 
-**REQ-31** The CLI shall accept `--version` and print the version string baked in at build time, then exit 0. In `esbuild.config.mjs`, read the version using `JSON.parse(readFileSync("./manifest.json", "utf8")).version` (with `import { readFileSync } from "node:fs"`) — this avoids the `assert { type: "json" }` vs `with { type: "json" }` deprecation cliff between Node 20 and Node 22+. The `define: { "__CLI_VERSION__": JSON.stringify(version) }` option shall be added to the CLI build only (the `if (cli)` branch's `esbuild.build({...})` options block), not to the plugin `esbuild.context({...})`. The CLI source references the `__CLI_VERSION__` constant via `declare const __CLI_VERSION__: string;`.
+**REQ-31** ✓ The CLI shall accept `--version` and print the version string baked in at build time, then exit 0. In `esbuild.config.mjs`, read the version using `JSON.parse(readFileSync("./manifest.json", "utf8")).version` (with `import { readFileSync } from "node:fs"`) — this avoids the `assert { type: "json" }` vs `with { type: "json" }` deprecation cliff between Node 20 and Node 22+. The `define: { "__CLI_VERSION__": JSON.stringify(version) }` option shall be added to the CLI build only (the `if (cli)` branch's `esbuild.build({...})` options block), not to the plugin `esbuild.context({...})`. The CLI source references the `__CLI_VERSION__` constant via `declare const __CLI_VERSION__: string;`.
 
 **REQ-32** Each LaunchBar wrapper script shall check the CLI exit code. On non-zero exit, the script shall surface the CLI's stderr to the user (truncated to 200 characters) as a LaunchBar notification. Success messages shall fire only on exit code 0.
 
@@ -560,7 +560,7 @@ Steps:
 
 ---
 
-### Phase 2.C — CLI hardening
+### Phase 2.C — CLI hardening ✓ DONE
 
 **Files**: `src/cli.ts`, `esbuild.config.mjs`
 

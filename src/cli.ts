@@ -12,28 +12,41 @@ import {
 import { isDateLocale } from "./shared/date-format";
 import type { DateLocale } from "./shared/date-format";
 
-type CommandHandler = (args: string[]) => void;
+declare const __CLI_VERSION__: string;
 
-const commands: Record<string, { handler: CommandHandler; usage: string }> = {
+interface CommandSpec {
+	handler: (args: string[]) => void;
+	usage: string;
+	expectedPositional: number; // minimum positional args
+	maxPositional?: number;     // maximum positional args (defaults to expectedPositional)
+}
+
+const commands: Record<string, CommandSpec> = {
 	"add-text-to-diary": {
 		handler: runAddTextToDiary,
 		usage: "lukit add-text-to-diary <diary-path> <text>",
+		expectedPositional: 2,
 	},
 	"ensure-today-header": {
 		handler: runEnsureTodayHeader,
 		usage: "lukit ensure-today-header <diary-path>",
+		expectedPositional: 1,
 	},
 	"add-diary-entry": {
 		handler: runAddDiaryEntry,
 		usage: "lukit add-diary-entry <diary-path> <note-name> [heading]",
+		expectedPositional: 2,
+		maxPositional: 3,
 	},
 	"add-reminder": {
 		handler: runAddReminder,
 		usage: "lukit add-reminder <diary-path> <text>",
+		expectedPositional: 2,
 	},
 	"init-config": {
 		handler: runInitConfig,
 		usage: "lukit init-config",
+		expectedPositional: 0,
 	},
 };
 
@@ -62,16 +75,20 @@ function printUsage(): void {
 		console.log(`  ${cmd.usage}`);
 	}
 	console.log("\nOptions:");
-	console.log("  --help    Show this help message");
+	console.log("  --help     Show this help message");
+	console.log("  --version  Print the CLI version");
+}
+
+function printCommandUsage(commandName: string): void {
+	const cmd = commands[commandName];
+	if (!cmd) {
+		printUsage();
+		return;
+	}
+	console.log(`Usage: ${cmd.usage}`);
 }
 
 function runAddTextToDiary(args: string[]): void {
-	if (args.length < 2) {
-		console.error("Error: Missing arguments.");
-		console.error("Usage: lukit add-text-to-diary <diary-path> <text>");
-		process.exit(1);
-	}
-
 	const diaryPath = resolve(args[0]);
 	const text = args[1].trim();
 
@@ -100,12 +117,6 @@ function runAddTextToDiary(args: string[]): void {
 }
 
 function runEnsureTodayHeader(args: string[]): void {
-	if (args.length < 1) {
-		console.error("Error: Missing arguments.");
-		console.error("Usage: lukit ensure-today-header <diary-path>");
-		process.exit(1);
-	}
-
 	const diaryPath = resolve(args[0]);
 
 	if (!existsSync(diaryPath)) {
@@ -133,15 +144,14 @@ function runEnsureTodayHeader(args: string[]): void {
 }
 
 function runAddDiaryEntry(args: string[]): void {
-	if (args.length < 2) {
-		console.error("Error: Missing arguments.");
-		console.error("Usage: lukit add-diary-entry <diary-path> <note-name> [heading]");
-		process.exit(1);
-	}
-
 	const diaryPath = resolve(args[0]);
-	const noteName = args[1];
+	const noteName = args[1].trim();
 	const heading = args.length >= 3 ? args[2] : null;
+
+	if (noteName.length === 0) {
+		process.stderr.write("note-name must not be empty\n");
+		process.exit(2);
+	}
 
 	if (!existsSync(diaryPath)) {
 		console.error(`Error: File not found: ${diaryPath}`);
@@ -163,12 +173,6 @@ function runAddDiaryEntry(args: string[]): void {
 }
 
 function runAddReminder(args: string[]): void {
-	if (args.length < 2) {
-		console.error("Error: Missing arguments.");
-		console.error("Usage: lukit add-reminder <diary-path> <text>");
-		process.exit(1);
-	}
-
 	const diaryPath = resolve(args[0]);
 	const text = args[1].trim();
 
@@ -224,23 +228,62 @@ function runInitConfig(_args: string[]): void {
 }
 
 function main(): void {
-	const args = process.argv.slice(2);
+	const argv = process.argv.slice(2);
 
-	if (args.length === 0 || args[0] === "--help") {
+	// Resolve --version anywhere in argv.
+	if (argv.includes("--version")) {
+		console.log(typeof __CLI_VERSION__ === "string" ? __CLI_VERSION__ : "unknown");
+		process.exit(0);
+	}
+
+	// Find the first positional (non-flag) argument; that's the command name.
+	const firstPositional = argv.find((a) => !a.startsWith("--"));
+
+	if (argv.includes("--help")) {
+		if (firstPositional && commands[firstPositional]) {
+			printCommandUsage(firstPositional);
+		} else {
+			printUsage();
+		}
+		process.exit(0);
+	}
+
+	if (argv.length === 0 || !firstPositional) {
 		printUsage();
 		process.exit(0);
 	}
 
-	const commandName = args[0];
-	const command = commands[commandName];
-
+	const command = commands[firstPositional];
 	if (!command) {
-		console.error(`Error: Unknown command '${commandName}'`);
+		console.error(`Error: Unknown command '${firstPositional}'`);
 		printUsage();
 		process.exit(1);
 	}
 
-	command.handler(args.slice(1));
+	// Strip the command name and any flags; remaining are positionals for the handler.
+	const positionals: string[] = [];
+	let seenCommand = false;
+	for (const a of argv) {
+		if (a.startsWith("--")) continue;
+		if (!seenCommand) {
+			seenCommand = true;
+			continue;
+		}
+		positionals.push(a);
+	}
+
+	const max = command.maxPositional ?? command.expectedPositional;
+	if (positionals.length < command.expectedPositional) {
+		console.error("Error: Missing arguments.");
+		console.error(`Usage: ${command.usage}`);
+		process.exit(1);
+	}
+	if (positionals.length > max) {
+		process.stderr.write(`Usage: ${command.usage} — extra args (did you forget to quote text?)\n`);
+		process.exit(2);
+	}
+
+	command.handler(positionals);
 }
 
 main();

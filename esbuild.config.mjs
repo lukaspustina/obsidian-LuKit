@@ -1,9 +1,12 @@
 import esbuild from "esbuild";
 import process from "process";
+import { readFileSync } from "node:fs";
 
 const mode = process.argv[2];
 const prod = mode === "production";
 const cli = mode === "cli";
+
+const version = JSON.parse(readFileSync("./manifest.json", "utf8")).version;
 
 if (cli) {
 	await esbuild.build({
@@ -16,6 +19,7 @@ if (cli) {
 		treeShaking: true,
 		outfile: "cli.js",
 		banner: { js: "#!/usr/bin/env node" },
+		define: { "__CLI_VERSION__": JSON.stringify(version) },
 	});
 	process.exit(0);
 }
