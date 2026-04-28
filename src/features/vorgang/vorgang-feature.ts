@@ -5,6 +5,7 @@ import type { LuKitFeature } from "../../types";
 import { addVorgangSection, formatVorgangHeadingText } from "./vorgang-engine";
 import { extractDateFromTitle } from "../../shared/date-format";
 import { formatDiaryEntry, addEntryUnderToday } from "../../shared/diary";
+import { getDiaryNotePath } from "../../shared/diary-settings";
 import { AddSectionModal } from "./add-section-modal";
 
 export class VorgangFeature implements LuKitFeature {
@@ -67,7 +68,7 @@ export class VorgangFeature implements LuKitFeature {
 	}
 
 	private async addDiaryEntryForSection(activeFile: TFile, sectionName: string, date: Date): Promise<void> {
-		const diaryPath = this.plugin.settings.workDiary.diaryNotePath;
+		const diaryPath = getDiaryNotePath(this.plugin);
 		if (!diaryPath) return;
 
 		const diaryAbstract = this.plugin.app.vault.getAbstractFileByPath(diaryPath);
