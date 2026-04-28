@@ -1,5 +1,13 @@
 import { formatDate, extractDateFromTitle } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
+import {
+	findInhaltSectionIndex,
+	findInhaltBulletRange,
+	formatLinkedBullet,
+	stripTrailingBrackets,
+} from "../../shared/note-structure";
+
+export { findInhaltSectionIndex, findInhaltBulletRange, formatLinkedBullet };
 
 export function formatVorgangHeadingText(name: string, locale: DateLocale, date?: Date): string {
 	const d = date ?? new Date();
@@ -15,50 +23,6 @@ export function formatVorgangBullet(name: string, locale: DateLocale, date?: Dat
 	return `- [[#${name}, ${formatDate(d, locale)}]]`;
 }
 
-export function findInhaltSectionIndex(lines: string[]): number {
-	for (let i = 0; i < lines.length; i++) {
-		if (lines[i].trim() === "# Inhalt") {
-			return i;
-		}
-	}
-	return -1;
-}
-
-export function findInhaltBulletRange(
-	lines: string[],
-	inhaltIndex: number,
-): { firstBullet: number; afterLastBullet: number } | null {
-	let firstBullet = -1;
-	for (let i = inhaltIndex + 1; i < lines.length; i++) {
-		const line = lines[i];
-		if (line.startsWith("#")) {
-			break;
-		}
-		if (line.startsWith("- ")) {
-			if (firstBullet === -1) {
-				firstBullet = i;
-			}
-		} else if (firstBullet !== -1 && line.trim() !== "") {
-			break;
-		}
-	}
-	if (firstBullet === -1) {
-		return null;
-	}
-	let afterLastBullet = firstBullet + 1;
-	for (let i = firstBullet + 1; i < lines.length; i++) {
-		const line = lines[i];
-		if (line.startsWith("- ")) {
-			afterLastBullet = i + 1;
-		} else if (line.trim() === "") {
-			continue;
-		} else {
-			break;
-		}
-	}
-	return { firstBullet, afterLastBullet };
-}
-
 function findBulletInsertIndex(
 	lines: string[],
 	firstBullet: number,
@@ -68,7 +32,7 @@ function findBulletInsertIndex(
 ): number {
 	for (let i = firstBullet; i < afterLastBullet; i++) {
 		if (!lines[i].startsWith("- ")) continue;
-		const existing = extractDateFromTitle(lines[i].replace(/\]+$/, ""), locale);
+		const existing = extractDateFromTitle(stripTrailingBrackets(lines[i]), locale);
 		if (existing === null || existing <= newDate) {
 			return i;
 		}
@@ -84,8 +48,7 @@ function findH5InsertIndex(
 ): number {
 	for (let i = fromIndex; i < lines.length; i++) {
 		if (!lines[i].startsWith("##### ")) continue;
-		// Strip trailing ]] so linked headers (`##### [[Name, DATE]]`) parse correctly.
-		const existing = extractDateFromTitle(lines[i].replace(/\]+$/, ""), locale);
+		const existing = extractDateFromTitle(stripTrailingBrackets(lines[i]), locale);
 		if (existing === null || existing <= newDate) {
 			return i;
 		}
@@ -103,15 +66,6 @@ export function addVorgangSection(
 	const bullet = formatVorgangBullet(name, locale, d);
 	const header = formatVorgangHeader(name, locale, d);
 	return insertVorgangContent(content, bullet, header, [], d, locale);
-}
-
-// Returns the bullet string that addVorgangSectionLinked would insert for this note.
-// Used by besprechung-feature.ts to detect duplicates before inserting.
-export function formatLinkedBullet(noteName: string, locale: DateLocale, date: Date): string {
-	const nameAlreadyHasDate = extractDateFromTitle(noteName, locale) !== null;
-	return nameAlreadyHasDate
-		? `- [[#${noteName}]]`
-		: formatVorgangBullet(noteName, locale, date);
 }
 
 // Used by besprechung-feature.ts to insert a meeting note section with body lines.
