@@ -1,7 +1,7 @@
 import { Notice, TFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
-import type { LuKitFeature } from "../../types";
+import type { LuKitFeature, HelpEntry } from "../../types";
 import { addVorgangSection, formatVorgangHeadingText } from "./vorgang-engine";
 import { extractDateFromTitle } from "../../shared/date-format";
 import { formatDiaryEntry, addEntryUnderToday } from "../../shared/diary";
@@ -25,6 +25,16 @@ export class VorgangFeature implements LuKitFeature {
 
 	onunload(): void {
 		// Nothing to clean up
+	}
+
+	helpEntries(): HelpEntry[] {
+		return [
+			{
+				commandId: "vorgang-add-section",
+				displayName: "Vorgang: Add section",
+				description: "Prompts for a name and a date, inserts TOC entry + h5 header section. Also creates a linked diary entry if a diary path is configured.",
+			},
+		];
 	}
 
 	private addVorgangSectionCmd(): void {

@@ -15,11 +15,18 @@ export interface BesprechungSettings {
 	pendingOrder: PendingOrder;
 }
 
+export interface HelpEntry {
+	commandId: string;
+	displayName: string;
+	description: string;
+}
+
 export interface LuKitFeature {
 	id: string;
 	onload(plugin: LuKitPlugin): void;
 	onunload(): void;
 	renderSettings?(containerEl: HTMLElement, plugin: LuKitPlugin): void;
+	helpEntries?(): HelpEntry[];
 }
 
 export interface LuKitSettings {

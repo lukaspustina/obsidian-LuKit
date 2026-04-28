@@ -3,7 +3,7 @@ import { extractDateFromTitle, formatDate } from "../../shared/date-format";
 import type { CachedMetadata, HeadingCache } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
-import type { LuKitFeature } from "../../types";
+import type { LuKitFeature, HelpEntry } from "../../types";
 import {
 	ensureTodayHeader,
 	addEntryUnderToday,
@@ -68,6 +68,36 @@ export class WorkDiaryFeature implements LuKitFeature {
 
 	renderSettings(containerEl: HTMLElement, plugin: LuKitPlugin): void {
 		renderWorkDiarySettings(containerEl, plugin);
+	}
+
+	helpEntries(): HelpEntry[] {
+		return [
+			{
+				commandId: "diary-ensure-today",
+				displayName: "Diary: Ensure today's header",
+				description: "Creates today's date header if missing, opens the diary note and positions the cursor below it.",
+			},
+			{
+				commandId: "diary-add-entry",
+				displayName: "Diary: Add linked entry",
+				description: "Pick a note and heading via fuzzy search, inserts a linked entry under today's header.",
+			},
+			{
+				commandId: "diary-add-text",
+				displayName: "Diary: Add text entry",
+				description: "Type free text and pick a date, inserts as a bullet under that date's header.",
+			},
+			{
+				commandId: "diary-add-reminder",
+				displayName: "Diary: Add reminder",
+				description: "Type a reminder and pick a due date, inserts under # Erinnerungen tagged with that date.",
+			},
+			{
+				commandId: "diary-add-current-note",
+				displayName: "Diary: Add current note",
+				description: "Adds the active note (with the heading at cursor) as a linked diary entry — no modals.",
+			},
+		];
 	}
 
 	private getDiaryFile(): TFile | null {

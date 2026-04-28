@@ -1,7 +1,7 @@
 import { Notice, TFile, normalizePath } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
-import type { LuKitFeature } from "../../types";
+import type { LuKitFeature, HelpEntry } from "../../types";
 import {
 	formatBesprechungSummary,
 	composeBesprechungInsertion,
@@ -62,6 +62,26 @@ export class BesprechungFeature implements LuKitFeature {
 
 	renderSettings(containerEl: HTMLElement, plugin: LuKitPlugin): void {
 		renderBesprechungSettings(containerEl, plugin);
+	}
+
+	helpEntries(): HelpEntry[] {
+		return [
+			{
+				commandId: "besprechung-add-summary",
+				displayName: "Besprechung: Add summary",
+				description: "Pick a meeting note, extract key sections, insert at cursor (or as a linked section in Vorgang/Person/Bestellung/Bewerbung notes).",
+			},
+			{
+				commandId: "besprechung-add-multiple-summaries",
+				displayName: "Besprechung: Add multiple summaries",
+				description: "Picker re-opens after each insertion (already-picked files hidden) until ESC; persists the search query across iterations.",
+			},
+			{
+				commandId: "besprechung-file-pending",
+				displayName: "Besprechung: File pending notes",
+				description: "Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary, removes the tag, stamps filed_into/filed_at.",
+			},
+		];
 	}
 
 	private addBesprechungSummaryCmd(): void {

@@ -1,0 +1,56 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`LuKitFeature.helpEntries() registry > matches the snapshot 1`] = `
+[
+  {
+    "commandId": "diary-ensure-today",
+    "description": "Creates today's date header if missing, opens the diary note and positions the cursor below it.",
+    "displayName": "Diary: Ensure today's header",
+  },
+  {
+    "commandId": "diary-add-entry",
+    "description": "Pick a note and heading via fuzzy search, inserts a linked entry under today's header.",
+    "displayName": "Diary: Add linked entry",
+  },
+  {
+    "commandId": "diary-add-text",
+    "description": "Type free text and pick a date, inserts as a bullet under that date's header.",
+    "displayName": "Diary: Add text entry",
+  },
+  {
+    "commandId": "diary-add-reminder",
+    "description": "Type a reminder and pick a due date, inserts under # Erinnerungen tagged with that date.",
+    "displayName": "Diary: Add reminder",
+  },
+  {
+    "commandId": "diary-add-current-note",
+    "description": "Adds the active note (with the heading at cursor) as a linked diary entry — no modals.",
+    "displayName": "Diary: Add current note",
+  },
+  {
+    "commandId": "vorgang-add-section",
+    "description": "Prompts for a name and a date, inserts TOC entry + h5 header section. Also creates a linked diary entry if a diary path is configured.",
+    "displayName": "Vorgang: Add section",
+  },
+  {
+    "commandId": "besprechung-add-summary",
+    "description": "Pick a meeting note, extract key sections, insert at cursor (or as a linked section in Vorgang/Person/Bestellung/Bewerbung notes).",
+    "displayName": "Besprechung: Add summary",
+  },
+  {
+    "commandId": "besprechung-add-multiple-summaries",
+    "description": "Picker re-opens after each insertion (already-picked files hidden) until ESC; persists the search query across iterations.",
+    "displayName": "Besprechung: Add multiple summaries",
+  },
+  {
+    "commandId": "besprechung-file-pending",
+    "description": "Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary, removes the tag, stamps filed_into/filed_at.",
+    "displayName": "Besprechung: File pending notes",
+  },
+  {
+    "commandId": "migration-convert-bold",
+    "description": "Auto-detects the note type and converts old format to current. Shows a confirmation dialog with line-diff count first.",
+    "displayName": "Migration: Convert note",
+  },
+]
+`;

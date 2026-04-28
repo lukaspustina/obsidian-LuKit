@@ -36,7 +36,7 @@ export default class LuKitPlugin extends Plugin {
 			id: "lukit-help",
 			name: "Help",
 			icon: LUKIT_ICON_ID,
-			callback: () => new HelpModal(this.app).open(),
+			callback: () => new HelpModal(this.app, this).open(),
 		});
 
 		this.addSettingTab(new LuKitSettingTab(this.app, this));

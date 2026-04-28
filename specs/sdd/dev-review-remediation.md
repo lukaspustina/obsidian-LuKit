@@ -161,7 +161,7 @@ This requirement depends on Phase 1.B step 4 having moved `parseDiaryHeaderDate`
 
 **REQ-25** ✓ `loadLocale()` in `src/cli.ts` shall call `console.warn(\`LuKit: invalid dateLocale "\${value}" in config — falling back to "de"\`)` when `isDateLocale` returns false for the configured value.
 
-**REQ-26** `HelpModal` shall render by calling `plugin.features.flatMap(f => f.helpEntries())`. `LuKitFeature` shall gain a new optional method:
+**REQ-26** ✓ `HelpModal` shall render by calling `plugin.features.flatMap(f => f.helpEntries())`. `LuKitFeature` shall gain a new optional method:
 ```typescript
 helpEntries?(): HelpEntry[]
 ```
@@ -578,7 +578,7 @@ Steps:
 
 ---
 
-### Phase 2.D — HelpModal registry
+### Phase 2.D — HelpModal registry ✓ DONE
 
 **Files**: `src/types.ts`, `src/shared/modals/help-modal.ts`, all `*-feature.ts` files
 

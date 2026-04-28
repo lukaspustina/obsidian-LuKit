@@ -1,7 +1,7 @@
 import { Notice, type TFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
-import type { LuKitFeature } from "../../types";
+import type { LuKitFeature, HelpEntry } from "../../types";
 import {
 	detectNoteType,
 	migrateVorgangNote,
@@ -27,6 +27,16 @@ export class MigrationFeature implements LuKitFeature {
 
 	onunload(): void {
 		// Nothing to clean up
+	}
+
+	helpEntries(): HelpEntry[] {
+		return [
+			{
+				commandId: "migration-convert-bold",
+				displayName: "Migration: Convert note",
+				description: "Auto-detects the note type and converts old format to current. Shows a confirmation dialog with line-diff count first.",
+			},
+		];
 	}
 
 	private async migrateCmd(): Promise<void> {
