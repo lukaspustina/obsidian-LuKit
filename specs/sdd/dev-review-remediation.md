@@ -185,7 +185,7 @@ Each feature shall implement `helpEntries()` listing every command it registers.
 
 **REQ-31** ✓ The CLI shall accept `--version` and print the version string baked in at build time, then exit 0. In `esbuild.config.mjs`, read the version using `JSON.parse(readFileSync("./manifest.json", "utf8")).version` (with `import { readFileSync } from "node:fs"`) — this avoids the `assert { type: "json" }` vs `with { type: "json" }` deprecation cliff between Node 20 and Node 22+. The `define: { "__CLI_VERSION__": JSON.stringify(version) }` option shall be added to the CLI build only (the `if (cli)` branch's `esbuild.build({...})` options block), not to the plugin `esbuild.context({...})`. The CLI source references the `__CLI_VERSION__` constant via `declare const __CLI_VERSION__: string;`.
 
-**REQ-32** Each LaunchBar wrapper script shall check the CLI exit code. On non-zero exit, the script shall surface the CLI's stderr to the user (truncated to 200 characters) as a LaunchBar notification. Success messages shall fire only on exit code 0.
+**REQ-32** ✓ Each LaunchBar wrapper script shall check the CLI exit code. On non-zero exit, the script shall surface the CLI's stderr to the user (truncated to 200 characters) as a LaunchBar notification. Success messages shall fire only on exit code 0.
 
 ---
 
@@ -601,7 +601,7 @@ Steps:
 
 ---
 
-### Phase 2.E — LaunchBar exit codes
+### Phase 2.E — LaunchBar exit codes ✓ DONE
 
 **Files**: `launchbar/LuKit Add Text to Diary.lbaction/Contents/Scripts/default.js`, `launchbar/LuKit Add Reminder.lbaction/Contents/Scripts/default.js`
 

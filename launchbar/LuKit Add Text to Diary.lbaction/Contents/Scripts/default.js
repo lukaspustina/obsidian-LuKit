@@ -39,6 +39,13 @@ function run(text) {
 		return;
 	}
 
+	// LaunchBar.execute returns the combined stdout+stderr as a string.
+	// CLI prints "Error: ..." to stderr on failure; treat that as failure.
+	if (result.indexOf("Error:") === 0 || result.indexOf("\nError:") !== -1) {
+		LaunchBar.alert("LuKit failed", result.slice(0, 200));
+		return;
+	}
+
 	LaunchBar.displayNotification({
 		title: "Diary entry added",
 		string: text.trim(),
