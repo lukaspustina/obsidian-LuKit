@@ -62,3 +62,44 @@ export function formatLinkedBullet(noteName: string, locale: DateLocale, date: D
 export function stripTrailingBrackets(s: string): string {
 	return s.replace(/\]+$/, "");
 }
+
+// Inserts an h5 section (header + optional body) into `lines` at `atIndex`.
+// Returns a new array (input not mutated) and the cursor line index pointing
+// to where the user can start typing.
+//
+// Spacing rules:
+//   - Adds a leading blank when atIndex points to a position whose predecessor
+//     is non-blank, so the section is visually separated from prior content.
+//   - When body is present: emits header + body + trailing blank; cursor lands
+//     on the trailing blank (so Enter starts a new bullet below body).
+//   - When body is absent: emits header + two blanks; cursor lands on the
+//     first blank for typing. At end-of-file an extra trailing blank is added
+//     so the file doesn't end immediately after a header with no padding.
+export function appendSectionAt(
+	lines: string[],
+	atIndex: number,
+	header: string,
+	bodyLines: string[],
+): { lines: string[]; cursorLineIndex: number } {
+	const atEnd = atIndex >= lines.length;
+	const hasBody = bodyLines.length > 0;
+	const needLeadingBlank = atIndex > 0 && lines[atIndex - 1].trim() !== "";
+
+	const segment: string[] = [];
+	if (needLeadingBlank) segment.push("");
+	segment.push(header);
+	if (hasBody) {
+		segment.push(...bodyLines);
+		segment.push("");
+	} else {
+		segment.push("", "");
+		if (atEnd) segment.push("");
+	}
+
+	const newLines = [...lines.slice(0, atIndex), ...segment, ...lines.slice(atIndex)];
+	const headerIdx = atIndex + (needLeadingBlank ? 1 : 0);
+	const cursorLineIndex = hasBody
+		? headerIdx + 1 + bodyLines.length
+		: headerIdx + 1;
+	return { lines: newLines, cursorLineIndex };
+}

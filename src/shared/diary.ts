@@ -96,6 +96,22 @@ export function ensureTodayHeader(
 	return { newContent: newLines.join("\n"), headerLineIndex: insertAt, fallback: false };
 }
 
+// Walks the entry block under a date header: top-level bullets and their
+// indented sub-content. Returns the index immediately after the last entry
+// line (i.e., where a new entry can be spliced in).
+function findEntryBlockEnd(lines: string[], headerIndex: number): number {
+	let i = headerIndex + 1;
+	while (i < lines.length) {
+		const line = lines[i];
+		if (line.startsWith("- ") || (line.length > 0 && /^\s/.test(line))) {
+			i++;
+		} else {
+			break;
+		}
+	}
+	return i;
+}
+
 export function entryExistsUnderToday(
 	content: string,
 	entry: string,
@@ -107,12 +123,9 @@ export function entryExistsUnderToday(
 	if (separatorIndex === -1) return false;
 	const todayIndex = findTodayHeaderIndex(lines, separatorIndex, locale, date);
 	if (todayIndex === -1) return false;
-	let i = todayIndex + 1;
-	while (i < lines.length) {
-		const line = lines[i];
-		if (!line.startsWith("- ") && !(line.length > 0 && /^\s/.test(line))) break;
-		if (line === entry) return true;
-		i++;
+	const blockEnd = findEntryBlockEnd(lines, todayIndex);
+	for (let i = todayIndex + 1; i < blockEnd; i++) {
+		if (lines[i] === entry) return true;
 	}
 	return false;
 }
@@ -125,18 +138,7 @@ export function addEntryUnderToday(
 ): { newContent: string; entryLineIndex: number } {
 	const { newContent: contentWithHeader, headerLineIndex } = ensureTodayHeader(content, locale, date);
 	const lines = contentWithHeader.split("\n");
-
-	// Find insertion point: after header, all top-level bullets, and any indented sub-content
-	let insertAt = headerLineIndex + 1;
-	while (insertAt < lines.length) {
-		const line = lines[insertAt];
-		if (line.startsWith("- ") || (line.length > 0 && /^\s/.test(line))) {
-			insertAt++;
-		} else {
-			break;
-		}
-	}
-
+	const insertAt = findEntryBlockEnd(lines, headerLineIndex);
 	lines.splice(insertAt, 0, entry);
 	return { newContent: lines.join("\n"), entryLineIndex: insertAt };
 }

@@ -5,6 +5,7 @@ import {
 	findInhaltBulletRange,
 	formatLinkedBullet,
 	stripTrailingBrackets,
+	appendSectionAt,
 } from "../../shared/note-structure";
 
 export { findInhaltSectionIndex, findInhaltBulletRange, formatLinkedBullet };
@@ -123,23 +124,10 @@ function insertVorgangContent(
 		lines.splice(bulletInsertAt, 0, bullet);
 
 		const h5InsertAt = findH5InsertIndex(lines, bulletInsertAt + 1, date, locale);
-		if (h5InsertAt !== -1) {
-			if (hasBody) {
-				lines.splice(h5InsertAt, 0, "", header, ...bodyLines, "");
-				return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 2 + bodyLines.length };
-			}
-			lines.splice(h5InsertAt, 0, "", header, "", "");
-			return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 2 };
-		}
-
-		// No existing h5 — append at end
-		const trimmedLines = trimTrailingEmptyLines(lines);
-		if (hasBody) {
-			trimmedLines.push("", header, ...bodyLines, "");
-			return { newContent: trimmedLines.join("\n"), cursorLineIndex: trimmedLines.length - 1 };
-		}
-		trimmedLines.push("", header, "", "", "");
-		return { newContent: trimmedLines.join("\n"), cursorLineIndex: trimmedLines.length - 3 };
+		const insertAt = h5InsertAt !== -1 ? h5InsertAt : trimTrailingEmptyLines(lines).length;
+		const sourceLines = h5InsertAt !== -1 ? lines : trimTrailingEmptyLines(lines);
+		const result = appendSectionAt(sourceLines, insertAt, header, bodyLines);
+		return { newContent: result.lines.join("\n"), cursorLineIndex: result.cursorLineIndex };
 	}
 
 	// Case 3: Normal — # Inhalt with existing bullets; insert in date order
@@ -149,23 +137,10 @@ function insertVorgangContent(
 	const adjustedAfterLast = bulletRange.afterLastBullet + 1;
 	const h5InsertAt = findH5InsertIndex(lines, adjustedAfterLast, date, locale);
 
-	if (h5InsertAt !== -1) {
-		if (hasBody) {
-			lines.splice(h5InsertAt, 0, header, ...bodyLines, "");
-			return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 1 + bodyLines.length };
-		}
-		lines.splice(h5InsertAt, 0, header, "", "");
-		return { newContent: lines.join("\n"), cursorLineIndex: h5InsertAt + 1 };
-	}
-
-	// No existing h5 — append at end
-	const trimmedLines = trimTrailingEmptyLines(lines);
-	if (hasBody) {
-		trimmedLines.push("", header, ...bodyLines, "");
-		return { newContent: trimmedLines.join("\n"), cursorLineIndex: trimmedLines.length - 1 };
-	}
-	trimmedLines.push("", header, "", "", "");
-	return { newContent: trimmedLines.join("\n"), cursorLineIndex: trimmedLines.length - 3 };
+	const insertAt = h5InsertAt !== -1 ? h5InsertAt : trimTrailingEmptyLines(lines).length;
+	const sourceLines = h5InsertAt !== -1 ? lines : trimTrailingEmptyLines(lines);
+	const result = appendSectionAt(sourceLines, insertAt, header, bodyLines);
+	return { newContent: result.lines.join("\n"), cursorLineIndex: result.cursorLineIndex };
 }
 
 function trimTrailingEmptyLines(lines: string[]): string[] {

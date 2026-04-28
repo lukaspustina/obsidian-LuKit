@@ -77,7 +77,7 @@ CLAUDE.md                (remove hardcoded version)
 
 **REQ-03** ✓ `CLAUDE.md` shall not contain a hardcoded version number; the `(v1.12.2)` literal shall be removed and replaced with a version-free description.
 
-**REQ-04** The following helpers shall be exported from `src/shared/` modules rather than from feature directories:
+**REQ-04** ✓ The following helpers shall be exported from `src/shared/` modules rather than from feature directories:
 - `findInhaltSectionIndex` (currently `vorgang-engine.ts`) → `src/shared/note-structure.ts`
 - `findInhaltBulletRange` (currently `vorgang-engine.ts`) → `src/shared/note-structure.ts`
 - `formatLinkedBullet` (currently `vorgang-engine.ts`) → `src/shared/note-structure.ts`
@@ -87,9 +87,9 @@ CLAUDE.md                (remove hardcoded version)
 
 No other helpers are promoted; scope is limited to these six.
 
-**REQ-05** `src/shared/diary.ts` shall become the real source for diary helpers moved from `work-diary-engine.ts`. The current 3-line re-export shim shall be replaced with actual implementations. The helpers to move are: `findThirdSeparatorIndex`, `findTodayHeaderIndex`, `addEntryUnderToday`, `entryExistsUnderToday`, `ensureTodayHeader`, `formatTodayHeader`, `formatDiaryEntry`, `formatTextEntry`, `stripWikilinks`, plus the private helper `parseDiaryHeaderDate` (consumed by `findTodayHeaderIndex`). `formatReminderEntry` and `addReminder` shall remain in `work-diary-engine.ts` (single-feature consumers, not cross-feature). `work-diary-engine.ts` retains only diary-orchestration-specific logic that is not consumed outside the feature.
+**REQ-05** ✓ `src/shared/diary.ts` shall become the real source for diary helpers moved from `work-diary-engine.ts`. The current 3-line re-export shim shall be replaced with actual implementations. The helpers to move are: `findThirdSeparatorIndex`, `findTodayHeaderIndex`, `addEntryUnderToday`, `entryExistsUnderToday`, `ensureTodayHeader`, `formatTodayHeader`, `formatDiaryEntry`, `formatTextEntry`, `stripWikilinks`, plus the private helper `parseDiaryHeaderDate` (consumed by `findTodayHeaderIndex`). `formatReminderEntry` and `addReminder` shall remain in `work-diary-engine.ts` (single-feature consumers, not cross-feature). `work-diary-engine.ts` retains only diary-orchestration-specific logic that is not consumed outside the feature.
 
-**REQ-06** `VorgangFeature` shall not directly read `this.plugin.settings.workDiary.diaryNotePath`. Cross-feature settings access shall go through `getDiaryNotePath(plugin: LuKitPlugin): string` exported from `src/shared/diary-settings.ts`.
+**REQ-06** ✓ `VorgangFeature` shall not directly read `this.plugin.settings.workDiary.diaryNotePath`. Cross-feature settings access shall go through `getDiaryNotePath(plugin: LuKitPlugin): string` exported from `src/shared/diary-settings.ts`.
 
 **REQ-07** Engine-only assertions already covered by `tests/unit/` shall be deleted from `tests/acceptance/`. They shall not be moved — tests in `tests/unit/` already cover them.
 
@@ -116,7 +116,7 @@ No other helpers are promoted; scope is limited to these six.
 
 Vault-modify failure or step (1) failure shall surface "Failed to file". Step (1) success but step (2) failure shall surface `"LuKit: filed \"${besprechung.basename}\" but failed to remove tag \"${pendingTag}\""`. Both succeeding shall surface the existing "Filed successfully" Notice.
 
-**REQ-14** `insertVorgangContent` in `vorgang-engine.ts` shall be refactored to use a single helper `appendSectionAt` with the signature:
+**REQ-14** ✓ `insertVorgangContent` in `vorgang-engine.ts` shall be refactored to use a single helper `appendSectionAt` with the signature:
 ```typescript
 function appendSectionAt(
   lines: string[],
@@ -127,16 +127,16 @@ function appendSectionAt(
 ```
 The helper consolidates the four h5-insertion sub-branches across Cases 2 and 3 (Inhalt-without-bullets and normal Inhalt, each with h5-found / h5-not-found variants). Case 1 (no `# Inhalt` exists — scaffold from scratch) remains a separate early-return block above the helper call site, since it inserts the `# Inhalt` heading itself rather than just an h5 section.
 
-**REQ-15** The three `replace(/\]+$/, "")` call sites shall be replaced with a single exported helper `stripTrailingBrackets(s: string): string` in `src/shared/note-structure.ts`. Call sites:
+**REQ-15** ✓ The three `replace(/\]+$/, "")` call sites shall be replaced with a single exported helper `stripTrailingBrackets(s: string): string` in `src/shared/note-structure.ts`. Call sites:
 - `src/shared/diary.ts` (inside `parseDiaryHeaderDate`, after Phase 1.B moves it from `work-diary-engine.ts`)
 - `vorgang-engine.ts:71`
 - `vorgang-engine.ts:88`
 
 This requirement depends on Phase 1.B step 4 having moved `parseDiaryHeaderDate` to `src/shared/diary.ts`.
 
-**REQ-16** The "advance through bullets and indented sub-content" pattern in `work-diary-engine.ts` (`entryExistsUnderToday` and `addEntryUnderToday`) shall be extracted into a single private helper `findEntryBlockEnd(lines: string[], headerIndex: number): number` and reused from both functions.
+**REQ-16** ✓ The "advance through bullets and indented sub-content" pattern in `work-diary-engine.ts` (`entryExistsUnderToday` and `addEntryUnderToday`) shall be extracted into a single private helper `findEntryBlockEnd(lines: string[], headerIndex: number): number` and reused from both functions.
 
-**REQ-17** `main.ts` `onload` shall add `new Notice(\`LuKit: failed to load feature \${feature.id} — see console\`)` alongside the existing `console.error` when a feature's `onload` throws.
+**REQ-17** ✓ `main.ts` `onload` shall add `new Notice(\`LuKit: failed to load feature \${feature.id} — see console\`)` alongside the existing `console.error` when a feature's `onload` throws.
 
 ### Phase 2 — Functional / UX
 
@@ -426,7 +426,7 @@ The `__CLI_VERSION__` constant is a build-time substitution, not a runtime confi
 
 ---
 
-### Phase 1.B — Shared helpers extraction
+### Phase 1.B — Shared helpers extraction ✓ DONE
 
 **Files (new)**: `src/shared/note-structure.ts`, `src/shared/frontmatter.ts`, `src/shared/diary-settings.ts`
 
@@ -448,7 +448,7 @@ Steps (each independently committable):
 
 ---
 
-### Phase 1.C — Engineering hygiene
+### Phase 1.C — Engineering hygiene ✓ DONE
 
 **Files**: `src/features/vorgang/vorgang-engine.ts`, `src/features/work-diary/work-diary-engine.ts`, `src/shared/note-structure.ts`, `src/main.ts`
 

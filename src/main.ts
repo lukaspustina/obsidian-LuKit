@@ -1,4 +1,4 @@
-import { addIcon, Plugin } from "obsidian";
+import { addIcon, Notice, Plugin } from "obsidian";
 import { LuKitSettingTab } from "./settings";
 import type { LuKitFeature, LuKitSettings } from "./types";
 import { LUKIT_ICON_ID, mergeSettings } from "./types";
@@ -28,6 +28,7 @@ export default class LuKitPlugin extends Plugin {
 				feature.onload(this);
 			} catch (e) {
 				console.error(`LuKit: Failed to load feature ${feature.id}:`, e);
+				new Notice(`LuKit: failed to load feature ${feature.id} — see console`);
 			}
 		}
 

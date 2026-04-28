@@ -133,18 +133,22 @@ function ensureTodayHeader(content, locale, date) {
   const newLines = [...lines.slice(0, insertAt), header, ...lines.slice(insertAt)];
   return { newContent: newLines.join("\n"), headerLineIndex: insertAt, fallback: false };
 }
-function addEntryUnderToday(content, entry, locale, date) {
-  const { newContent: contentWithHeader, headerLineIndex } = ensureTodayHeader(content, locale, date);
-  const lines = contentWithHeader.split("\n");
-  let insertAt = headerLineIndex + 1;
-  while (insertAt < lines.length) {
-    const line = lines[insertAt];
+function findEntryBlockEnd(lines, headerIndex) {
+  let i = headerIndex + 1;
+  while (i < lines.length) {
+    const line = lines[i];
     if (line.startsWith("- ") || line.length > 0 && /^\s/.test(line)) {
-      insertAt++;
+      i++;
     } else {
       break;
     }
   }
+  return i;
+}
+function addEntryUnderToday(content, entry, locale, date) {
+  const { newContent: contentWithHeader, headerLineIndex } = ensureTodayHeader(content, locale, date);
+  const lines = contentWithHeader.split("\n");
+  const insertAt = findEntryBlockEnd(lines, headerLineIndex);
   lines.splice(insertAt, 0, entry);
   return { newContent: lines.join("\n"), entryLineIndex: insertAt };
 }
