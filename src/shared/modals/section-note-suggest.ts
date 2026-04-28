@@ -1,5 +1,5 @@
 import { App, FuzzySuggestModal, TFile } from "obsidian";
-import { frontmatterTagsInclude } from "../../features/besprechung/besprechung-engine";
+import { frontmatterTagsInclude } from "../frontmatter";
 
 const SKIP_LABEL = "↪ Skip this Besprechung";
 const DROP_LABEL = "✕ Don't file (just remove pending tag)";
