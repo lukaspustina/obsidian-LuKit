@@ -93,7 +93,7 @@ No other helpers are promoted; scope is limited to these six.
 
 **REQ-07** Engine-only assertions already covered by `tests/unit/` shall be deleted from `tests/acceptance/`. They shall not be moved — tests in `tests/unit/` already cover them.
 
-**REQ-08** `tests/helpers/obsidian-mocks.ts` shall expose exactly the following mock surface (no more, no less):
+**REQ-08** ✓ `tests/helpers/obsidian-mocks.ts` shall expose exactly the following mock surface (no more, no less):
 - `Vault`: `read`, `modify`, `process`, `getAbstractFileByPath`, `getMarkdownFiles`
 - `MetadataCache`: `getFileCache`
 - `FileManager`: `processFrontMatter`
@@ -106,7 +106,7 @@ No other helpers are promoted; scope is limited to these six.
 
 **REQ-10** `MigrationFeature.migrateCmd`, `WorkDiaryFeature.addCurrentNoteCmd`, and `VorgangFeature.addVorgangSectionCmd` shall each have feature-level tests covering their decision branches.
 
-**REQ-11** `mergeSettings` in `src/types.ts` (signature: `mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings`) shall validate `dateLocale` against the `DateLocale` type set `("de" | "en" | "iso")`; invalid values shall fall through to the default `"de"` and emit `console.warn` with the rejected value. Tests shall cover: empty data, partial data, invalid `dateLocale`, full round-trip.
+**REQ-11** ✓ `mergeSettings` in `src/types.ts` (signature: `mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings`) shall validate `dateLocale` against the `DateLocale` type set `("de" | "en" | "iso")`; invalid values shall fall through to the default `"de"` and emit `console.warn` with the rejected value. Tests shall cover: empty data, partial data, invalid `dateLocale`, full round-trip.
 
 **REQ-12** `insertBesprechungSummary` and `addBesprechungSummariesCmd` in `besprechung-feature.ts` shall surface async rejections via `new Notice(...)`. Bare `void` calls that swallow rejections shall be replaced with `.catch(err => new Notice(\`LuKit: \${err.message}\`))`.
 

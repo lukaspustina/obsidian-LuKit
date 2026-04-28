@@ -1,5 +1,6 @@
 import type LuKitPlugin from "./main";
 import type { DateLocale } from "./shared/date-format";
+import { isDateLocale } from "./shared/date-format";
 
 export interface WorkDiarySettings {
 	diaryNotePath: string;
@@ -43,9 +44,18 @@ export const DEFAULT_SETTINGS: LuKitSettings = {
 };
 
 export function mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings {
+	let dateLocale: DateLocale = DEFAULT_SETTINGS.dateLocale;
+	if (saved.dateLocale !== undefined) {
+		if (isDateLocale(saved.dateLocale)) {
+			dateLocale = saved.dateLocale;
+		} else {
+			console.warn(`LuKit: invalid dateLocale "${saved.dateLocale}" — falling back to "${DEFAULT_SETTINGS.dateLocale}"`);
+		}
+	}
 	return {
 		...DEFAULT_SETTINGS,
 		...saved,
+		dateLocale,
 		workDiary: { ...DEFAULT_SETTINGS.workDiary, ...(saved.workDiary ?? {}) },
 		besprechung: { ...DEFAULT_SETTINGS.besprechung, ...(saved.besprechung ?? {}) },
 	};
