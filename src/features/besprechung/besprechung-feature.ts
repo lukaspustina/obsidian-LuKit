@@ -200,6 +200,10 @@ export class BesprechungFeature implements LuKitFeature {
 					void this.dropPending(besprechung).then(next);
 				},
 				() => {
+					void this.plugin.app.workspace.getLeaf("tab").openFile(besprechung);
+					new Notice(`LuKit: Stopped at "${besprechung.basename}" (${i} done, ${pending.length - i} remaining).`);
+				},
+				() => {
 					new Notice(`LuKit: Filing stopped (${i} done, ${pending.length - i} remaining).`);
 				},
 			).open();
