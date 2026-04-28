@@ -74,3 +74,11 @@ export function formatDateWithWeekday(date: Date, locale: DateLocale): string {
 	}
 	return dateStr;
 }
+
+export function dateFormatHint(locale: DateLocale): string {
+	switch (locale) {
+		case "de": return "DD.MM.YYYY";
+		case "en": return "MM/DD/YYYY";
+		case "iso": return "YYYY-MM-DD";
+	}
+}

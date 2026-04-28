@@ -140,16 +140,16 @@ This requirement depends on Phase 1.B step 4 having moved `parseDiaryHeaderDate`
 
 ### Phase 2 — Functional / UX
 
-**REQ-18** `TextDateModal.submit()` shall validate the date field using `parseDateString(value, this.locale)`. On failure: modal stays open, an inline error element shows `"Invalid date — expected ${dateFormatHint(this.locale)}"`, the resolver is not called.
+**REQ-18** ✓ `TextDateModal.submit()` shall validate the date field using `parseDateString(value, this.locale)`. On failure: modal stays open, an inline error element shows `"Invalid date — expected ${dateFormatHint(this.locale)}"`, the resolver is not called.
 
-**REQ-19** `AddSectionModal.submit()` (in `src/features/vorgang/add-section-modal.ts`) shall validate the date field using `parseDateString(value, this.locale)`. On failure: modal stays open, inline error shows `"Invalid date — expected ${dateFormatHint(this.locale)}"`. The fallback to `new Date()` is removed; if no date is provided the field is required.
+**REQ-19** ✓ `AddSectionModal.submit()` (in `src/features/vorgang/add-section-modal.ts`) shall validate the date field using `parseDateString(value, this.locale)`. On failure: modal stays open, inline error shows `"Invalid date — expected ${dateFormatHint(this.locale)}"`. The fallback to `new Date()` is removed; if no date is provided the field is required.
 
 `dateFormatHint(locale: DateLocale): string` shall be added to `src/shared/date-format.ts` and return:
 - `"DD.MM.YYYY"` for `"de"`
 - `"MM/DD/YYYY"` for `"en"`
 - `"YYYY-MM-DD"` for `"iso"`
 
-**REQ-20** `TextInputModal.submit()` and `TextDateModal.submit()` shall display an inline error "Text required." when the text field is empty, rather than silently no-opping. The modal shall stay open.
+**REQ-20** ✓ `TextInputModal.submit()` and `TextDateModal.submit()` shall display an inline error "Text required." when the text field is empty, rather than silently no-opping. The modal shall stay open.
 
 **REQ-21** Besprechung duplicate-detection shall match by note name (wikilink target), not by rendered bullet string. The check shall parse existing `# Inhalt` TOC bullets using the regex `\[\[([^\]#|]+)` to extract the note name before any `#` or `|`, and compare against the candidate note's basename. Re-insertion shall be blocked regardless of date-resolution drift. On a hit, the canonical Notice text shall be `"LuKit: \"${besprechung.basename}\" already linked in \"${vorgang.basename}\""` (no surrounding quotes change between insert paths and pending-filing paths; the message is identical).
 
@@ -510,7 +510,7 @@ Steps:
 
 ---
 
-### Phase 2.A — Modal input validation
+### Phase 2.A — Modal input validation ✓ DONE
 
 **Files**: `src/shared/modals/text-date-modal.ts`, `src/shared/modals/text-input-modal.ts`, `src/features/vorgang/add-section-modal.ts`
 

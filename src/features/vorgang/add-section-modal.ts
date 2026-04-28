@@ -1,18 +1,13 @@
 import { App, Modal } from "obsidian";
-import { formatDate, parseDateString } from "../../shared/date-format";
+import { formatDate, parseDateString, dateFormatHint } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
-
-const DATE_PLACEHOLDER: Record<DateLocale, string> = {
-	de: "DD.MM.YYYY",
-	en: "MM/DD/YYYY",
-	iso: "YYYY-MM-DD",
-};
 
 export class AddSectionModal extends Modal {
 	private onSubmit: (name: string, date: Date) => void;
 	private locale: DateLocale;
 	private nameInputEl!: HTMLInputElement;
 	private dateInputEl!: HTMLInputElement;
+	private errorEl!: HTMLElement;
 	private initialDate: Date;
 
 	constructor(app: App, locale: DateLocale, onSubmit: (name: string, date: Date) => void, defaultDate?: Date) {
@@ -34,10 +29,13 @@ export class AddSectionModal extends Modal {
 
 		this.dateInputEl = contentEl.createEl("input", {
 			type: "text",
-			placeholder: DATE_PLACEHOLDER[this.locale],
+			placeholder: dateFormatHint(this.locale),
 			cls: "lukit-text-input",
 		});
 		this.dateInputEl.value = formatDate(this.initialDate, this.locale);
+
+		this.errorEl = contentEl.createEl("p", { cls: "lukit-modal-error" });
+		this.errorEl.style.display = "none";
 
 		this.nameInputEl.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key === "Enter") {
@@ -65,10 +63,22 @@ export class AddSectionModal extends Modal {
 		this.contentEl.empty();
 	}
 
+	private showError(message: string): void {
+		this.errorEl.textContent = message;
+		this.errorEl.style.display = "block";
+	}
+
 	private submit(): void {
 		const name = this.nameInputEl.value.trim();
-		if (name.length === 0) return;
-		const date = parseDateString(this.dateInputEl.value.trim(), this.locale) ?? new Date();
+		if (name.length === 0) {
+			this.showError("Text required.");
+			return;
+		}
+		const date = parseDateString(this.dateInputEl.value.trim(), this.locale);
+		if (date === null) {
+			this.showError(`Invalid date — expected ${dateFormatHint(this.locale)}`);
+			return;
+		}
 		this.close();
 		this.onSubmit(name, date);
 	}

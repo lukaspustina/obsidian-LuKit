@@ -5,6 +5,7 @@ export class TextInputModal extends Modal {
 	private placeholder: string;
 	private defaultValue: string;
 	private inputEl!: HTMLInputElement;
+	private errorEl!: HTMLElement;
 
 	constructor(
 		app: App,
@@ -30,6 +31,10 @@ export class TextInputModal extends Modal {
 		if (this.defaultValue) {
 			this.inputEl.value = this.defaultValue;
 		}
+
+		this.errorEl = contentEl.createEl("p", { cls: "lukit-modal-error" });
+		this.errorEl.style.display = "none";
+
 		this.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key === "Enter") {
 				e.preventDefault();
@@ -60,6 +65,8 @@ export class TextInputModal extends Modal {
 	private submit(): void {
 		const trimmed = this.inputEl.value.trim();
 		if (trimmed.length === 0) {
+			this.errorEl.textContent = "Text required.";
+			this.errorEl.style.display = "block";
 			return;
 		}
 		this.close();

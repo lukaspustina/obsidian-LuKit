@@ -1,12 +1,6 @@
 import { App, Modal } from "obsidian";
-import { formatDate, parseDateString } from "../date-format";
+import { formatDate, parseDateString, dateFormatHint } from "../date-format";
 import type { DateLocale } from "../date-format";
-
-const DATE_PLACEHOLDER: Record<DateLocale, string> = {
-	de: "DD.MM.YYYY",
-	en: "MM/DD/YYYY",
-	iso: "YYYY-MM-DD",
-};
 
 export class TextDateModal extends Modal {
 	private onSubmit: (text: string, date: Date) => void;
@@ -15,6 +9,7 @@ export class TextDateModal extends Modal {
 	private defaultDate: Date;
 	private textInputEl!: HTMLInputElement;
 	private dateInputEl!: HTMLInputElement;
+	private errorEl!: HTMLElement;
 
 	constructor(
 		app: App,
@@ -42,10 +37,13 @@ export class TextDateModal extends Modal {
 
 		this.dateInputEl = contentEl.createEl("input", {
 			type: "text",
-			placeholder: DATE_PLACEHOLDER[this.locale],
+			placeholder: dateFormatHint(this.locale),
 			cls: "lukit-text-input",
 		});
 		this.dateInputEl.value = formatDate(this.defaultDate, this.locale);
+
+		this.errorEl = contentEl.createEl("p", { cls: "lukit-modal-error" });
+		this.errorEl.style.display = "none";
 
 		this.textInputEl.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key === "Enter") {
@@ -73,10 +71,22 @@ export class TextDateModal extends Modal {
 		this.contentEl.empty();
 	}
 
+	private showError(message: string): void {
+		this.errorEl.textContent = message;
+		this.errorEl.style.display = "block";
+	}
+
 	private submit(): void {
 		const text = this.textInputEl.value.trim();
-		if (text.length === 0) return;
-		const date = parseDateString(this.dateInputEl.value.trim(), this.locale) ?? this.defaultDate;
+		if (text.length === 0) {
+			this.showError("Text required.");
+			return;
+		}
+		const date = parseDateString(this.dateInputEl.value.trim(), this.locale);
+		if (date === null) {
+			this.showError(`Invalid date — expected ${dateFormatHint(this.locale)}`);
+			return;
+		}
 		this.close();
 		this.onSubmit(text, date);
 	}
