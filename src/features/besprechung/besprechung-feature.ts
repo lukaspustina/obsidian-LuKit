@@ -196,6 +196,10 @@ export class BesprechungFeature implements LuKitFeature {
 					next();
 				},
 				() => {
+					i++;
+					void this.dropPending(besprechung).then(next);
+				},
+				() => {
 					new Notice(`LuKit: Filing stopped (${i} done, ${pending.length - i} remaining).`);
 				},
 			).open();
@@ -276,5 +280,15 @@ export class BesprechungFeature implements LuKitFeature {
 		await this.plugin.app.fileManager.processFrontMatter(file, (fm) => {
 			removeTagFromFrontmatter(fm, tag);
 		});
+	}
+
+	private async dropPending(besprechung: TFile): Promise<void> {
+		const pendingTag = this.plugin.settings.besprechung.pendingTag;
+		try {
+			await this.removePendingTag(besprechung, pendingTag);
+			new Notice(`LuKit: Removed "${pendingTag}" from "${besprechung.basename}" (not filed).`);
+		} catch (e) {
+			new Notice(`LuKit: Failed to remove "${pendingTag}" from "${besprechung.basename}": ` + (e instanceof Error ? e.message : String(e)));
+		}
 	}
 }

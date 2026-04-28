@@ -36,7 +36,7 @@ When the active note is tagged `Vorgang`, `Person`, `Bestellung`, or `Bewerbung`
 
 - **Besprechung: Add summary** — Pick a meeting note from the configured folder, extract the key sections, and insert at the cursor position (or as a linked section if the active note is a Vorgang/Person/Bestellung/Bewerbung).
 - **Besprechung: Add multiple summaries** — Same as above, but the picker re-opens after each insertion (with already-picked files hidden) until you press ESC.
-- **Besprechung: File pending notes** — For each Besprechung tagged with the configured pending tag (default: `todo`), pick a target Vorgang/Person/Bestellung/Bewerbung. The summary is filed into the picked note and the pending tag is removed from the Besprechung. Choose `↪ Skip this Besprechung` to keep the current Besprechung untouched and move to the next; press ESC to stop. Processing order (oldest or newest first by creation time) is configurable.
+- **Besprechung: File pending notes** — For each Besprechung tagged with the configured pending tag (default: `todo`), pick a target Vorgang/Person/Bestellung/Bewerbung. The summary is filed into the picked note and the pending tag is removed from the Besprechung. Choose `↪ Skip this Besprechung` to leave it pending and move to the next, or `✕ Don't file (just remove pending tag)` to drop the pending tag without filing. Press ESC to stop. Processing order (oldest or newest first by creation time) is configurable.
 
 **Setup:** Set the Besprechung folder path, section headings, pending tag, and pending order in Settings > LuKit. Section headings are comma-separated (e.g. `Nächste Schritte, Zusammenfassung, Agenda`).
 
