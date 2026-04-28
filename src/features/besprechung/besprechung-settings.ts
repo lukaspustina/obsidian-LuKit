@@ -1,5 +1,6 @@
 import { Setting } from "obsidian";
 import type LuKitPlugin from "../../main";
+import type { PendingOrder } from "../../types";
 
 export type { BesprechungSettings } from "../../types";
 
@@ -47,6 +48,20 @@ export function renderBesprechungSettings(
 				.setValue(plugin.settings.besprechung.pendingTag)
 				.onChange(async (value) => {
 					plugin.settings.besprechung.pendingTag = value.trim();
+					await plugin.saveSettings();
+				})
+		);
+
+	new Setting(containerEl)
+		.setName("Pending order")
+		.setDesc("Order in which 'File pending notes' walks the backlog")
+		.addDropdown((dropdown) =>
+			dropdown
+				.addOption("oldest", "Oldest first")
+				.addOption("newest", "Newest first")
+				.setValue(plugin.settings.besprechung.pendingOrder)
+				.onChange(async (value) => {
+					plugin.settings.besprechung.pendingOrder = value as PendingOrder;
 					await plugin.saveSettings();
 				})
 		);

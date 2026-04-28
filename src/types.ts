@@ -5,10 +5,13 @@ export interface WorkDiarySettings {
 	diaryNotePath: string;
 }
 
+export type PendingOrder = "oldest" | "newest";
+
 export interface BesprechungSettings {
 	folderPath: string;
 	sectionHeadings: string[];
 	pendingTag: string;
+	pendingOrder: PendingOrder;
 }
 
 export interface LuKitFeature {
@@ -35,6 +38,7 @@ export const DEFAULT_SETTINGS: LuKitSettings = {
 		folderPath: "",
 		sectionHeadings: ["Nächste Schritte", "Zusammenfassung"],
 		pendingTag: "todo",
+		pendingOrder: "oldest",
 	},
 };
 

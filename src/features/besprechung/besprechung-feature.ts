@@ -204,9 +204,9 @@ export class BesprechungFeature implements LuKitFeature {
 	}
 
 	private findPendingBesprechungen(): TFile[] {
-		const folderPath = this.plugin.settings.besprechung.folderPath;
-		const pendingTag = this.plugin.settings.besprechung.pendingTag;
+		const { folderPath, pendingTag, pendingOrder } = this.plugin.settings.besprechung;
 		const prefix = normalizePath(folderPath) + "/";
+		const direction = pendingOrder === "newest" ? -1 : 1;
 		return this.plugin.app.vault
 			.getMarkdownFiles()
 			.filter((f) => f.path.startsWith(prefix))
@@ -214,7 +214,7 @@ export class BesprechungFeature implements LuKitFeature {
 				const tags = this.plugin.app.metadataCache.getFileCache(f)?.frontmatter?.tags;
 				return frontmatterTagsInclude(tags, pendingTag);
 			})
-			.sort((a, b) => a.stat.ctime - b.stat.ctime);
+			.sort((a, b) => direction * (a.stat.ctime - b.stat.ctime));
 	}
 
 	private async fileBesprechungIntoVorgang(besprechung: TFile, vorgang: TFile): Promise<void> {
