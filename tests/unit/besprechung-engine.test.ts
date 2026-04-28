@@ -3,6 +3,7 @@ import {
 	extractSection,
 	extractCreatedDate,
 	formatBesprechungSummary,
+	composeBesprechungInsertion,
 	frontmatterTagsInclude,
 	removeTagFromFrontmatter,
 	markFiledInFrontmatter,
@@ -140,7 +141,7 @@ describe("extractSection with bulletsOnly=true", () => {
 });
 
 describe("formatBesprechungSummary", () => {
-	it("formats both sections when present", () => {
+	it("formats both sections when present, missing is empty", () => {
 		const content = [
 			"### Nächste Schritte",
 			"- Step 1",
@@ -150,30 +151,37 @@ describe("formatBesprechungSummary", () => {
 		].join("\n");
 
 		const result = formatBesprechungSummary(content);
-		expect(result).toBe(
+		expect(result.body).toBe(
 			"**Nächste Schritte**\n- Step 1\n- Step 2\n\n**Zusammenfassung**\n- Summary point"
 		);
+		expect(result.missing).toEqual([]);
 	});
 
-	it("formats only Nächste Schritte when Zusammenfassung is missing", () => {
+	it("formats only Nächste Schritte and reports Zusammenfassung as missing", () => {
 		const content = "### Nächste Schritte\n- Step 1";
 		const result = formatBesprechungSummary(content);
-		expect(result).toBe("**Nächste Schritte**\n- Step 1");
+		expect(result.body).toBe("**Nächste Schritte**\n- Step 1");
+		expect(result.missing).toEqual(["Zusammenfassung"]);
 	});
 
-	it("formats only Zusammenfassung when Nächste Schritte is missing", () => {
+	it("formats only Zusammenfassung and reports Nächste Schritte as missing", () => {
 		const content = "### Zusammenfassung\n- Point 1";
 		const result = formatBesprechungSummary(content);
-		expect(result).toBe("**Zusammenfassung**\n- Point 1");
+		expect(result.body).toBe("**Zusammenfassung**\n- Point 1");
+		expect(result.missing).toEqual(["Nächste Schritte"]);
 	});
 
-	it("returns null when neither section is found", () => {
+	it("returns empty body and full missing list when no sections found", () => {
 		const content = "### Other Section\nSome content";
-		expect(formatBesprechungSummary(content)).toBeNull();
+		const result = formatBesprechungSummary(content);
+		expect(result.body).toBe("");
+		expect(result.missing).toEqual(["Nächste Schritte", "Zusammenfassung"]);
 	});
 
-	it("returns null for empty content", () => {
-		expect(formatBesprechungSummary("")).toBeNull();
+	it("returns empty body and full missing list for empty content", () => {
+		const result = formatBesprechungSummary("");
+		expect(result.body).toBe("");
+		expect(result.missing).toEqual(["Nächste Schritte", "Zusammenfassung"]);
 	});
 
 	it("works with realistic test-besprechung.md content", () => {
@@ -200,17 +208,17 @@ describe("formatBesprechungSummary", () => {
 		].join("\n");
 
 		const result = formatBesprechungSummary(content);
-		expect(result).not.toBeNull();
-		expect(result).toContain("**Nächste Schritte**");
-		expect(result).toContain("**Zusammenfassung**");
-		expect(result).toContain("- Todo 1");
-		expect(result).toContain("- Todo 2");
-		expect(result).toContain("- Todo 3");
-		expect(result).toContain("- Anna said this");
-		expect(result).toContain("- Max said something else");
+		expect(result.missing).toEqual([]);
+		expect(result.body).toContain("**Nächste Schritte**");
+		expect(result.body).toContain("**Zusammenfassung**");
+		expect(result.body).toContain("- Todo 1");
+		expect(result.body).toContain("- Todo 2");
+		expect(result.body).toContain("- Todo 3");
+		expect(result.body).toContain("- Anna said this");
+		expect(result.body).toContain("- Max said something else");
 		// Should not contain Meine Notizen content
-		expect(result).not.toContain("Meine Notizen");
-		expect(result).not.toContain("...");
+		expect(result.body).not.toContain("Meine Notizen");
+		expect(result.body).not.toContain("...");
 	});
 
 	it("preserves inline formatting within bullet lines", () => {
@@ -222,7 +230,7 @@ describe("formatBesprechungSummary", () => {
 		].join("\n");
 
 		const result = formatBesprechungSummary(content);
-		expect(result).toContain("- Bullet with **bold** and [[link]]");
+		expect(result.body).toContain("- Bullet with **bold** and [[link]]");
 	});
 
 	it("removes blank lines adjacent to label lines", () => {
@@ -242,9 +250,9 @@ describe("formatBesprechungSummary", () => {
 		].join("\n");
 
 		const result = formatBesprechungSummary(content);
-		expect(result).toContain("Max:\n- Bullet 1");
-		expect(result).toContain("- Bullet 2\nHans:");
-		expect(result).toContain("Hans:\n- Bullet 3");
+		expect(result.body).toContain("Max:\n- Bullet 1");
+		expect(result.body).toContain("- Bullet 2\nHans:");
+		expect(result.body).toContain("Hans:\n- Bullet 3");
 	});
 
 	it("includes label lines and subsequent bullets within a section", () => {
@@ -258,9 +266,9 @@ describe("formatBesprechungSummary", () => {
 		].join("\n");
 
 		const result = formatBesprechungSummary(content);
-		expect(result).toContain("- First bullet");
-		expect(result).toContain("Some label:");
-		expect(result).toContain("- Second bullet (after label)");
+		expect(result.body).toContain("- First bullet");
+		expect(result.body).toContain("Some label:");
+		expect(result.body).toContain("- Second bullet (after label)");
 	});
 
 	it("extracts custom section headings", () => {
@@ -274,12 +282,15 @@ describe("formatBesprechungSummary", () => {
 		].join("\n");
 
 		const result = formatBesprechungSummary(content, ["Agenda", "Decisions"]);
-		expect(result).toBe("**Agenda**\n- Topic 1\n\n**Decisions**\n- Decision 1");
+		expect(result.body).toBe("**Agenda**\n- Topic 1\n\n**Decisions**\n- Decision 1");
+		expect(result.missing).toEqual([]);
 	});
 
-	it("returns null for empty section headings array", () => {
+	it("returns empty body and empty missing for empty section headings array", () => {
 		const content = "### Nächste Schritte\n- Step 1";
-		expect(formatBesprechungSummary(content, [])).toBeNull();
+		const result = formatBesprechungSummary(content, []);
+		expect(result.body).toBe("");
+		expect(result.missing).toEqual([]);
 	});
 
 	it("extracts a single section heading", () => {
@@ -291,7 +302,8 @@ describe("formatBesprechungSummary", () => {
 		].join("\n");
 
 		const result = formatBesprechungSummary(content, ["Zusammenfassung"]);
-		expect(result).toBe("**Zusammenfassung**\n- Point 1");
+		expect(result.body).toBe("**Zusammenfassung**\n- Point 1");
+		expect(result.missing).toEqual([]);
 	});
 
 	it("uses default headings when no parameter is provided", () => {
@@ -303,9 +315,46 @@ describe("formatBesprechungSummary", () => {
 		].join("\n");
 
 		const result = formatBesprechungSummary(content);
-		expect(result).toBe(
+		expect(result.body).toBe(
 			"**Nächste Schritte**\n- Step 1\n\n**Zusammenfassung**\n- Summary"
 		);
+	});
+});
+
+describe("composeBesprechungInsertion", () => {
+	const NAME = "Besprechung - Test, 28.04.2026";
+
+	it("returns body unchanged when nothing is missing", () => {
+		const result = composeBesprechungInsertion(
+			{ body: "**Nächste Schritte**\n- Step", missing: [] },
+			NAME,
+		);
+		expect(result).toBe("**Nächste Schritte**\n- Step");
+	});
+
+	it("appends a 'see full notes' line when some sections are missing", () => {
+		const result = composeBesprechungInsertion(
+			{ body: "**Nächste Schritte**\n- Step", missing: ["Zusammenfassung"] },
+			NAME,
+		);
+		expect(result).toBe(
+			`**Nächste Schritte**\n- Step\n\n→ See full notes: [[${NAME}]] (missing: Zusammenfassung)`,
+		);
+	});
+
+	it("returns only the link line when body is empty (all sections missing)", () => {
+		const result = composeBesprechungInsertion(
+			{ body: "", missing: ["Nächste Schritte", "Zusammenfassung"] },
+			NAME,
+		);
+		expect(result).toBe(
+			`→ See full notes: [[${NAME}]] (missing: Nächste Schritte, Zusammenfassung)`,
+		);
+	});
+
+	it("returns empty string when body and missing are both empty", () => {
+		const result = composeBesprechungInsertion({ body: "", missing: [] }, NAME);
+		expect(result).toBe("");
 	});
 });
 

@@ -102,22 +102,38 @@ export function removeTagFromFrontmatter(fm: Record<string, unknown>, tag: strin
 	}
 }
 
+export interface BesprechungSummary {
+	body: string;
+	missing: string[];
+}
+
 export function formatBesprechungSummary(
 	content: string,
 	sectionHeadings: string[] = ["Nächste Schritte", "Zusammenfassung"],
-): string | null {
+): BesprechungSummary {
 	const parts: string[] = [];
+	const missing: string[] = [];
 
 	for (const heading of sectionHeadings) {
 		const body = extractSection(content, heading);
 		if (body) {
 			parts.push(`**${heading}**\n${removeBlankAdjacentToLabel(body)}`);
+		} else {
+			missing.push(heading);
 		}
 	}
 
-	if (parts.length === 0) {
-		return null;
-	}
+	return { body: parts.join("\n\n"), missing };
+}
 
-	return parts.join("\n\n");
+// Composes the final insertion text. When some configured sections are missing,
+// appends a "see source" line with a wikilink so the user can open the
+// besprechung to read what wasn't extracted.
+export function composeBesprechungInsertion(
+	summary: BesprechungSummary,
+	besprechungBasename: string,
+): string {
+	if (summary.missing.length === 0) return summary.body;
+	const link = `→ See full notes: [[${besprechungBasename}]] (missing: ${summary.missing.join(", ")})`;
+	return summary.body === "" ? link : `${summary.body}\n\n${link}`;
 }

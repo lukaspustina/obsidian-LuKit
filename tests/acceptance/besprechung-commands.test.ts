@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { formatBesprechungSummary } from "../../src/features/besprechung/besprechung-engine";
+import {
+	formatBesprechungSummary,
+	composeBesprechungInsertion,
+} from "../../src/features/besprechung/besprechung-engine";
 
 describe("Add Besprechung summary command flow", () => {
 	it("full flow with realistic Besprechungsnotiz content", () => {
@@ -26,28 +29,28 @@ describe("Add Besprechung summary command flow", () => {
 		].join("\n");
 
 		const result = formatBesprechungSummary(content);
-		expect(result).not.toBeNull();
+		expect(result.missing).toEqual([]);
 
 		// Verify h3 headers are converted to bold
-		expect(result).toContain("**Nächste Schritte**");
-		expect(result).toContain("**Zusammenfassung**");
-		expect(result).not.toContain("### ");
+		expect(result.body).toContain("**Nächste Schritte**");
+		expect(result.body).toContain("**Zusammenfassung**");
+		expect(result.body).not.toContain("### ");
 
 		// Verify Nächste Schritte bullets
-		expect(result).toContain("- Todo 1");
-		expect(result).toContain("- Todo 2");
-		expect(result).toContain("- Todo 3");
+		expect(result.body).toContain("- Todo 1");
+		expect(result.body).toContain("- Todo 2");
+		expect(result.body).toContain("- Todo 3");
 
 		// Verify Zusammenfassung body
-		expect(result).toContain("- Anna said this");
-		expect(result).toContain("- Max said something else");
+		expect(result.body).toContain("- Anna said this");
+		expect(result.body).toContain("- Max said something else");
 
 		// Verify Meine Notizen is excluded
-		expect(result).not.toContain("Meine Notizen");
-		expect(result).not.toContain("...");
+		expect(result.body).not.toContain("Meine Notizen");
+		expect(result.body).not.toContain("...");
 
 		// Verify sections are separated by a blank line
-		expect(result).toContain("\n\n**Zusammenfassung**");
+		expect(result.body).toContain("\n\n**Zusammenfassung**");
 	});
 
 	it("handles content with frontmatter correctly", () => {
@@ -64,9 +67,10 @@ describe("Add Besprechung summary command flow", () => {
 		].join("\n");
 
 		const result = formatBesprechungSummary(content);
-		expect(result).toBe(
+		expect(result.body).toBe(
 			"**Nächste Schritte**\n- Action item 1\n\n**Zusammenfassung**\n- We discussed the roadmap"
 		);
+		expect(result.missing).toEqual([]);
 	});
 
 	it("handles content with extra sections (Meine Notizen)", () => {
@@ -81,14 +85,14 @@ describe("Add Besprechung summary command flow", () => {
 		].join("\n");
 
 		const result = formatBesprechungSummary(content);
-		expect(result).not.toBeNull();
-		expect(result).toContain("- Do something");
-		expect(result).toContain("- Talked about things");
-		expect(result).not.toContain("Personal note");
-		expect(result).not.toContain("Meine Notizen");
+		expect(result.missing).toEqual([]);
+		expect(result.body).toContain("- Do something");
+		expect(result.body).toContain("- Talked about things");
+		expect(result.body).not.toContain("Personal note");
+		expect(result.body).not.toContain("Meine Notizen");
 	});
 
-	it("handles partial data — only Nächste Schritte present", () => {
+	it("partial data (only Nächste Schritte) appends a 'see notes' link via composeBesprechungInsertion", () => {
 		const content = [
 			"---",
 			"type: note",
@@ -100,13 +104,19 @@ describe("Add Besprechung summary command flow", () => {
 			"- Some private note",
 		].join("\n");
 
-		const result = formatBesprechungSummary(content);
-		expect(result).toBe(
+		const summary = formatBesprechungSummary(content);
+		expect(summary.missing).toEqual(["Zusammenfassung"]);
+		expect(summary.body).toBe(
 			"**Nächste Schritte**\n- Follow up with team\n- Prepare presentation"
+		);
+
+		const composed = composeBesprechungInsertion(summary, "Besprechung - Test, 28.04.2026");
+		expect(composed).toBe(
+			"**Nächste Schritte**\n- Follow up with team\n- Prepare presentation\n\n→ See full notes: [[Besprechung - Test, 28.04.2026]] (missing: Zusammenfassung)"
 		);
 	});
 
-	it("handles partial data — only Zusammenfassung present", () => {
+	it("partial data (only Zusammenfassung) appends a 'see notes' link via composeBesprechungInsertion", () => {
 		const content = [
 			"### Meine Notizen",
 			"- Private stuff",
@@ -114,13 +124,17 @@ describe("Add Besprechung summary command flow", () => {
 			"- Key decision was made",
 		].join("\n");
 
-		const result = formatBesprechungSummary(content);
-		expect(result).toBe(
-			"**Zusammenfassung**\n- Key decision was made"
+		const summary = formatBesprechungSummary(content);
+		expect(summary.missing).toEqual(["Nächste Schritte"]);
+		expect(summary.body).toBe("**Zusammenfassung**\n- Key decision was made");
+
+		const composed = composeBesprechungInsertion(summary, "Besprechung - Test, 28.04.2026");
+		expect(composed).toBe(
+			"**Zusammenfassung**\n- Key decision was made\n\n→ See full notes: [[Besprechung - Test, 28.04.2026]] (missing: Nächste Schritte)"
 		);
 	});
 
-	it("returns null when note has no relevant sections", () => {
+	it("no relevant sections produces a link-only insertion (no abort)", () => {
 		const content = [
 			"---",
 			"type: note",
@@ -131,7 +145,14 @@ describe("Add Besprechung summary command flow", () => {
 			"- Topic 1",
 		].join("\n");
 
-		expect(formatBesprechungSummary(content)).toBeNull();
+		const summary = formatBesprechungSummary(content);
+		expect(summary.body).toBe("");
+		expect(summary.missing).toEqual(["Nächste Schritte", "Zusammenfassung"]);
+
+		const composed = composeBesprechungInsertion(summary, "Besprechung - Empty, 28.04.2026");
+		expect(composed).toBe(
+			"→ See full notes: [[Besprechung - Empty, 28.04.2026]] (missing: Nächste Schritte, Zusammenfassung)"
+		);
 	});
 
 	it("full flow with custom section headings from settings", () => {
@@ -152,14 +173,14 @@ describe("Add Besprechung summary command flow", () => {
 
 		const customHeadings = ["Agenda", "Decisions", "Nächste Schritte"];
 		const result = formatBesprechungSummary(content, customHeadings);
-		expect(result).not.toBeNull();
-		expect(result).toContain("**Agenda**");
-		expect(result).toContain("- Topic 1");
-		expect(result).toContain("**Decisions**");
-		expect(result).toContain("- We decided X");
-		expect(result).toContain("**Nächste Schritte**");
-		expect(result).toContain("- Step 1");
-		expect(result).not.toContain("Meine Notizen");
-		expect(result).not.toContain("Private");
+		expect(result.missing).toEqual([]);
+		expect(result.body).toContain("**Agenda**");
+		expect(result.body).toContain("- Topic 1");
+		expect(result.body).toContain("**Decisions**");
+		expect(result.body).toContain("- We decided X");
+		expect(result.body).toContain("**Nächste Schritte**");
+		expect(result.body).toContain("- Step 1");
+		expect(result.body).not.toContain("Meine Notizen");
+		expect(result.body).not.toContain("Private");
 	});
 });

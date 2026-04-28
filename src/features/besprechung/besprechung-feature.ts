@@ -4,6 +4,7 @@ import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature } from "../../types";
 import {
 	formatBesprechungSummary,
+	composeBesprechungInsertion,
 	extractCreatedDate,
 	frontmatterTagsInclude,
 	removeTagFromFrontmatter,
@@ -108,13 +109,10 @@ export class BesprechungFeature implements LuKitFeature {
 			new Notice("LuKit: Could not read besprechung file: " + (e instanceof Error ? e.message : String(e)));
 			return;
 		}
-		const summary = formatBesprechungSummary(besprechungContent, headings);
-
-		if (!summary) {
-			const names = headings.join(" or ");
-			new Notice(`LuKit: No ${names} found.`);
-			return;
-		}
+		const summary = composeBesprechungInsertion(
+			formatBesprechungSummary(besprechungContent, headings),
+			besprechungFile.basename,
+		);
 
 		const activeEditor = this.plugin.app.workspace.activeEditor?.editor;
 		if (!activeEditor) {
@@ -238,12 +236,10 @@ export class BesprechungFeature implements LuKitFeature {
 			new Notice("LuKit: Could not read besprechung: " + (e instanceof Error ? e.message : String(e)));
 			return;
 		}
-		const summary = formatBesprechungSummary(besprechungContent, headings);
-		if (!summary) {
-			const names = headings.join(" or ");
-			new Notice(`LuKit: No ${names} found in "${besprechung.basename}". Skipped.`);
-			return;
-		}
+		const summary = composeBesprechungInsertion(
+			formatBesprechungSummary(besprechungContent, headings),
+			besprechung.basename,
+		);
 
 		let vorgangContent: string;
 		try {

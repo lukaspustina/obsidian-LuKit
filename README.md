@@ -30,6 +30,8 @@ Automates adding a new section to "Vorgang"-style notes. A Vorgang note has a `#
 
 Extracts key sections from meeting notes (Besprechungsnotizen) and inserts them at the cursor in the active note. Picks a note from a configurable folder via fuzzy search, extracts configurable h3 sections (default: `### Nächste Schritte` and `### Zusammenfassung`), converts the h3 headers to bold, and inserts the formatted summary.
 
+When some configured sections are absent from the meeting note, the available ones are still inserted and a `→ See full notes: [[Besprechung]] (missing: …)` line is appended so you can open the original. If none of the configured sections are present, the insertion is just that link line — the command does not abort.
+
 When the active note is tagged `Vorgang`, `Person`, `Bestellung`, or `Bewerbung`, the summary is inserted as a linked h5 section under `# Inhalt` (with TOC bullet) instead of at the cursor.
 
 **Commands:**

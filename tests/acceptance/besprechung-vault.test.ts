@@ -23,43 +23,47 @@ const MEETING_NOTE = [
 describe("Besprechung: Add summary command flow", () => {
 	it("extracts and formats both default sections", () => {
 		const result = formatBesprechungSummary(MEETING_NOTE);
-		expect(result).not.toBeNull();
-		expect(result).toContain("**Nächste Schritte**");
-		expect(result).toContain("**Zusammenfassung**");
-		expect(result).toContain("- Do the thing");
-		expect(result).toContain("- We decided X");
+		expect(result.missing).toEqual([]);
+		expect(result.body).toContain("**Nächste Schritte**");
+		expect(result.body).toContain("**Zusammenfassung**");
+		expect(result.body).toContain("- Do the thing");
+		expect(result.body).toContain("- We decided X");
 	});
 
 	it("does not include sections not in the configured list", () => {
 		const result = formatBesprechungSummary(MEETING_NOTE);
-		expect(result).not.toContain("Agenda");
-		expect(result).not.toContain("Item 1");
+		expect(result.body).not.toContain("Agenda");
+		expect(result.body).not.toContain("Item 1");
 	});
 
-	it("returns null when vault content has no matching sections", () => {
+	it("returns empty body and full missing list when vault content has no matching sections", () => {
 		const content = "### Meine Notizen\n- Just notes";
-		expect(formatBesprechungSummary(content)).toBeNull();
+		const result = formatBesprechungSummary(content);
+		expect(result.body).toBe("");
+		expect(result.missing).toEqual(["Nächste Schritte", "Zusammenfassung"]);
 	});
 
 	it("uses custom section headings from settings", () => {
 		const result = formatBesprechungSummary(MEETING_NOTE, ["Agenda"]);
-		expect(result).toBe("**Agenda**\n- Item 1\n- Item 2");
+		expect(result.body).toBe("**Agenda**\n- Item 1\n- Item 2");
+		expect(result.missing).toEqual([]);
 	});
 
 	it("extracts sections in configured order regardless of note order", () => {
 		const content = "### Beta\n- B content\n### Alpha\n- A content";
 		const result = formatBesprechungSummary(content, ["Alpha", "Beta"]);
-		expect(result).toBe("**Alpha**\n- A content\n\n**Beta**\n- B content");
+		expect(result.body).toBe("**Alpha**\n- A content\n\n**Beta**\n- B content");
 	});
 
-	it("returns null when configured section headings list is empty", () => {
-		expect(formatBesprechungSummary(MEETING_NOTE, [])).toBeNull();
+	it("returns empty body and empty missing when configured section headings list is empty", () => {
+		const result = formatBesprechungSummary(MEETING_NOTE, []);
+		expect(result.body).toBe("");
+		expect(result.missing).toEqual([]);
 	});
 
 	it("formats result as insert-ready text with no leading/trailing blank lines", () => {
 		const result = formatBesprechungSummary(MEETING_NOTE);
-		expect(result).not.toBeNull();
-		expect(result!.startsWith("\n")).toBe(false);
-		expect(result!.endsWith("\n")).toBe(false);
+		expect(result.body.startsWith("\n")).toBe(false);
+		expect(result.body.endsWith("\n")).toBe(false);
 	});
 });
