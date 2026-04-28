@@ -74,6 +74,17 @@ export function frontmatterTagsInclude(tags: unknown, target: string | ReadonlyS
 	return false;
 }
 
+// Records the filing target on the besprechung's frontmatter so future
+// automation can learn the user's filing patterns from a structured corpus.
+export function markFiledInFrontmatter(
+	fm: Record<string, unknown>,
+	vorgangBasename: string,
+	when: Date,
+): void {
+	fm.filed_into = `[[${vorgangBasename}]]`;
+	fm.filed_at = when.toISOString();
+}
+
 // Mutates the frontmatter object in place to remove the given tag.
 export function removeTagFromFrontmatter(fm: Record<string, unknown>, tag: string): void {
 	const tags = fm.tags;

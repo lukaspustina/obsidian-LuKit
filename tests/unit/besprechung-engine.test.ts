@@ -5,6 +5,7 @@ import {
 	formatBesprechungSummary,
 	frontmatterTagsInclude,
 	removeTagFromFrontmatter,
+	markFiledInFrontmatter,
 } from "../../src/features/besprechung/besprechung-engine";
 
 describe("extractSection", () => {
@@ -405,5 +406,32 @@ describe("removeTagFromFrontmatter", () => {
 		const fm: Record<string, unknown> = { title: "Note" };
 		removeTagFromFrontmatter(fm, "todo");
 		expect(fm).toEqual({ title: "Note" });
+	});
+});
+
+describe("markFiledInFrontmatter", () => {
+	it("sets filed_into as a wikilink and filed_at as ISO timestamp", () => {
+		const fm: Record<string, unknown> = {};
+		const when = new Date("2026-04-28T14:32:00Z");
+		markFiledInFrontmatter(fm, "Vorgang - Acme, January 2026", when);
+		expect(fm.filed_into).toBe("[[Vorgang - Acme, January 2026]]");
+		expect(fm.filed_at).toBe("2026-04-28T14:32:00.000Z");
+	});
+
+	it("overwrites prior filed_into / filed_at values", () => {
+		const fm: Record<string, unknown> = {
+			filed_into: "[[Old Vorgang]]",
+			filed_at: "2025-01-01T00:00:00.000Z",
+		};
+		markFiledInFrontmatter(fm, "New Vorgang", new Date("2026-04-28T14:32:00Z"));
+		expect(fm.filed_into).toBe("[[New Vorgang]]");
+		expect(fm.filed_at).toBe("2026-04-28T14:32:00.000Z");
+	});
+
+	it("does not touch other frontmatter fields", () => {
+		const fm: Record<string, unknown> = { title: "Note", tags: ["x"] };
+		markFiledInFrontmatter(fm, "Vorgang", new Date("2026-04-28T14:32:00Z"));
+		expect(fm.title).toBe("Note");
+		expect(fm.tags).toEqual(["x"]);
 	});
 });

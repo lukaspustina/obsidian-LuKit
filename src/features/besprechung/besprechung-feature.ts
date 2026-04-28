@@ -7,6 +7,7 @@ import {
 	extractCreatedDate,
 	frontmatterTagsInclude,
 	removeTagFromFrontmatter,
+	markFiledInFrontmatter,
 } from "./besprechung-engine";
 import { renderBesprechungSettings } from "./besprechung-settings";
 import { FolderNoteSuggestModal } from "../../shared/modals/folder-note-suggest";
@@ -259,7 +260,7 @@ export class BesprechungFeature implements LuKitFeature {
 
 		try {
 			if (vorgangContent.includes(expectedBullet)) {
-				await this.removePendingTag(besprechung, pendingTag);
+				await this.markFiled(besprechung, vorgang, pendingTag);
 				new Notice(`LuKit: "${besprechung.basename}" already linked in "${vorgang.basename}". Removed "${pendingTag}".`);
 				return;
 			}
@@ -272,7 +273,7 @@ export class BesprechungFeature implements LuKitFeature {
 				summary.split("\n"),
 			);
 			await this.plugin.app.vault.modify(vorgang, newContent);
-			await this.removePendingTag(besprechung, pendingTag);
+			await this.markFiled(besprechung, vorgang, pendingTag);
 			new Notice(`LuKit: Filed "${besprechung.basename}" under "${vorgang.basename}".`);
 		} catch (e) {
 			// Pending tag stays so the user can retry.
@@ -283,6 +284,14 @@ export class BesprechungFeature implements LuKitFeature {
 	private async removePendingTag(file: TFile, tag: string): Promise<void> {
 		await this.plugin.app.fileManager.processFrontMatter(file, (fm) => {
 			removeTagFromFrontmatter(fm, tag);
+		});
+	}
+
+	private async markFiled(besprechung: TFile, vorgang: TFile, pendingTag: string): Promise<void> {
+		const now = new Date();
+		await this.plugin.app.fileManager.processFrontMatter(besprechung, (fm) => {
+			removeTagFromFrontmatter(fm, pendingTag);
+			markFiledInFrontmatter(fm, vorgang.basename, now);
 		});
 	}
 
