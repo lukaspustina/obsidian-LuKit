@@ -3,6 +3,8 @@ import {
 	extractSection,
 	extractCreatedDate,
 	formatBesprechungSummary,
+	frontmatterTagsInclude,
+	removeTagFromFrontmatter,
 } from "../../src/features/besprechung/besprechung-engine";
 
 describe("extractSection", () => {
@@ -338,5 +340,70 @@ describe("extractCreatedDate", () => {
 		const d = extractCreatedDate(content);
 		// The regex matches anywhere — this is acceptable; at minimum it parses
 		expect(d).not.toBeNull();
+	});
+});
+
+describe("frontmatterTagsInclude", () => {
+	it("matches a string tag against a single target", () => {
+		expect(frontmatterTagsInclude("todo", "todo")).toBe(true);
+		expect(frontmatterTagsInclude("other", "todo")).toBe(false);
+	});
+
+	it("matches a tag in an array against a single target", () => {
+		expect(frontmatterTagsInclude(["work", "todo"], "todo")).toBe(true);
+		expect(frontmatterTagsInclude(["work"], "todo")).toBe(false);
+	});
+
+	it("matches against a target set", () => {
+		const targets = new Set(["Vorgang", "Person"]);
+		expect(frontmatterTagsInclude("Vorgang", targets)).toBe(true);
+		expect(frontmatterTagsInclude(["work", "Person"], targets)).toBe(true);
+		expect(frontmatterTagsInclude(["work"], targets)).toBe(false);
+		expect(frontmatterTagsInclude("Other", targets)).toBe(false);
+	});
+
+	it("returns false for missing or non-tag values", () => {
+		expect(frontmatterTagsInclude(undefined, "todo")).toBe(false);
+		expect(frontmatterTagsInclude(null, "todo")).toBe(false);
+		expect(frontmatterTagsInclude(42, "todo")).toBe(false);
+		expect(frontmatterTagsInclude(undefined, new Set(["x"]))).toBe(false);
+	});
+});
+
+describe("removeTagFromFrontmatter", () => {
+	it("removes a string tag matching the target (deletes the field)", () => {
+		const fm: Record<string, unknown> = { tags: "todo" };
+		removeTagFromFrontmatter(fm, "todo");
+		expect(fm.tags).toBeUndefined();
+	});
+
+	it("leaves a non-matching string tag alone", () => {
+		const fm: Record<string, unknown> = { tags: "other" };
+		removeTagFromFrontmatter(fm, "todo");
+		expect(fm.tags).toBe("other");
+	});
+
+	it("filters the matching tag out of an array", () => {
+		const fm: Record<string, unknown> = { tags: ["work", "todo", "urgent"] };
+		removeTagFromFrontmatter(fm, "todo");
+		expect(fm.tags).toEqual(["work", "urgent"]);
+	});
+
+	it("deletes the tags field when removal empties the array", () => {
+		const fm: Record<string, unknown> = { tags: ["todo"] };
+		removeTagFromFrontmatter(fm, "todo");
+		expect(fm.tags).toBeUndefined();
+	});
+
+	it("does not touch other frontmatter fields", () => {
+		const fm: Record<string, unknown> = { tags: ["todo"], title: "Note" };
+		removeTagFromFrontmatter(fm, "todo");
+		expect(fm.title).toBe("Note");
+	});
+
+	it("is a no-op when tags is missing", () => {
+		const fm: Record<string, unknown> = { title: "Note" };
+		removeTagFromFrontmatter(fm, "todo");
+		expect(fm).toEqual({ title: "Note" });
 	});
 });

@@ -36,8 +36,9 @@ When the active note is tagged `Vorgang`, `Person`, `Bestellung`, or `Bewerbung`
 
 - **Besprechung: Add summary** — Pick a meeting note from the configured folder, extract the key sections, and insert at the cursor position (or as a linked section if the active note is a Vorgang/Person/Bestellung/Bewerbung).
 - **Besprechung: Add multiple summaries** — Same as above, but the picker re-opens after each insertion (with already-picked files hidden) until you press ESC.
+- **Besprechung: File pending notes** — For each Besprechung tagged with the configured pending tag (default: `todo`), pick a target Vorgang/Person/Bestellung/Bewerbung. The summary is filed into the picked note and the pending tag is removed from the Besprechung. Choose `↪ Skip this Besprechung` to keep the current Besprechung untouched and move to the next; press ESC to stop. Processed in FIFO order (oldest by creation time first).
 
-**Setup:** Set the Besprechung folder path and section headings in Settings > LuKit. Section headings are comma-separated (e.g. `Nächste Schritte, Zusammenfassung, Agenda`).
+**Setup:** Set the Besprechung folder path, section headings, and pending tag in Settings > LuKit. Section headings are comma-separated (e.g. `Nächste Schritte, Zusammenfassung, Agenda`).
 
 ### Migration
 
@@ -74,6 +75,7 @@ Controls the date format used in diary headers, Vorgang sections, and reminders.
 | **Vorgang: Add section** | Prompts for a name, inserts TOC entry + h5 header section + diary entry |
 | **Besprechung: Add summary** | Pick a meeting note, extract key sections, insert at cursor (or as a linked section in Vorgang/Person/Bestellung/Bewerbung notes) |
 | **Besprechung: Add multiple summaries** | Picker re-opens after each insertion (already-picked files hidden) until ESC |
+| **Besprechung: File pending notes** | Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary and removes the pending tag |
 | **Migration: Convert note** | Auto-detect note type and convert old format to current |
 | **Help** | Show the LuKit help dialog |
 

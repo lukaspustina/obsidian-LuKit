@@ -37,4 +37,17 @@ export function renderBesprechungSettings(
 					await plugin.saveSettings();
 				})
 		);
+
+	new Setting(containerEl)
+		.setName("Pending tag")
+		.setDesc("Frontmatter tag marking unfiled Besprechungen (used by 'File pending notes')")
+		.addText((text) =>
+			text
+				.setPlaceholder("todo")
+				.setValue(plugin.settings.besprechung.pendingTag)
+				.onChange(async (value) => {
+					plugin.settings.besprechung.pendingTag = value.trim();
+					await plugin.saveSettings();
+				})
+		);
 }

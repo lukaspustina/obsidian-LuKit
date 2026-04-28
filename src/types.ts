@@ -8,6 +8,7 @@ export interface WorkDiarySettings {
 export interface BesprechungSettings {
 	folderPath: string;
 	sectionHeadings: string[];
+	pendingTag: string;
 }
 
 export interface LuKitFeature {
@@ -33,6 +34,7 @@ export const DEFAULT_SETTINGS: LuKitSettings = {
 	besprechung: {
 		folderPath: "",
 		sectionHeadings: ["Nächste Schritte", "Zusammenfassung"],
+		pendingTag: "todo",
 	},
 };
 

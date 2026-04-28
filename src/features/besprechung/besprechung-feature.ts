@@ -1,10 +1,16 @@
-import { Notice, TFile } from "obsidian";
+import { Notice, TFile, normalizePath } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature } from "../../types";
-import { formatBesprechungSummary, extractCreatedDate } from "./besprechung-engine";
+import {
+	formatBesprechungSummary,
+	extractCreatedDate,
+	frontmatterTagsInclude,
+	removeTagFromFrontmatter,
+} from "./besprechung-engine";
 import { renderBesprechungSettings } from "./besprechung-settings";
 import { FolderNoteSuggestModal } from "../../shared/modals/folder-note-suggest";
+import { SectionNoteSuggestModal } from "../../shared/modals/section-note-suggest";
 import { addVorgangSectionLinked, formatLinkedBullet } from "../vorgang/vorgang-engine";
 import { extractDateFromTitle } from "../../shared/date-format";
 
@@ -30,6 +36,15 @@ export class BesprechungFeature implements LuKitFeature {
 			icon: LUKIT_ICON_ID,
 			editorCallback: () => {
 				this.addBesprechungSummariesCmd();
+			},
+		});
+
+		plugin.addCommand({
+			id: "besprechung-file-pending",
+			name: "Besprechung: File pending notes",
+			icon: LUKIT_ICON_ID,
+			callback: () => {
+				this.filePendingCmd();
 			},
 		});
 	}
@@ -135,13 +150,131 @@ export class BesprechungFeature implements LuKitFeature {
 		}
 	}
 
-	private static readonly SECTION_NOTE_TAGS = ["Vorgang", "Person", "Bestellung", "Bewerbung"];
+	private static readonly SECTION_NOTE_TAGS: ReadonlySet<string> = new Set(["Vorgang", "Person", "Bestellung", "Bewerbung"]);
 
 	private isSectionNote(file: TFile): boolean {
-		const cache = this.plugin.app.metadataCache.getFileCache(file);
-		const tags = cache?.frontmatter?.tags;
-		if (typeof tags === "string") return BesprechungFeature.SECTION_NOTE_TAGS.includes(tags);
-		if (Array.isArray(tags)) return (tags as string[]).some(t => BesprechungFeature.SECTION_NOTE_TAGS.includes(t));
-		return false;
+		const tags = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter?.tags;
+		return frontmatterTagsInclude(tags, BesprechungFeature.SECTION_NOTE_TAGS);
+	}
+
+	private filePendingCmd(): void {
+		const folderPath = this.plugin.settings.besprechung.folderPath;
+		if (!folderPath) {
+			new Notice("LuKit: No Besprechung folder configured. Set it in Settings → LuKit.");
+			return;
+		}
+		const pendingTag = this.plugin.settings.besprechung.pendingTag;
+		if (!pendingTag) {
+			new Notice("LuKit: No pending tag configured. Set it in Settings → LuKit.");
+			return;
+		}
+
+		const pending = this.findPendingBesprechungen();
+		if (pending.length === 0) {
+			new Notice(`LuKit: No Besprechungen tagged "${pendingTag}".`);
+			return;
+		}
+
+		let i = 0;
+		const next = (): void => {
+			if (i >= pending.length) {
+				new Notice(`LuKit: Filing done (${pending.length} processed).`);
+				return;
+			}
+			const besprechung = pending[i];
+			const placeholder = `[${i + 1}/${pending.length}] File "${besprechung.basename}" under… (ESC to stop)`;
+			new SectionNoteSuggestModal(
+				this.plugin.app,
+				BesprechungFeature.SECTION_NOTE_TAGS,
+				placeholder,
+				(vorgang) => {
+					i++;
+					void this.fileBesprechungIntoVorgang(besprechung, vorgang).then(next);
+				},
+				() => {
+					i++;
+					next();
+				},
+				() => {
+					new Notice(`LuKit: Filing stopped (${i} done, ${pending.length - i} remaining).`);
+				},
+			).open();
+		};
+		next();
+	}
+
+	private findPendingBesprechungen(): TFile[] {
+		const folderPath = this.plugin.settings.besprechung.folderPath;
+		const pendingTag = this.plugin.settings.besprechung.pendingTag;
+		const prefix = normalizePath(folderPath) + "/";
+		return this.plugin.app.vault
+			.getMarkdownFiles()
+			.filter((f) => f.path.startsWith(prefix))
+			.filter((f) => {
+				const tags = this.plugin.app.metadataCache.getFileCache(f)?.frontmatter?.tags;
+				return frontmatterTagsInclude(tags, pendingTag);
+			})
+			.sort((a, b) => a.stat.ctime - b.stat.ctime);
+	}
+
+	private async fileBesprechungIntoVorgang(besprechung: TFile, vorgang: TFile): Promise<void> {
+		const headings = this.plugin.settings.besprechung.sectionHeadings;
+		const locale = this.plugin.settings.dateLocale;
+		const pendingTag = this.plugin.settings.besprechung.pendingTag;
+
+		let besprechungContent: string;
+		try {
+			besprechungContent = await this.plugin.app.vault.read(besprechung);
+		} catch (e) {
+			new Notice("LuKit: Could not read besprechung: " + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
+		const summary = formatBesprechungSummary(besprechungContent, headings);
+		if (!summary) {
+			const names = headings.join(" or ");
+			new Notice(`LuKit: No ${names} found in "${besprechung.basename}". Skipped.`);
+			return;
+		}
+
+		let vorgangContent: string;
+		try {
+			vorgangContent = await this.plugin.app.vault.read(vorgang);
+		} catch (e) {
+			new Notice("LuKit: Could not read Vorgang: " + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
+
+		const date = extractDateFromTitle(vorgang.basename, locale)
+			?? extractCreatedDate(besprechungContent)
+			?? new Date();
+		const expectedBullet = formatLinkedBullet(besprechung.basename, locale, date);
+
+		try {
+			if (vorgangContent.includes(expectedBullet)) {
+				await this.removePendingTag(besprechung, pendingTag);
+				new Notice(`LuKit: "${besprechung.basename}" already linked in "${vorgang.basename}". Removed "${pendingTag}".`);
+				return;
+			}
+
+			const { newContent } = addVorgangSectionLinked(
+				vorgangContent,
+				besprechung.basename,
+				locale,
+				date,
+				summary.split("\n"),
+			);
+			await this.plugin.app.vault.modify(vorgang, newContent);
+			await this.removePendingTag(besprechung, pendingTag);
+			new Notice(`LuKit: Filed "${besprechung.basename}" under "${vorgang.basename}".`);
+		} catch (e) {
+			// Pending tag stays so the user can retry.
+			new Notice(`LuKit: Failed to file "${besprechung.basename}" into "${vorgang.basename}": ` + (e instanceof Error ? e.message : String(e)));
+		}
+	}
+
+	private async removePendingTag(file: TFile, tag: string): Promise<void> {
+		await this.plugin.app.fileManager.processFrontMatter(file, (fm) => {
+			removeTagFromFrontmatter(fm, tag);
+		});
 	}
 }

@@ -39,8 +39,10 @@ Extracts key sections from meeting notes and inserts formatted summaries at curs
 - Picks a note from a configured folder via fuzzy search
 - Extracts configurable h3 sections (default: `### Nächste Schritte`, `### Zusammenfassung`)
 - Converts h3 headers to bold in the output
-- Engine: `besprechung-engine.ts`, Feature: `besprechung-feature.ts`
-- Settings: `folderPath`, `sectionHeadings` (array of h3 heading names)
+- "File pending notes" command: walks Besprechungen tagged with `pendingTag` (default: `todo`) in FIFO order (oldest by ctime), picks a section note (Vorgang/Person/Bestellung/Bewerbung) for each, files the summary via `app.vault.modify` (no editor required), then removes the pending tag via `app.fileManager.processFrontMatter`. Skip entry in picker advances; ESC stops the workflow.
+- Engine: `besprechung-engine.ts` (also exports `frontmatterTagsInclude`, `removeTagFromFrontmatter` — pure helpers used by the pending-filing flow), Feature: `besprechung-feature.ts`
+- Modal: `src/shared/modals/section-note-suggest.ts` (lists notes whose frontmatter tags include any of `Vorgang|Person|Bestellung|Bewerbung`, prepends a `↪ Skip` virtual entry, distinguishes ESC-cancel from item-pick via `chosen` flag)
+- Settings: `folderPath`, `sectionHeadings` (array of h3 heading names), `pendingTag` (default `"todo"`)
 
 ### Migration (`src/features/migration/`)
 Auto-detects and converts old-format notes to current format. Idempotent (safe to run multiple times).
