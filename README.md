@@ -39,6 +39,7 @@ When the active note is tagged `Vorgang`, `Person`, `Bestellung`, or `Bewerbung`
 - **Besprechung: Add summary** — Pick a meeting note from the configured folder, extract the key sections, and insert at the cursor position (or as a linked section if the active note is a Vorgang/Person/Bestellung/Bewerbung).
 - **Besprechung: Add multiple summaries** — Same as above, but the picker re-opens after each insertion (with already-picked files hidden) until you press ESC.
 - **Besprechung: File pending notes** — For each Besprechung tagged with the configured pending tag (default: `todo`), pick a target Vorgang/Person/Bestellung/Bewerbung. The summary is filed into the picked note, the pending tag is removed, and the Besprechung gets `filed_into: "[[Vorgang]]"` and `filed_at: <ISO>` stamps in its frontmatter (so future automation can learn from past routings). Picker also offers: `↪ Skip this Besprechung` (leave it pending, advance), `✕ Don't file (just remove pending tag)`, and `→ Stop and open this Besprechung in a new tab` (for cases needing manual review). Press ESC to stop. Processing order (oldest or newest first by creation time) is configurable.
+- **Besprechung: File this Besprechung** — Same as above, but operates on the active Besprechung instead of iterating the pending backlog. Active note must have `Besprechung` in its frontmatter `tags`; the command files into the picked target regardless of pending-tag state, so it works for back-filling untagged besprechungen too. Picker offers Pick + `✕ Don't file`; ESC cancels.
 
 **Setup:** Set the Besprechung folder path, section headings, pending tag, and pending order in Settings > LuKit. Section headings are comma-separated (e.g. `Nächste Schritte, Zusammenfassung, Agenda`).
 
@@ -78,6 +79,7 @@ Controls the date format used in diary headers, Vorgang sections, and reminders.
 | **Besprechung: Add summary** | Pick a meeting note, extract key sections, insert at cursor (or as a linked section in Vorgang/Person/Bestellung/Bewerbung notes) |
 | **Besprechung: Add multiple summaries** | Picker re-opens after each insertion (already-picked files hidden) until ESC |
 | **Besprechung: File pending notes** | Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary and removes the pending tag |
+| **Besprechung: File this Besprechung** | File the active Besprechung into a section note (Vorgang/Person/Bestellung/Bewerbung); same insertion + frontmatter stamping as File pending |
 | **Migration: Convert note** | Auto-detect note type and convert old format to current |
 | **Help** | Show the LuKit help dialog |
 

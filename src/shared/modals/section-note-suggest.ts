@@ -9,33 +9,27 @@ const DROP_SENTINEL: unique symbol = Symbol("drop");
 const OPEN_SENTINEL: unique symbol = Symbol("open");
 type Item = TFile | typeof SKIP_SENTINEL | typeof DROP_SENTINEL | typeof OPEN_SENTINEL;
 
+export interface SectionNoteSuggestOptions {
+	placeholder: string;
+	onPick: (file: TFile) => void;
+	// Each virtual entry is shown only when its callback is provided; absent
+	// callbacks suppress the corresponding picker row.
+	onSkip?: () => void;
+	onDrop?: () => void;
+	onOpenSource?: () => void;
+	onCancel?: () => void;
+}
+
 export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 	private sectionTags: ReadonlySet<string>;
-	private onPick: (file: TFile) => void;
-	private onSkip: () => void;
-	private onDrop: () => void;
-	private onOpenSource: () => void;
-	private onCancel?: () => void;
+	private options: SectionNoteSuggestOptions;
 	private chosen = false;
 
-	constructor(
-		app: App,
-		sectionTags: ReadonlySet<string>,
-		placeholder: string,
-		onPick: (file: TFile) => void,
-		onSkip: () => void,
-		onDrop: () => void,
-		onOpenSource: () => void,
-		onCancel?: () => void,
-	) {
+	constructor(app: App, sectionTags: ReadonlySet<string>, options: SectionNoteSuggestOptions) {
 		super(app);
 		this.sectionTags = sectionTags;
-		this.onPick = onPick;
-		this.onSkip = onSkip;
-		this.onDrop = onDrop;
-		this.onOpenSource = onOpenSource;
-		this.onCancel = onCancel;
-		this.setPlaceholder(placeholder);
+		this.options = options;
+		this.setPlaceholder(options.placeholder);
 	}
 
 	getItems(): Item[] {
@@ -46,7 +40,11 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 				return frontmatterTagsInclude(tags, this.sectionTags);
 			})
 			.sort((a, b) => b.stat.mtime - a.stat.mtime);
-		return [SKIP_SENTINEL, DROP_SENTINEL, OPEN_SENTINEL, ...matches];
+		const sentinels: Item[] = [];
+		if (this.options.onSkip) sentinels.push(SKIP_SENTINEL);
+		if (this.options.onDrop) sentinels.push(DROP_SENTINEL);
+		if (this.options.onOpenSource) sentinels.push(OPEN_SENTINEL);
+		return [...sentinels, ...matches];
 	}
 
 	getItemText(item: Item): string {
@@ -58,14 +56,14 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 
 	onChooseItem(item: Item): void {
 		this.chosen = true;
-		if (item === SKIP_SENTINEL) this.onSkip();
-		else if (item === DROP_SENTINEL) this.onDrop();
-		else if (item === OPEN_SENTINEL) this.onOpenSource();
-		else this.onPick(item);
+		if (item === SKIP_SENTINEL) this.options.onSkip?.();
+		else if (item === DROP_SENTINEL) this.options.onDrop?.();
+		else if (item === OPEN_SENTINEL) this.options.onOpenSource?.();
+		else this.options.onPick(item);
 	}
 
 	onClose(): void {
 		super.onClose();
-		if (!this.chosen) this.onCancel?.();
+		if (!this.chosen) this.options.onCancel?.();
 	}
 }

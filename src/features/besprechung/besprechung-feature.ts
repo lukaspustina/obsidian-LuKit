@@ -54,6 +54,15 @@ export class BesprechungFeature implements LuKitFeature {
 				this.filePendingCmd();
 			},
 		});
+
+		plugin.addCommand({
+			id: "besprechung-file-this",
+			name: "Besprechung: File this Besprechung",
+			icon: LUKIT_ICON_ID,
+			callback: () => {
+				this.fileActiveBesprechungCmd();
+			},
+		});
 	}
 
 	onunload(): void {
@@ -80,6 +89,11 @@ export class BesprechungFeature implements LuKitFeature {
 				commandId: "besprechung-file-pending",
 				displayName: "Besprechung: File pending notes",
 				description: "Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary, removes the tag, stamps filed_into/filed_at.",
+			},
+			{
+				commandId: "besprechung-file-this",
+				displayName: "Besprechung: File this Besprechung",
+				description: "File the active Besprechung note into a target section note (Vorgang/Person/Bestellung/Bewerbung). Same insertion + stamp behaviour as 'File pending notes', but on the open note.",
 			},
 		];
 	}
@@ -233,29 +247,58 @@ export class BesprechungFeature implements LuKitFeature {
 			new SectionNoteSuggestModal(
 				this.plugin.app,
 				BesprechungFeature.SECTION_NOTE_TAGS,
-				placeholder,
-				(vorgang) => {
-					i++;
-					void this.fileBesprechungIntoVorgang(besprechung, vorgang).then(next);
-				},
-				() => {
-					i++;
-					next();
-				},
-				() => {
-					i++;
-					void this.dropPending(besprechung).then(next);
-				},
-				() => {
-					void this.plugin.app.workspace.getLeaf("tab").openFile(besprechung);
-					new Notice(`LuKit: Stopped at "${besprechung.basename}" (${i} done, ${pending.length - i} remaining).`);
-				},
-				() => {
-					new Notice(`LuKit: Filing stopped (${i} done, ${pending.length - i} remaining).`);
+				{
+					placeholder,
+					onPick: (vorgang) => {
+						i++;
+						void this.fileBesprechungIntoVorgang(besprechung, vorgang).then(next);
+					},
+					onSkip: () => {
+						i++;
+						next();
+					},
+					onDrop: () => {
+						i++;
+						void this.dropPending(besprechung).then(next);
+					},
+					onOpenSource: () => {
+						void this.plugin.app.workspace.getLeaf("tab").openFile(besprechung);
+						new Notice(`LuKit: Stopped at "${besprechung.basename}" (${i} done, ${pending.length - i} remaining).`);
+					},
+					onCancel: () => {
+						new Notice(`LuKit: Filing stopped (${i} done, ${pending.length - i} remaining).`);
+					},
 				},
 			).open();
 		};
 		next();
+	}
+
+	private fileActiveBesprechungCmd(): void {
+		const active = this.plugin.app.workspace.getActiveFile();
+		if (!active) {
+			new Notice("LuKit: No active note open.");
+			return;
+		}
+		const tags = this.plugin.app.metadataCache.getFileCache(active)?.frontmatter?.tags;
+		if (!frontmatterTagsInclude(tags, "Besprechung")) {
+			new Notice(`LuKit: "${active.basename}" is not a Besprechung (missing "Besprechung" tag).`);
+			return;
+		}
+
+		new SectionNoteSuggestModal(
+			this.plugin.app,
+			BesprechungFeature.SECTION_NOTE_TAGS,
+			{
+				placeholder: `File "${active.basename}" under…`,
+				onPick: (vorgang) => {
+					void this.fileBesprechungIntoVorgang(active, vorgang);
+				},
+				onDrop: () => {
+					void this.dropPending(active);
+				},
+			},
+		).open();
 	}
 
 	private findPendingBesprechungen(): TFile[] {

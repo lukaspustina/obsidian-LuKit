@@ -48,6 +48,11 @@ exports[`LuKitFeature.helpEntries() registry > matches the snapshot 1`] = `
     "displayName": "Besprechung: File pending notes",
   },
   {
+    "commandId": "besprechung-file-this",
+    "description": "File the active Besprechung note into a target section note (Vorgang/Person/Bestellung/Bewerbung). Same insertion + stamp behaviour as 'File pending notes', but on the open note.",
+    "displayName": "Besprechung: File this Besprechung",
+  },
+  {
     "commandId": "migration-convert-bold",
     "description": "Auto-detects the note type and converts old format to current. Shows a confirmation dialog with line-diff count first.",
     "displayName": "Migration: Convert note",
