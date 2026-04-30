@@ -1,7 +1,29 @@
 #!/usr/bin/env node
 "use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // src/cli.ts
+var cli_exports = {};
+__export(cli_exports, {
+  runCli: () => runCli
+});
+module.exports = __toCommonJS(cli_exports);
 var import_fs = require("fs");
 var import_path = require("path");
 var import_os = require("os");
@@ -242,7 +264,7 @@ var commands = {
     expectedPositional: 0
   }
 };
-function loadLocale() {
+function loadLocale(io) {
   const configPath = (0, import_path.join)((0, import_os.homedir)(), ".lukit.json");
   if ((0, import_fs.existsSync)(configPath)) {
     try {
@@ -251,62 +273,68 @@ function loadLocale() {
         return config.dateLocale;
       }
       if (config.dateLocale !== void 0) {
-        console.warn(`LuKit: invalid dateLocale "${config.dateLocale}" in config \u2014 falling back to "de"`);
+        io.err(`LuKit: invalid dateLocale "${config.dateLocale}" in config \u2014 falling back to "de"
+`);
       }
     } catch {
-      console.warn("Warning: ~/.lukit.json could not be parsed; using default locale 'de'.");
+      io.err("Warning: ~/.lukit.json could not be parsed; using default locale 'de'.\n");
     }
   }
   return "de";
 }
-function printUsage() {
-  console.log("Usage: lukit <command> [args...]\n");
-  console.log("Commands:");
+function printUsage(io) {
+  io.out("Usage: lukit <command> [args...]\n\n");
+  io.out("Commands:\n");
   for (const [, cmd] of Object.entries(commands)) {
-    console.log(`  ${cmd.usage}`);
+    io.out(`  ${cmd.usage}
+`);
   }
-  console.log("\nOptions:");
-  console.log("  --help     Show this help message");
-  console.log("  --version  Print the CLI version");
+  io.out("\nOptions:\n");
+  io.out("  --help     Show this help message\n");
+  io.out("  --version  Print the CLI version\n");
 }
-function printCommandUsage(commandName) {
+function printCommandUsage(commandName, io) {
   const cmd = commands[commandName];
   if (!cmd) {
-    printUsage();
+    printUsage(io);
     return;
   }
-  console.log(`Usage: ${cmd.usage}`);
+  io.out(`Usage: ${cmd.usage}
+`);
 }
-function runAddTextToDiary(args) {
+function runAddTextToDiary(args, io) {
   const diaryPath = (0, import_path.resolve)(args[0]);
   const text = args[1].trim();
   if (text.length === 0) {
-    console.error("Error: Text cannot be empty.");
-    process.exit(1);
+    io.err("Error: Text cannot be empty.\n");
+    io.exit(1);
   }
   if (!(0, import_fs.existsSync)(diaryPath)) {
-    console.error(`Error: File not found: ${diaryPath}`);
-    process.exit(1);
+    io.err(`Error: File not found: ${diaryPath}
+`);
+    io.exit(1);
   }
-  const locale = loadLocale();
+  const locale = loadLocale(io);
   try {
     const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
     const entry = formatTextEntry(text);
     const { newContent } = addEntryUnderToday(content, entry, locale);
     (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
   } catch (e) {
-    console.error("Error: " + (e instanceof Error ? e.message : String(e)));
-    process.exit(1);
+    io.err("Error: " + (e instanceof Error ? e.message : String(e)) + "\n");
+    io.exit(1);
   }
-  console.log(`Added entry to ${diaryPath}`);
+  io.out(`Added entry to ${diaryPath}
+`);
 }
-function runEnsureTodayHeader(args) {
+function runEnsureTodayHeader(args, io) {
   const diaryPath = (0, import_path.resolve)(args[0]);
   if (!(0, import_fs.existsSync)(diaryPath)) {
-    console.error(`Error: File not found: ${diaryPath}`);
-    process.exit(1);
+    io.err(`Error: File not found: ${diaryPath}
+`);
+    io.exit(1);
   }
-  const locale = loadLocale();
+  const locale = loadLocale(io);
   let fallback = false;
   try {
     const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
@@ -314,71 +342,77 @@ function runEnsureTodayHeader(args) {
     fallback = result.fallback;
     (0, import_fs.writeFileSync)(diaryPath, result.newContent, "utf-8");
   } catch (e) {
-    console.error("Error: " + (e instanceof Error ? e.message : String(e)));
-    process.exit(1);
+    io.err("Error: " + (e instanceof Error ? e.message : String(e)) + "\n");
+    io.exit(1);
   }
   if (fallback) {
-    console.warn("Warning: Diary note is missing the third separator (---). Header was appended at end.");
+    io.err("Warning: Diary note is missing the third separator (---). Header was appended at end.\n");
   }
-  console.log(`Ensured today's header in ${diaryPath}`);
+  io.out(`Ensured today's header in ${diaryPath}
+`);
 }
-function runAddDiaryEntry(args) {
+function runAddDiaryEntry(args, io) {
   const diaryPath = (0, import_path.resolve)(args[0]);
   const noteName = args[1].trim();
   const heading = args.length >= 3 ? args[2] : null;
   if (noteName.length === 0) {
-    process.stderr.write("note-name must not be empty\n");
-    process.exit(2);
+    io.err("note-name must not be empty\n");
+    io.exit(2);
   }
   if (!(0, import_fs.existsSync)(diaryPath)) {
-    console.error(`Error: File not found: ${diaryPath}`);
-    process.exit(1);
+    io.err(`Error: File not found: ${diaryPath}
+`);
+    io.exit(1);
   }
-  const locale = loadLocale();
+  const locale = loadLocale(io);
   try {
     const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
     const entry = formatDiaryEntry(noteName, heading);
     const { newContent } = addEntryUnderToday(content, entry, locale);
     (0, import_fs.writeFileSync)(diaryPath, newContent, "utf-8");
   } catch (e) {
-    console.error("Error: " + (e instanceof Error ? e.message : String(e)));
-    process.exit(1);
+    io.err("Error: " + (e instanceof Error ? e.message : String(e)) + "\n");
+    io.exit(1);
   }
-  console.log(`Added diary entry to ${diaryPath}`);
+  io.out(`Added diary entry to ${diaryPath}
+`);
 }
-function runAddReminder(args) {
+function runAddReminder(args, io) {
   const diaryPath = (0, import_path.resolve)(args[0]);
   const text = args[1].trim();
   if (text.length === 0) {
-    console.error("Error: Text cannot be empty.");
-    process.exit(1);
+    io.err("Error: Text cannot be empty.\n");
+    io.exit(1);
   }
   if (!(0, import_fs.existsSync)(diaryPath)) {
-    console.error(`Error: File not found: ${diaryPath}`);
-    process.exit(1);
+    io.err(`Error: File not found: ${diaryPath}
+`);
+    io.exit(1);
   }
-  const locale = loadLocale();
+  const locale = loadLocale(io);
   try {
     const content = (0, import_fs.readFileSync)(diaryPath, "utf-8");
     const entry = formatReminderEntry(text, locale);
     const result = addReminder(content, entry);
     if (!result) {
-      console.error("Error: Diary note is missing the third separator (---). Cannot add reminder.");
-      process.exit(1);
+      io.err("Error: Diary note is missing the third separator (---). Cannot add reminder.\n");
+      io.exit(1);
     }
     (0, import_fs.writeFileSync)(diaryPath, result.newContent, "utf-8");
   } catch (e) {
-    console.error("Error: " + (e instanceof Error ? e.message : String(e)));
-    process.exit(1);
+    io.err("Error: " + (e instanceof Error ? e.message : String(e)) + "\n");
+    io.exit(1);
   }
-  console.log(`Added reminder to ${diaryPath}`);
+  io.out(`Added reminder to ${diaryPath}
+`);
 }
-function runInitConfig(_args) {
+function runInitConfig(_args, io) {
   const configPath = (0, import_path.join)((0, import_os.homedir)(), ".lukit.json");
   if ((0, import_fs.existsSync)(configPath)) {
-    console.error(`Error: Config file already exists: ${configPath}`);
-    console.error("Remove it first if you want to regenerate.");
-    process.exit(1);
+    io.err(`Error: Config file already exists: ${configPath}
+`);
+    io.err("Remove it first if you want to regenerate.\n");
+    io.exit(1);
   }
   const config = {
     diaryPath: "/path/to/your/vault/Work Diary.md",
@@ -387,33 +421,34 @@ function runInitConfig(_args) {
     nodePath: process.execPath
   };
   (0, import_fs.writeFileSync)(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
-  console.log(`Created ${configPath}`);
-  console.log("Edit diaryPath to point to your diary note.");
+  io.out(`Created ${configPath}
+`);
+  io.out("Edit diaryPath to point to your diary note.\n");
 }
-function main() {
-  const argv = process.argv.slice(2);
+function runCli(argv, io) {
   if (argv.includes("--version")) {
-    console.log(true ? "1.12.4" : "unknown");
-    process.exit(0);
+    io.out((true ? "1.12.4" : "unknown") + "\n");
+    io.exit(0);
   }
   const firstPositional = argv.find((a) => !a.startsWith("--"));
   if (argv.includes("--help")) {
     if (firstPositional && commands[firstPositional]) {
-      printCommandUsage(firstPositional);
+      printCommandUsage(firstPositional, io);
     } else {
-      printUsage();
+      printUsage(io);
     }
-    process.exit(0);
+    io.exit(0);
   }
   if (argv.length === 0 || !firstPositional) {
-    printUsage();
-    process.exit(0);
+    printUsage(io);
+    io.exit(0);
   }
   const command = commands[firstPositional];
   if (!command) {
-    console.error(`Error: Unknown command '${firstPositional}'`);
-    printUsage();
-    process.exit(1);
+    io.err(`Error: Unknown command '${firstPositional}'
+`);
+    printUsage(io);
+    io.exit(1);
   }
   const positionals = [];
   let seenCommand = false;
@@ -427,15 +462,27 @@ function main() {
   }
   const max = command.maxPositional ?? command.expectedPositional;
   if (positionals.length < command.expectedPositional) {
-    console.error("Error: Missing arguments.");
-    console.error(`Usage: ${command.usage}`);
-    process.exit(1);
+    io.err("Error: Missing arguments.\n");
+    io.err(`Usage: ${command.usage}
+`);
+    io.exit(1);
   }
   if (positionals.length > max) {
-    process.stderr.write(`Usage: ${command.usage} \u2014 extra args (did you forget to quote text?)
+    io.err(`Usage: ${command.usage} \u2014 extra args (did you forget to quote text?)
 `);
-    process.exit(2);
+    io.exit(2);
   }
-  command.handler(positionals);
+  command.handler(positionals, io);
 }
-main();
+var realIO = {
+  out: (s) => process.stdout.write(s),
+  err: (s) => process.stderr.write(s),
+  exit: (code) => process.exit(code)
+};
+if (typeof process !== "undefined" && process.argv[1]?.endsWith("cli.js")) {
+  runCli(process.argv.slice(2), realIO);
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  runCli
+});

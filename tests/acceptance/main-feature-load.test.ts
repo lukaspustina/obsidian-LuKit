@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { loadFeatures } from "../../src/main";
+import { lastNotice, resetNotices, asLuKitPlugin } from "../helpers/obsidian-mocks";
 import { Notice } from "../helpers/obsidian-stub";
-import { lastNotice, resetNotices } from "../helpers/obsidian-mocks";
 import type { LuKitFeature } from "../../src/types";
-import type LuKitPlugin from "../../src/main";
 
 beforeEach(() => {
 	resetNotices();
 });
 
-describe("Plugin onload feature-load failure (TS-02)", () => {
+describe("loadFeatures (TS-02)", () => {
 	it("emits Notice when a feature's onload throws and other features still load", () => {
 		const failing: LuKitFeature = {
 			id: "test-broken",
@@ -21,23 +21,19 @@ describe("Plugin onload feature-load failure (TS-02)", () => {
 			onunload(): void { /* no-op */ },
 		};
 
-		// LuKitPlugin requires the real Obsidian Plugin runtime; replicate
-		// the src/main.ts onload-loop invariant here.
-		const features: LuKitFeature[] = [failing, succeeding];
-		const plugin = {} as unknown as LuKitPlugin;
-		let succeededCount = 0;
-		for (const feature of features) {
-			try {
-				feature.onload(plugin);
-				succeededCount++;
-			} catch (e) {
-				// eslint-disable-next-line no-console
-				console.error(`LuKit: Failed to load feature ${feature.id}:`, e);
-				new Notice(`LuKit: failed to load feature ${feature.id} — see console`);
-			}
-		}
+		const errors: { id: string; e: unknown }[] = [];
+		const succeeded = loadFeatures(
+			[failing, succeeding],
+			asLuKitPlugin({ settings: {}, app: {}, features: [], addCommand: () => undefined, commands: new Map() } as never),
+			(id, e) => {
+				errors.push({ id, e });
+				new Notice(`LuKit: failed to load feature ${id} — see console`);
+			},
+		);
 
-		expect(succeededCount).toBe(1);
-		expect(lastNotice()).toContain("LuKit: failed to load feature test-broken");
+		expect(succeeded).toBe(1);
+		expect(errors).toHaveLength(1);
+		expect(errors[0].id).toBe("test-broken");
+		expect(lastNotice()).toBe("LuKit: failed to load feature test-broken — see console");
 	});
 });

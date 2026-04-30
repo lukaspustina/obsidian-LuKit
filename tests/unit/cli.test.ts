@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
 import {
 	mkdtempSync,
 	writeFileSync,
@@ -8,7 +8,6 @@ import {
 } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { execFileSync } from "child_process";
 import {
 	formatTextEntry,
 	formatDiaryEntry,
@@ -19,6 +18,47 @@ import {
 } from "../../src/features/work-diary/work-diary-engine";
 
 const friday = new Date(2026, 1, 6);
+
+// __CLI_VERSION__ is replaced by esbuild at CLI build time. When running
+// under vitest, polyfill it so the --version test sees a stable value.
+beforeAll(() => {
+	(globalThis as Record<string, unknown>).__CLI_VERSION__ = "1.12.4";
+});
+
+interface CliCapture {
+	stdout: string;
+	stderr: string;
+	exitCode: number;
+}
+
+class ExitError extends Error {
+	constructor(public code: number) { super(`exit ${code}`); }
+}
+
+async function runCliCapture(argv: string[], homeDir?: string): Promise<CliCapture> {
+	const out: string[] = [];
+	const err: string[] = [];
+	const originalHome = process.env.HOME;
+	if (homeDir !== undefined) process.env.HOME = homeDir;
+	const { runCli } = await import("../../src/cli");
+	let exitCode = 0;
+	try {
+		runCli(argv, {
+			out: (s) => out.push(s),
+			err: (s) => err.push(s),
+			exit: (code) => { throw new ExitError(code); },
+		});
+	} catch (e) {
+		if (e instanceof ExitError) exitCode = e.code;
+		else throw e;
+	} finally {
+		if (homeDir !== undefined) {
+			if (originalHome === undefined) delete process.env.HOME;
+			else process.env.HOME = originalHome;
+		}
+	}
+	return { stdout: out.join(""), stderr: err.join(""), exitCode };
+}
 
 describe("CLI: add-text-to-diary", () => {
 	let tmpDir: string;
@@ -216,64 +256,45 @@ describe("CLI: add-reminder", () => {
 });
 
 describe("CLI: argument parsing", () => {
-	function runCliCapture(args: string[]): { status: number; stdout: string; stderr: string } {
-		try {
-			const stdout = execFileSync("node", ["cli.js", ...args], {
-				cwd: process.cwd(),
-				encoding: "utf-8",
-				stdio: ["ignore", "pipe", "pipe"],
-			});
-			return { status: 0, stdout, stderr: "" };
-		} catch (e: unknown) {
-			const err = e as { status: number; stdout?: Buffer; stderr?: Buffer };
-			return {
-				status: err.status,
-				stdout: err.stdout ? err.stdout.toString() : "",
-				stderr: err.stderr ? err.stderr.toString() : "",
-			};
-		}
-	}
-
-	it("unknown command exits with non-zero code", () => {
-		const { status } = runCliCapture(["unknown-command"]);
-		expect(status).not.toBe(0);
+	it("unknown command exits with non-zero code", async () => {
+		const { exitCode } = await runCliCapture(["unknown-command"]);
+		expect(exitCode).not.toBe(0);
 	});
 
-	it("add-text-to-diary with missing args exits with non-zero code", () => {
-		const { status } = runCliCapture(["add-text-to-diary"]);
-		expect(status).not.toBe(0);
+	it("add-text-to-diary with missing args exits with non-zero code", async () => {
+		const { exitCode } = await runCliCapture(["add-text-to-diary"]);
+		expect(exitCode).not.toBe(0);
 	});
 
-	it("rejects extra positional args with exit code 2", () => {
-		const { status, stderr } = runCliCapture(["add-text-to-diary", "diary.md", "hello", "extra"]);
-		expect(status).toBe(2);
+	it("rejects extra positional args with exit code 2", async () => {
+		const { exitCode, stderr } = await runCliCapture(["add-text-to-diary", "diary.md", "hello", "extra"]);
+		expect(exitCode).toBe(2);
 		expect(stderr).toContain("extra args");
 	});
 
-	it("rejects empty note-name with exit code 2 and stderr message", () => {
-		const { status, stderr } = runCliCapture(["add-diary-entry", "diary.md", ""]);
-		expect(status).toBe(2);
+	it("rejects empty note-name with exit code 2 and stderr message", async () => {
+		const { exitCode, stderr } = await runCliCapture(["add-diary-entry", "diary.md", ""]);
+		expect(exitCode).toBe(2);
 		expect(stderr).toContain("note-name must not be empty");
 	});
 
-	it("--help prints global usage and exits 0", () => {
-		const { status, stdout } = runCliCapture(["--help"]);
-		expect(status).toBe(0);
+	it("--help prints global usage and exits 0", async () => {
+		const { exitCode, stdout } = await runCliCapture(["--help"]);
+		expect(exitCode).toBe(0);
 		expect(stdout).toContain("Usage: lukit");
 		expect(stdout).toContain("Commands:");
 	});
 
-	it("<command> --help prints per-command usage and exits 0", () => {
-		const { status, stdout } = runCliCapture(["add-diary-entry", "--help"]);
-		expect(status).toBe(0);
+	it("<command> --help prints per-command usage and exits 0", async () => {
+		const { exitCode, stdout } = await runCliCapture(["add-diary-entry", "--help"]);
+		expect(exitCode).toBe(0);
 		expect(stdout).toContain("add-diary-entry");
 		expect(stdout).toContain("<note-name>");
 	});
 
-	it("--version prints the build-time version and exits 0", () => {
-		const { status, stdout } = runCliCapture(["--version"]);
-		expect(status).toBe(0);
-		// manifest.json version is baked at build time; e.g. "1.12.4".
+	it("--version prints the build-time version and exits 0", async () => {
+		const { exitCode, stdout } = await runCliCapture(["--version"]);
+		expect(exitCode).toBe(0);
 		expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
 	});
 });
@@ -289,16 +310,9 @@ describe("CLI: init-config", () => {
 		rmSync(tmpDir, { recursive: true });
 	});
 
-	function runCli(args: string[], home: string): string {
-		return execFileSync("node", ["cli.js", ...args], {
-			cwd: process.cwd(),
-			env: { ...process.env, HOME: home },
-			encoding: "utf-8",
-		});
-	}
-
-	it("creates config file with expected keys", () => {
-		const output = runCli(["init-config"], tmpDir);
+	it("creates config file with expected keys", async () => {
+		const { exitCode, stdout } = await runCliCapture(["init-config"], tmpDir);
+		expect(exitCode).toBe(0);
 		const configPath = join(tmpDir, ".lukit.json");
 
 		expect(existsSync(configPath)).toBe(true);
@@ -308,14 +322,16 @@ describe("CLI: init-config", () => {
 		expect(config).toHaveProperty("cliPath");
 		expect(config).toHaveProperty("nodePath");
 		expect(config.dateLocale).toBe("de");
-		expect(output).toContain("Created");
+		expect(stdout).toContain("Created");
 	});
 
-	it("refuses to overwrite existing config", () => {
+	it("refuses to overwrite existing config", async () => {
 		const configPath = join(tmpDir, ".lukit.json");
 		writeFileSync(configPath, "{}", "utf-8");
 
-		expect(() => runCli(["init-config"], tmpDir)).toThrow();
+		const { exitCode, stderr } = await runCliCapture(["init-config"], tmpDir);
+		expect(exitCode).not.toBe(0);
+		expect(stderr).toContain("already exists");
 		const content = readFileSync(configPath, "utf-8");
 		expect(content).toBe("{}");
 	});

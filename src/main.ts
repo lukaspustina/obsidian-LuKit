@@ -23,14 +23,10 @@ export default class LuKitPlugin extends Plugin {
 		this.features.push(new BesprechungFeature());
 		this.features.push(new MigrationFeature());
 
-		for (const feature of this.features) {
-			try {
-				feature.onload(this);
-			} catch (e) {
-				console.error(`LuKit: Failed to load feature ${feature.id}:`, e);
-				new Notice(`LuKit: failed to load feature ${feature.id} — see console`);
-			}
-		}
+		loadFeatures(this.features, this, (id, e) => {
+			console.error(`LuKit: Failed to load feature ${id}:`, e);
+			new Notice(`LuKit: failed to load feature ${id} — see console`);
+		});
 
 		this.addCommand({
 			id: "lukit-help",
@@ -55,4 +51,24 @@ export default class LuKitPlugin extends Plugin {
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
 	}
+}
+
+// Loads each feature's onload, isolating failures so one broken feature
+// doesn't prevent the rest from registering. Returns the count of features
+// that loaded successfully.
+export function loadFeatures(
+	features: LuKitFeature[],
+	plugin: LuKitPlugin,
+	onError: (id: string, e: unknown) => void,
+): number {
+	let succeeded = 0;
+	for (const feature of features) {
+		try {
+			feature.onload(plugin);
+			succeeded++;
+		} catch (e) {
+			onError(feature.id, e);
+		}
+	}
+	return succeeded;
 }

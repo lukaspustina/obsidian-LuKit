@@ -1,4 +1,5 @@
 import { App, Modal } from "obsidian";
+import { validateText } from "../modal-validation";
 
 export class TextInputModal extends Modal {
 	private onSubmit: (text: string) => void;
@@ -63,13 +64,13 @@ export class TextInputModal extends Modal {
 	}
 
 	private submit(): void {
-		const trimmed = this.inputEl.value.trim();
-		if (trimmed.length === 0) {
-			this.errorEl.textContent = "Text required.";
+		const result = validateText(this.inputEl.value);
+		if (!result.ok) {
+			this.errorEl.textContent = result.error;
 			this.errorEl.style.display = "block";
 			return;
 		}
 		this.close();
-		this.onSubmit(trimmed);
+		this.onSubmit(result.text);
 	}
 }

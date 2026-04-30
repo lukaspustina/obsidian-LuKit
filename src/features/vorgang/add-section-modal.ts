@@ -1,6 +1,7 @@
 import { App, Modal } from "obsidian";
-import { formatDate, parseDateString, dateFormatHint } from "../../shared/date-format";
+import { formatDate, dateFormatHint } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
+import { validateTextAndDate } from "../../shared/modal-validation";
 
 export class AddSectionModal extends Modal {
 	private onSubmit: (name: string, date: Date) => void;
@@ -63,23 +64,14 @@ export class AddSectionModal extends Modal {
 		this.contentEl.empty();
 	}
 
-	private showError(message: string): void {
-		this.errorEl.textContent = message;
-		this.errorEl.style.display = "block";
-	}
-
 	private submit(): void {
-		const name = this.nameInputEl.value.trim();
-		if (name.length === 0) {
-			this.showError("Text required.");
-			return;
-		}
-		const date = parseDateString(this.dateInputEl.value.trim(), this.locale);
-		if (date === null) {
-			this.showError(`Invalid date — expected ${dateFormatHint(this.locale)}`);
+		const result = validateTextAndDate(this.nameInputEl.value, this.dateInputEl.value, this.locale);
+		if (!result.ok) {
+			this.errorEl.textContent = result.error;
+			this.errorEl.style.display = "block";
 			return;
 		}
 		this.close();
-		this.onSubmit(name, date);
+		this.onSubmit(result.text, result.date);
 	}
 }

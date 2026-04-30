@@ -1,6 +1,7 @@
 import { App, Modal } from "obsidian";
-import { formatDate, parseDateString, dateFormatHint } from "../date-format";
+import { formatDate, dateFormatHint } from "../date-format";
 import type { DateLocale } from "../date-format";
+import { validateTextAndDate } from "../modal-validation";
 
 export class TextDateModal extends Modal {
 	private onSubmit: (text: string, date: Date) => void;
@@ -71,23 +72,14 @@ export class TextDateModal extends Modal {
 		this.contentEl.empty();
 	}
 
-	private showError(message: string): void {
-		this.errorEl.textContent = message;
-		this.errorEl.style.display = "block";
-	}
-
 	private submit(): void {
-		const text = this.textInputEl.value.trim();
-		if (text.length === 0) {
-			this.showError("Text required.");
-			return;
-		}
-		const date = parseDateString(this.dateInputEl.value.trim(), this.locale);
-		if (date === null) {
-			this.showError(`Invalid date — expected ${dateFormatHint(this.locale)}`);
+		const result = validateTextAndDate(this.textInputEl.value, this.dateInputEl.value, this.locale);
+		if (!result.ok) {
+			this.errorEl.textContent = result.error;
+			this.errorEl.style.display = "block";
 			return;
 		}
 		this.close();
-		this.onSubmit(text, date);
+		this.onSubmit(result.text, result.date);
 	}
 }
