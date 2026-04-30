@@ -21,11 +21,8 @@ describe("Plugin onload feature-load failure (TS-02)", () => {
 			onunload(): void { /* no-op */ },
 		};
 
-		// Mirrors the onload-loop pattern in src/main.ts:26-32. Instantiating
-		// the full LuKitPlugin under vitest requires the real Obsidian Plugin
-		// runtime; reproducing the loop tests the same invariant: one
-		// feature's failure does not prevent others from registering, and a
-		// Notice surfaces the failed feature id.
+		// LuKitPlugin requires the real Obsidian Plugin runtime; replicate
+		// the src/main.ts onload-loop invariant here.
 		const features: LuKitFeature[] = [failing, succeeding];
 		const plugin = {} as unknown as LuKitPlugin;
 		let succeededCount = 0;

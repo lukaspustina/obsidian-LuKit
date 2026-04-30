@@ -1,35 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { BesprechungFeature } from "../../src/features/besprechung/besprechung-feature";
-import { createMockApp, lastNotice, resetNotices, createMockTFile } from "../helpers/obsidian-mocks";
-import type { LuKitSettings } from "../../src/types";
-
-// Builds a minimal LuKitPlugin shim sufficient for feature-class tests.
-// Routes addCommand calls to a captured map so tests can invoke them directly.
-type CommandSpec = { id: string; name: string; callback?: () => void; editorCallback?: (e: unknown) => void };
-
-function makePlugin(settings: LuKitSettings, app: ReturnType<typeof createMockApp>) {
-	const commands = new Map<string, CommandSpec>();
-	return {
-		settings,
-		app,
-		features: [],
-		addCommand(spec: CommandSpec): void {
-			commands.set(spec.id, spec);
-		},
-		commands,
-	};
-}
-
-const baseSettings: LuKitSettings = {
-	dateLocale: "de",
-	workDiary: { diaryNotePath: "" },
-	besprechung: {
-		folderPath: "Besprechungen",
-		sectionHeadings: ["Nächste Schritte", "Zusammenfassung"],
-		pendingTag: "todo",
-		pendingOrder: "oldest",
-	},
-};
+import {
+	createMockApp,
+	createMockTFile,
+	createMockPlugin,
+	makeTestSettings,
+	asLuKitPlugin,
+	lastNotice,
+	resetNotices,
+} from "../helpers/obsidian-mocks";
 
 beforeEach(() => {
 	resetNotices();
@@ -38,12 +17,11 @@ beforeEach(() => {
 describe("BesprechungFeature.filePendingCmd", () => {
 	it("emits a Notice and exits when no pending besprechungen exist", () => {
 		const app = createMockApp({});
-		const plugin = makePlugin({ ...baseSettings }, app);
+		const plugin = createMockPlugin(makeTestSettings(), app);
 		const feature = new BesprechungFeature();
-		feature.onload(plugin as never);
+		feature.onload(asLuKitPlugin(plugin));
 
-		const cmd = plugin.commands.get("besprechung-file-pending");
-		cmd?.callback?.();
+		plugin.commands.get("besprechung-file-pending")?.callback?.();
 
 		expect(lastNotice()).toContain('No Besprechungen tagged "todo"');
 	});
@@ -53,15 +31,14 @@ describe("BesprechungFeature.filePendingCmd", () => {
 		const older = createMockTFile("Besprechungen/Older.md", { ctime: 100 });
 
 		const app = createMockApp({});
-		// Register both so getMarkdownFiles returns them.
-		app.vault.register(newer, "### Nächste Schritte\n- Step\n");
-		app.vault.register(older, "### Nächste Schritte\n- Step\n");
+		app.vault.register(newer, "");
+		app.vault.register(older, "");
 		app.metadataCache.setFrontmatter(newer.path, { tags: ["Besprechung", "todo"] });
 		app.metadataCache.setFrontmatter(older.path, { tags: ["Besprechung", "todo"] });
 
-		const plugin = makePlugin({ ...baseSettings }, app);
+		const plugin = createMockPlugin(makeTestSettings(), app);
 		const feature = new BesprechungFeature();
-		feature.onload(plugin as never);
+		feature.onload(asLuKitPlugin(plugin));
 
 		const found = (feature as unknown as { findPendingBesprechungen: () => { basename: string }[] }).findPendingBesprechungen();
 		expect(found.map((f) => f.basename)).toEqual(["Older", "Newer"]);
@@ -77,12 +54,12 @@ describe("BesprechungFeature.filePendingCmd", () => {
 		app.metadataCache.setFrontmatter(newer.path, { tags: ["Besprechung", "todo"] });
 		app.metadataCache.setFrontmatter(older.path, { tags: ["Besprechung", "todo"] });
 
-		const plugin = makePlugin(
-			{ ...baseSettings, besprechung: { ...baseSettings.besprechung, pendingOrder: "newest" } },
+		const plugin = createMockPlugin(
+			makeTestSettings({ besprechung: { ...makeTestSettings().besprechung, pendingOrder: "newest" } }),
 			app,
 		);
 		const feature = new BesprechungFeature();
-		feature.onload(plugin as never);
+		feature.onload(asLuKitPlugin(plugin));
 
 		const found = (feature as unknown as { findPendingBesprechungen: () => { basename: string }[] }).findPendingBesprechungen();
 		expect(found.map((f) => f.basename)).toEqual(["Newer", "Older"]);
@@ -94,9 +71,9 @@ describe("BesprechungFeature.filePendingCmd", () => {
 		app.vault.register(besprechung, "");
 		app.metadataCache.setFrontmatter(besprechung.path, { tags: ["Besprechung", "todo"] });
 
-		const plugin = makePlugin({ ...baseSettings }, app);
+		const plugin = createMockPlugin(makeTestSettings(), app);
 		const feature = new BesprechungFeature();
-		feature.onload(plugin as never);
+		feature.onload(asLuKitPlugin(plugin));
 
 		await (feature as unknown as { dropPending: (b: typeof besprechung) => Promise<void> }).dropPending(besprechung);
 
@@ -108,9 +85,9 @@ describe("BesprechungFeature.filePendingCmd", () => {
 
 	it("vorgangAlreadyLinks detects existing wikilink in # Inhalt regardless of date format", () => {
 		const app = createMockApp({});
-		const plugin = makePlugin({ ...baseSettings }, app);
+		const plugin = createMockPlugin(makeTestSettings(), app);
 		const feature = new BesprechungFeature();
-		feature.onload(plugin as never);
+		feature.onload(asLuKitPlugin(plugin));
 
 		const vorgangContent = [
 			"# Fakten und Pointer",
@@ -128,7 +105,9 @@ describe("BesprechungFeature.filePendingCmd", () => {
 		expect(result).toBe(true);
 	});
 
-	it("fileBesprechungIntoVorgang emits 'filed but failed to remove tag' when step 2 throws (TS-03)", async () => {
+	// REQ-13 step-2 failure: filing succeeded but tag-removal threw. The Notice
+	// must distinguish this from total failure.
+	it("emits 'filed but failed to remove tag' when step 2 throws (TS-03)", async () => {
 		const besprechung = createMockTFile("Besprechungen/Foo.md");
 		const vorgang = createMockTFile("Vorgänge/Vorgang - X.md");
 
@@ -138,8 +117,6 @@ describe("BesprechungFeature.filePendingCmd", () => {
 		app.metadataCache.setFrontmatter(besprechung.path, { tags: ["Besprechung", "todo"] });
 		app.metadataCache.setFrontmatter(vorgang.path, { tags: ["Vorgang"] });
 
-		// Make processFrontMatter fail on the SECOND call (the tag-removal step).
-		// First call (markFiledInFrontmatter) succeeds; second call (removePendingTag) throws.
 		let calls = 0;
 		const realProcess = app.fileManager.processFrontMatter;
 		app.fileManager.processFrontMatter = vi.fn(async (file, fn) => {
@@ -148,9 +125,9 @@ describe("BesprechungFeature.filePendingCmd", () => {
 			return realProcess(file, fn);
 		});
 
-		const plugin = makePlugin({ ...baseSettings }, app);
+		const plugin = createMockPlugin(makeTestSettings(), app);
 		const feature = new BesprechungFeature();
-		feature.onload(plugin as never);
+		feature.onload(asLuKitPlugin(plugin));
 
 		await (feature as unknown as { fileBesprechungIntoVorgang: (b: typeof besprechung, v: typeof vorgang) => Promise<void> }).fileBesprechungIntoVorgang(
 			besprechung,

@@ -290,7 +290,7 @@ describe("CLI: init-config", () => {
 	});
 
 	function runCli(args: string[], home: string): string {
-		return execFileSync("npx", ["tsx", "src/cli.ts", ...args], {
+		return execFileSync("node", ["cli.js", ...args], {
 			cwd: process.cwd(),
 			env: { ...process.env, HOME: home },
 			encoding: "utf-8",

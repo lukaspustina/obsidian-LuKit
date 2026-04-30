@@ -1,5 +1,7 @@
 import { vi } from "vitest";
 import { TFile } from "./obsidian-stub";
+import { DEFAULT_SETTINGS, type LuKitSettings } from "../../src/types";
+import type LuKitPlugin from "../../src/main";
 
 // MockTFile extends the obsidian-stub TFile so `instanceof TFile` checks in
 // production code work correctly under test.
@@ -68,27 +70,52 @@ export function lastNotice(): string | undefined { return __getLastNotice(); }
 export function noticeMessages(): readonly string[] { return __getNoticeHistory(); }
 export function resetNotices(): void { __resetNotices(); }
 
-// Capture-only Notice shim. Tests import Notice from "obsidian"; vitest's
-// alias system in vitest.config.ts can route that to this stub.
-export class MockNotice {
-	constructor(message: string) {
-		lastNoticeMessage = message;
-		noticeHistory.push(message);
-	}
+// Tests-friendly defaults: DEFAULT_SETTINGS with a non-empty besprechung
+// folderPath so feature commands that gate on configured folder don't bail.
+export function makeTestSettings(overrides: Partial<LuKitSettings> = {}): LuKitSettings {
+	return {
+		...DEFAULT_SETTINGS,
+		...overrides,
+		workDiary: { ...DEFAULT_SETTINGS.workDiary, ...(overrides.workDiary ?? {}) },
+		besprechung: {
+			...DEFAULT_SETTINGS.besprechung,
+			folderPath: "Besprechungen",
+			...(overrides.besprechung ?? {}),
+		},
+	};
 }
 
-// Behavioural Modal shim for tests that need to assert open/close lifecycle.
-// The real obsidian shim in tests/helpers/obsidian-stub.ts handles module
-// resolution; this one is for tests that capture lifecycle state.
-export class MockModal {
-	contentEl: { children: unknown[]; empty: () => void } = {
-		children: [],
-		empty(): void { this.children = []; },
+interface CommandSpec {
+	id: string;
+	name: string;
+	callback?: () => void;
+	editorCallback?: (e: unknown) => void;
+}
+
+export interface MockPlugin {
+	settings: LuKitSettings;
+	app: MockApp;
+	features: unknown[];
+	addCommand(spec: CommandSpec): void;
+	commands: Map<string, CommandSpec>;
+}
+
+export function createMockPlugin(settings: LuKitSettings, app: MockApp): MockPlugin {
+	const commands = new Map<string, CommandSpec>();
+	return {
+		settings,
+		app,
+		features: [],
+		addCommand(spec: CommandSpec): void { commands.set(spec.id, spec); },
+		commands,
 	};
-	opened = false;
-	closed = false;
-	open(): void { this.opened = true; }
-	close(): void { this.closed = true; }
+}
+
+// Cast helper: feature.onload expects LuKitPlugin; the mock plugin has the
+// load-bearing fields but isn't structurally complete. Centralised so the
+// looseness is justified in one place.
+export function asLuKitPlugin(p: MockPlugin): LuKitPlugin {
+	return p as unknown as LuKitPlugin;
 }
 
 export function createMockTFile(

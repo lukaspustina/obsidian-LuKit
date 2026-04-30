@@ -1,18 +1,15 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { VorgangFeature } from "../../src/features/vorgang/vorgang-feature";
-import { createMockApp, createMockTFile, lastNotice, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
-import type { LuKitSettings } from "../../src/types";
-
-const baseSettings: LuKitSettings = {
-	dateLocale: "de",
-	workDiary: { diaryNotePath: "" },
-	besprechung: {
-		folderPath: "Besprechungen",
-		sectionHeadings: ["Nächste Schritte", "Zusammenfassung"],
-		pendingTag: "todo",
-		pendingOrder: "oldest",
-	},
-};
+import {
+	createMockApp,
+	createMockTFile,
+	createMockPlugin,
+	makeTestSettings,
+	asLuKitPlugin,
+	lastNotice,
+	noticeMessages,
+	resetNotices,
+} from "../helpers/obsidian-mocks";
 
 beforeEach(() => {
 	resetNotices();
@@ -21,9 +18,9 @@ beforeEach(() => {
 describe("VorgangFeature.addVorgangSectionCmd", () => {
 	it("emits 'No active note open' Notice when there is no active file", () => {
 		const app = createMockApp({});
-		const plugin = { settings: { ...baseSettings }, app, features: [], addCommand: () => undefined };
+		const plugin = createMockPlugin(makeTestSettings(), app);
 		const feature = new VorgangFeature();
-		feature.onload(plugin as never);
+		feature.onload(asLuKitPlugin(plugin));
 
 		(feature as unknown as { addVorgangSectionCmd: () => void }).addVorgangSectionCmd();
 
@@ -37,9 +34,9 @@ describe("VorgangFeature.addDiaryEntryForSection", () => {
 		const app = createMockApp({});
 		app.vault.register(vorgang, "");
 
-		const plugin = { settings: { ...baseSettings }, app, features: [], addCommand: () => undefined };
+		const plugin = createMockPlugin(makeTestSettings({ workDiary: { diaryNotePath: "" } }), app);
 		const feature = new VorgangFeature();
-		feature.onload(plugin as never);
+		feature.onload(asLuKitPlugin(plugin));
 
 		await (feature as unknown as {
 			addDiaryEntryForSection: (file: typeof vorgang, name: string, date: Date) => Promise<void>;
