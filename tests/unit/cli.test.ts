@@ -216,22 +216,65 @@ describe("CLI: add-reminder", () => {
 });
 
 describe("CLI: argument parsing", () => {
-	it("unknown command exits with non-zero code", () => {
-		expect(() =>
-			execFileSync("npx", ["tsx", "src/cli.ts", "unknown-command"], {
+	function runCliCapture(args: string[]): { status: number; stdout: string; stderr: string } {
+		try {
+			const stdout = execFileSync("node", ["cli.js", ...args], {
 				cwd: process.cwd(),
 				encoding: "utf-8",
-			})
-		).toThrow();
+				stdio: ["ignore", "pipe", "pipe"],
+			});
+			return { status: 0, stdout, stderr: "" };
+		} catch (e: unknown) {
+			const err = e as { status: number; stdout?: Buffer; stderr?: Buffer };
+			return {
+				status: err.status,
+				stdout: err.stdout ? err.stdout.toString() : "",
+				stderr: err.stderr ? err.stderr.toString() : "",
+			};
+		}
+	}
+
+	it("unknown command exits with non-zero code", () => {
+		const { status } = runCliCapture(["unknown-command"]);
+		expect(status).not.toBe(0);
 	});
 
 	it("add-text-to-diary with missing args exits with non-zero code", () => {
-		expect(() =>
-			execFileSync("npx", ["tsx", "src/cli.ts", "add-text-to-diary"], {
-				cwd: process.cwd(),
-				encoding: "utf-8",
-			})
-		).toThrow();
+		const { status } = runCliCapture(["add-text-to-diary"]);
+		expect(status).not.toBe(0);
+	});
+
+	it("rejects extra positional args with exit code 2", () => {
+		const { status, stderr } = runCliCapture(["add-text-to-diary", "diary.md", "hello", "extra"]);
+		expect(status).toBe(2);
+		expect(stderr).toContain("extra args");
+	});
+
+	it("rejects empty note-name with exit code 2 and stderr message", () => {
+		const { status, stderr } = runCliCapture(["add-diary-entry", "diary.md", ""]);
+		expect(status).toBe(2);
+		expect(stderr).toContain("note-name must not be empty");
+	});
+
+	it("--help prints global usage and exits 0", () => {
+		const { status, stdout } = runCliCapture(["--help"]);
+		expect(status).toBe(0);
+		expect(stdout).toContain("Usage: lukit");
+		expect(stdout).toContain("Commands:");
+	});
+
+	it("<command> --help prints per-command usage and exits 0", () => {
+		const { status, stdout } = runCliCapture(["add-diary-entry", "--help"]);
+		expect(status).toBe(0);
+		expect(stdout).toContain("add-diary-entry");
+		expect(stdout).toContain("<note-name>");
+	});
+
+	it("--version prints the build-time version and exits 0", () => {
+		const { status, stdout } = runCliCapture(["--version"]);
+		expect(status).toBe(0);
+		// manifest.json version is baked at build time; e.g. "1.12.4".
+		expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
 	});
 });
 

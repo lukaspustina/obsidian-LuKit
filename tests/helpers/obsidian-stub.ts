@@ -4,8 +4,25 @@
 // the helpers in obsidian-mocks.ts and supply mock app/vault objects.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+// Capture state shared with obsidian-mocks.ts via re-export.
+let lastNoticeMessage: string | undefined;
+const noticeHistory: string[] = [];
+
+export function __getLastNotice(): string | undefined { return lastNoticeMessage; }
+export function __getNoticeHistory(): readonly string[] { return noticeHistory; }
+export function __resetNotices(): void {
+	lastNoticeMessage = undefined;
+	noticeHistory.length = 0;
+}
+
 export class Notice {
-	constructor(_message?: string) {}
+	constructor(message?: string) {
+		if (message !== undefined) {
+			lastNoticeMessage = message;
+			noticeHistory.push(message);
+		}
+	}
 }
 export class TFile {
 	path = "";

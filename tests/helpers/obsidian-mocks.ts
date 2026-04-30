@@ -1,10 +1,9 @@
 import { vi } from "vitest";
+import { TFile } from "./obsidian-stub";
 
-export interface MockTFile {
-	path: string;
-	basename: string;
-	stat: { mtime: number; ctime: number };
-}
+// MockTFile extends the obsidian-stub TFile so `instanceof TFile` checks in
+// production code work correctly under test.
+export type MockTFile = TFile;
 
 export interface MockEditor {
 	getCursor: () => { line: number; ch: number };
@@ -56,21 +55,18 @@ export interface MockApp {
 	workspace: MockWorkspace;
 }
 
-let lastNoticeMessage: string | undefined;
-const noticeHistory: string[] = [];
+// Notice capture is centralised in obsidian-stub.ts so the alias-loaded
+// `Notice` class actually populates the captured state. These wrappers expose
+// the same API to existing tests.
+import {
+	__getLastNotice,
+	__getNoticeHistory,
+	__resetNotices,
+} from "./obsidian-stub";
 
-export function lastNotice(): string | undefined {
-	return lastNoticeMessage;
-}
-
-export function noticeMessages(): readonly string[] {
-	return noticeHistory;
-}
-
-export function resetNotices(): void {
-	lastNoticeMessage = undefined;
-	noticeHistory.length = 0;
-}
+export function lastNotice(): string | undefined { return __getLastNotice(); }
+export function noticeMessages(): readonly string[] { return __getNoticeHistory(); }
+export function resetNotices(): void { __resetNotices(); }
 
 // Capture-only Notice shim. Tests import Notice from "obsidian"; vitest's
 // alias system in vitest.config.ts can route that to this stub.
@@ -81,6 +77,20 @@ export class MockNotice {
 	}
 }
 
+// Behavioural Modal shim for tests that need to assert open/close lifecycle.
+// The real obsidian shim in tests/helpers/obsidian-stub.ts handles module
+// resolution; this one is for tests that capture lifecycle state.
+export class MockModal {
+	contentEl: { children: unknown[]; empty: () => void } = {
+		children: [],
+		empty(): void { this.children = []; },
+	};
+	opened = false;
+	closed = false;
+	open(): void { this.opened = true; }
+	close(): void { this.closed = true; }
+}
+
 export function createMockTFile(
 	path: string,
 	basenameOrOverrides?: string | { basename?: string; mtime?: number; ctime?: number },
@@ -89,14 +99,14 @@ export function createMockTFile(
 	const overrides = typeof basenameOrOverrides === "string"
 		? { basename: basenameOrOverrides }
 		: basenameOrOverrides;
-	return {
-		path,
-		basename: overrides?.basename ?? path.replace(/^.*\//, "").replace(/\.md$/, ""),
-		stat: {
-			mtime: overrides?.mtime ?? now,
-			ctime: overrides?.ctime ?? now,
-		},
+	const file = new TFile();
+	file.path = path;
+	file.basename = overrides?.basename ?? path.replace(/^.*\//, "").replace(/\.md$/, "");
+	file.stat = {
+		mtime: overrides?.mtime ?? now,
+		ctime: overrides?.ctime ?? now,
 	};
+	return file;
 }
 
 export function createMockVault(initialFiles?: Record<string, string>): MockVault {

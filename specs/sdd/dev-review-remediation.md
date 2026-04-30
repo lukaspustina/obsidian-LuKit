@@ -91,7 +91,7 @@ No other helpers are promoted; scope is limited to these six.
 
 **REQ-06** ✓ `VorgangFeature` shall not directly read `this.plugin.settings.workDiary.diaryNotePath`. Cross-feature settings access shall go through `getDiaryNotePath(plugin: LuKitPlugin): string` exported from `src/shared/diary-settings.ts`.
 
-**REQ-07** Engine-only assertions already covered by `tests/unit/` shall be deleted from `tests/acceptance/`. They shall not be moved — tests in `tests/unit/` already cover them.
+**REQ-07** ✓ Engine-only assertions already covered by `tests/unit/` shall be deleted from `tests/acceptance/`. They shall not be moved — tests in `tests/unit/` already cover them.
 
 **REQ-08** ✓ `tests/helpers/obsidian-mocks.ts` shall expose exactly the following mock surface (no more, no less):
 - `Vault`: `read`, `modify`, `process`, `getAbstractFileByPath`, `getMarkdownFiles`
@@ -102,9 +102,9 @@ No other helpers are promoted; scope is limited to these six.
 - `Modal`: shim with `open()`, `close()`, `contentEl: HTMLElement`
 - `MockTFile.stat`: `{ mtime: number; ctime: number }` (both fields). `createMockTFile` defaults both to `Date.now()`. Tests exercising `pendingOrder` shall set `ctime` explicitly per fixture.
 
-**REQ-09** `BesprechungFeature.filePendingCmd` shall have feature-level tests covering: `pendingOrder` oldest, `pendingOrder` newest, skip advances index, drop removes tag and advances, ESC ends workflow, duplicate-bullet short-circuit.
+**REQ-09** ✓ `BesprechungFeature.filePendingCmd` shall have feature-level tests covering: `pendingOrder` oldest, `pendingOrder` newest, skip advances index, drop removes tag and advances, ESC ends workflow, duplicate-bullet short-circuit.
 
-**REQ-10** `MigrationFeature.migrateCmd`, `WorkDiaryFeature.addCurrentNoteCmd`, and `VorgangFeature.addVorgangSectionCmd` shall each have feature-level tests covering their decision branches.
+**REQ-10** ✓ `MigrationFeature.migrateCmd`, `WorkDiaryFeature.addCurrentNoteCmd`, and `VorgangFeature.addVorgangSectionCmd` shall each have feature-level tests covering their decision branches.
 
 **REQ-11** ✓ `mergeSettings` in `src/types.ts` (signature: `mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings`) shall validate `dateLocale` against the `DateLocale` type set `("de" | "en" | "iso")`; invalid values shall fall through to the default `"de"` and emit `console.warn` with the rejected value. Tests shall cover: empty data, partial data, invalid `dateLocale`, full round-trip.
 
@@ -466,7 +466,7 @@ Steps:
 
 ---
 
-### Phase 1.D — Test layer rebuild
+### Phase 1.D — Test layer rebuild ✓ DONE
 
 **Files**: `tests/helpers/obsidian-mocks.ts`, `tests/acceptance/*-commands.test.ts`, `tests/acceptance/besprechung-vault.test.ts`, `tests/unit/` (engine tests)
 
