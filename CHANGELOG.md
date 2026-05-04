@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-05-04
+
+### Fixed
+- Besprechung: create diary entry when filing into a section note (Add summary, File pending, File this) — was silently skipped in all three paths (6dc9dd4)
+
 ## [1.13.0] - 2026-04-30
 
 ### Added
