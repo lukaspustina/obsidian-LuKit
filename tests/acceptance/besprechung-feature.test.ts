@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { BesprechungFeature } from "../../src/features/besprechung/besprechung-feature";
 import {
 	createMockApp,
+	createMockEditor,
 	createMockTFile,
 	createMockPlugin,
 	makeTestSettings,
@@ -105,6 +106,34 @@ describe("BesprechungFeature.filePendingCmd", () => {
 		expect(result).toBe(true);
 	});
 
+	it("creates a diary entry when filing a besprechung into a vorgang", async () => {
+		const besprechung = createMockTFile("Besprechungen/Foo.md");
+		const vorgang = createMockTFile("Vorgänge/Vorgang - X.md");
+		const diary = createMockTFile("Diary.md");
+
+		const diaryContent = "---\n---\n\n---\n";
+		const app = createMockApp({});
+		app.vault.register(besprechung, "### Nächste Schritte\n- Step\n");
+		app.vault.register(vorgang, "# Inhalt\n");
+		app.vault.register(diary, diaryContent);
+		app.metadataCache.setFrontmatter(besprechung.path, { tags: ["Besprechung", "todo"] });
+		app.metadataCache.setFrontmatter(vorgang.path, { tags: ["Vorgang"] });
+
+		const settings = makeTestSettings({ workDiary: { diaryNotePath: "Diary.md" } });
+		const plugin = createMockPlugin(settings, app);
+		const feature = new BesprechungFeature();
+		feature.onload(asLuKitPlugin(plugin));
+
+		await (feature as unknown as { fileBesprechungIntoVorgang: (b: typeof besprechung, v: typeof vorgang) => Promise<void> }).fileBesprechungIntoVorgang(
+			besprechung,
+			vorgang,
+		);
+
+		const updatedDiary = app.vault.files.get(diary.path) ?? "";
+		expect(updatedDiary).toContain("Foo");
+		expect(updatedDiary).toContain("Vorgang - X");
+	});
+
 	// REQ-13 step-2 failure: filing succeeded but tag-removal threw. The Notice
 	// must distinguish this from total failure.
 	it("emits 'filed but failed to remove tag' when step 2 throws (TS-03)", async () => {
@@ -137,5 +166,37 @@ describe("BesprechungFeature.filePendingCmd", () => {
 		expect(lastNotice()).toContain("filed");
 		expect(lastNotice()).toContain("failed to remove tag");
 		expect(lastNotice()).not.toContain("Failed to file");
+	});
+});
+
+describe("BesprechungFeature.insertBesprechungSummary — section note path", () => {
+	it("creates a diary entry when inserting a summary into a section note", async () => {
+		const besprechung = createMockTFile("Besprechungen/Foo.md");
+		const vorgang = createMockTFile("Vorgänge/Vorgang - X.md");
+		const diary = createMockTFile("Diary.md");
+
+		const diaryContent = "---\n---\n\n---\n";
+		const app = createMockApp({});
+		app.vault.register(besprechung, "### Nächste Schritte\n- Step\n");
+		app.vault.register(vorgang, "# Inhalt\n");
+		app.vault.register(diary, diaryContent);
+		app.metadataCache.setFrontmatter(vorgang.path, { tags: ["Vorgang"] });
+
+		const editor = createMockEditor("# Inhalt\n");
+		app.workspace.activeEditor = { editor };
+		app.workspace.activeFile = vorgang;
+
+		const settings = makeTestSettings({ workDiary: { diaryNotePath: "Diary.md" } });
+		const plugin = createMockPlugin(settings, app);
+		const feature = new BesprechungFeature();
+		feature.onload(asLuKitPlugin(plugin));
+
+		await (feature as unknown as { insertBesprechungSummary: (b: typeof besprechung) => Promise<void> }).insertBesprechungSummary(
+			besprechung,
+		);
+
+		const updatedDiary = app.vault.files.get(diary.path) ?? "";
+		expect(updatedDiary).toContain("Foo");
+		expect(updatedDiary).toContain("Vorgang - X");
 	});
 });

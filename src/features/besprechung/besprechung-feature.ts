@@ -19,7 +19,9 @@ import {
 	findInhaltBulletRange,
 	extractWikilinkTarget,
 } from "../../shared/note-structure";
-import { extractDateFromTitle } from "../../shared/date-format";
+import { extractDateFromTitle, formatDate } from "../../shared/date-format";
+import { formatDiaryEntry, addEntryUnderToday } from "../../shared/diary";
+import { getDiaryNotePath } from "../../shared/diary-settings";
 
 export class BesprechungFeature implements LuKitFeature {
 	id = "besprechung";
@@ -187,6 +189,7 @@ export class BesprechungFeature implements LuKitFeature {
 			const pos = { line: cursorLineIndex, ch: 0 };
 			activeEditor.setCursor(pos);
 			activeEditor.scrollIntoView({ from: pos, to: pos }, true);
+			await this.addDiaryEntryForBesprechung(activeFile, besprechungFile.basename, date);
 		} else {
 			const cursor = activeEditor.getCursor();
 			activeEditor.replaceRange(summary, cursor);
@@ -355,6 +358,7 @@ export class BesprechungFeature implements LuKitFeature {
 					summary.split("\n"),
 				);
 				await this.plugin.app.vault.modify(vorgang, newContent);
+				await this.addDiaryEntryForBesprechung(vorgang, besprechung.basename, date);
 			}
 			// Step 1: stamp filed_into/filed_at on the besprechung. If this fails,
 			// surface "Failed to file" — the besprechung is still visibly pending.
@@ -397,6 +401,33 @@ export class BesprechungFeature implements LuKitFeature {
 			new Notice(`LuKit: Removed "${pendingTag}" from "${besprechung.basename}" (not filed).`);
 		} catch (e) {
 			new Notice(`LuKit: Failed to remove "${pendingTag}" from "${besprechung.basename}": ` + (e instanceof Error ? e.message : String(e)));
+		}
+	}
+
+	private async addDiaryEntryForBesprechung(vorgang: TFile, besprechungBasename: string, date: Date): Promise<void> {
+		const diaryPath = getDiaryNotePath(this.plugin);
+		if (!diaryPath) return;
+
+		const diaryAbstract = this.plugin.app.vault.getAbstractFileByPath(diaryPath);
+		if (!(diaryAbstract instanceof TFile)) {
+			new Notice("LuKit: Diary note not found; diary entry skipped.");
+			return;
+		}
+
+		const locale = this.plugin.settings.dateLocale;
+		const nameDate = extractDateFromTitle(besprechungBasename, locale);
+		const headingText = nameDate !== null
+			? besprechungBasename
+			: `${besprechungBasename}, ${formatDate(date, locale)}`;
+		const entry = formatDiaryEntry(vorgang.basename, headingText);
+
+		try {
+			await this.plugin.app.vault.process(diaryAbstract, (content) => {
+				const { newContent } = addEntryUnderToday(content, entry, locale, date);
+				return newContent;
+			});
+		} catch (e) {
+			new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
 		}
 	}
 }
