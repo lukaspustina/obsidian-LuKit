@@ -70,19 +70,20 @@ function lukitAccount(Mail, name) {
   const accts = Mail.accounts.whose({ name: name })();
   return accts.length > 0 ? accts[0] : null;
 }
-function lukitInboxMessages(Mail, accountName) {
+function lukitInbox(Mail, accountName) {
   const acct = lukitAccount(Mail, accountName);
-  if (!acct) return [];
+  if (!acct) return null;
   const boxes = acct.mailboxes.whose({ name: "INBOX" })();
-  const box = boxes.length > 0 ? boxes[0] : acct.mailboxes()[0];
-  return box ? box.messages() : [];
+  if (boxes.length > 0) return boxes[0];
+  const all = acct.mailboxes();
+  return all.length > 0 ? all[0] : null;
 }
 function lukitFindInInbox(Mail, accountName, messageId) {
-  const msgs = lukitInboxMessages(Mail, accountName);
-  for (let i = 0; i < msgs.length; i++) {
-    try { if (msgs[i].messageId() === messageId) return msgs[i]; } catch (e) {}
-  }
-  return null;
+  const box = lukitInbox(Mail, accountName);
+  if (!box) return null;
+  // Single filtered query instead of scanning every message one at a time.
+  const matches = box.messages.whose({ messageId: messageId })();
+  return matches.length > 0 ? matches[0] : null;
 }
 `;
 
