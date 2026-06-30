@@ -39,6 +39,9 @@ export interface SectionNoteSuggestOptions {
 	skipLabel?: string;
 	dropLabel?: string;
 	openLabel?: string;
+	// When set, a read-only scrollable panel with this text is shown above the
+	// search field (e.g. an email preview to read before picking a target).
+	previewText?: string;
 }
 
 export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
@@ -51,6 +54,22 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 		this.sectionTags = sectionTags;
 		this.options = options;
 		this.setPlaceholder(options.placeholder);
+	}
+
+	onOpen(): void {
+		super.onOpen();
+		const text = this.options.previewText;
+		if (text && this.modalEl) {
+			const panel = this.modalEl.createDiv({ cls: "lukit-email-peek" });
+			panel.setText(text);
+			panel.style.maxHeight = "200px";
+			panel.style.overflowY = "auto";
+			panel.style.whiteSpace = "pre-wrap";
+			panel.style.padding = "8px 12px";
+			panel.style.borderBottom = "1px solid var(--background-modifier-border)";
+			panel.style.fontSize = "var(--font-ui-smaller)";
+			this.modalEl.prepend(panel);
+		}
 	}
 
 	getItems(): Item[] {

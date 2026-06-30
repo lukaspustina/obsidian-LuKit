@@ -200,6 +200,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		const emailMeta = this.toEmailMeta(meta);
 		new SectionNoteSuggestModal(this.plugin.app, SECTION_NOTE_TAGS, {
 			placeholder: `[${i + 1}/${metas.length}] „${meta.subject}" ablegen unter… (ESC = Stopp)`,
+			previewText: `Von: ${meta.senderName}\nBetreff: ${meta.subject}\n\n${body || "(kein Textinhalt)"}`,
 			suggestions: this.suggestionsFor(meta),
 			skipLabel: "↪ Überspringen (im Posteingang lassen)",
 			dropLabel: "✕ Nicht ablegen (nur archivieren)",
