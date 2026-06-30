@@ -48,6 +48,7 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 	private sectionTags: ReadonlySet<string>;
 	private options: SectionNoteSuggestOptions;
 	private chosen = false;
+	private previewPanel: HTMLElement | null = null;
 
 	constructor(app: App, sectionTags: ReadonlySet<string>, options: SectionNoteSuggestOptions) {
 		super(app);
@@ -58,23 +59,71 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 
 	onOpen(): void {
 		super.onOpen();
+		this.renderPreviewPanel();
+		this.registerActionKeys();
+		this.renderInstructions();
+	}
+
+	private renderPreviewPanel(): void {
 		const text = this.options.previewText;
-		if (text && this.modalEl) {
-			const panel = this.modalEl.createDiv({ cls: "lukit-email-peek" });
-			panel.setText(text);
-			// flex-shrink:0 keeps the picker's suggestion list from collapsing the
-			// panel; the list below scrolls instead.
-			panel.style.flex = "0 0 auto";
-			panel.style.maxHeight = "45vh";
-			panel.style.overflowY = "auto";
-			panel.style.whiteSpace = "pre-wrap";
-			panel.style.padding = "10px 14px";
-			panel.style.marginBottom = "6px";
-			panel.style.borderBottom = "1px solid var(--background-modifier-border)";
-			panel.style.fontSize = "var(--font-ui-smaller)";
-			panel.style.userSelect = "text";
-			this.modalEl.prepend(panel);
+		if (!text || !this.modalEl) return;
+		const panel = this.modalEl.createDiv({ cls: "lukit-email-peek" });
+		panel.setText(text);
+		// flex-shrink:0 keeps the picker's suggestion list from collapsing the
+		// panel; the list below scrolls instead.
+		panel.style.flex = "0 0 auto";
+		panel.style.maxHeight = "45vh";
+		panel.style.overflowY = "auto";
+		panel.style.whiteSpace = "pre-wrap";
+		panel.style.padding = "10px 14px";
+		panel.style.marginBottom = "6px";
+		panel.style.borderBottom = "1px solid var(--background-modifier-border)";
+		panel.style.fontSize = "var(--font-ui-smaller)";
+		panel.style.userSelect = "text";
+		this.modalEl.prepend(panel);
+		this.previewPanel = panel;
+	}
+
+	// Keyboard shortcuts (⌘ = Mod). Enter (built in) files into the highlighted
+	// note; Esc / click-outside skips (see onClose). These add fast paths for the
+	// virtual actions without scrolling to their list entries.
+	private registerActionKeys(): void {
+		this.scope.register(["Mod"], ".", () => {
+			this.act(this.options.onCancel); // ⌘. → Stop
+			return false;
+		});
+		if (this.options.onDrop) {
+			this.scope.register(["Mod"], "D", () => {
+				this.act(this.options.onDrop); // ⌘D → Don't file
+				return false;
+			});
 		}
+		if (this.previewPanel) {
+			this.scope.register(["Mod"], "P", () => {
+				const panel = this.previewPanel; // ⌘P → toggle the email peek
+				if (panel) panel.style.display = panel.style.display === "none" ? "" : "none";
+				return false;
+			});
+		}
+	}
+
+	private renderInstructions(): void {
+		const instructions: { command: string; purpose: string }[] = [
+			{ command: "↵", purpose: "Ablegen" },
+		];
+		if (this.options.onSkip) instructions.push({ command: "esc", purpose: "Überspringen" });
+		if (this.options.onDrop) instructions.push({ command: "⌘D", purpose: "Nur archivieren" });
+		if (this.options.onCancel) instructions.push({ command: "⌘.", purpose: "Stopp" });
+		if (this.previewPanel) instructions.push({ command: "⌘P", purpose: "Vorschau ein/aus" });
+		this.setInstructions(instructions);
+	}
+
+	// Marks the modal as acted-on (so onClose won't treat it as a dismiss), closes
+	// it, then runs the action.
+	private act(fn?: () => void): void {
+		this.chosen = true;
+		this.close();
+		fn?.();
 	}
 
 	getItems(): Item[] {
@@ -125,11 +174,14 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 	onClose(): void {
 		super.onClose();
 		// Some Obsidian builds call onClose() BEFORE onChooseItem() on a
-		// selection, so `chosen` isn't set yet at this point. Defer the cancel
-		// decision a tick so it reflects whether an item was actually chosen,
-		// regardless of the close/choose order.
+		// selection, so `chosen` isn't set yet at this point. Defer the decision
+		// a tick so it reflects whether an item was actually chosen, regardless of
+		// the close/choose order. A genuine dismiss (Esc / click-outside) means
+		// "skip this one" when skipping is available, else cancel.
 		setTimeout(() => {
-			if (!this.chosen) this.options.onCancel?.();
+			if (this.chosen) return;
+			if (this.options.onSkip) this.options.onSkip();
+			else this.options.onCancel?.();
 		}, 0);
 	}
 }

@@ -115,7 +115,7 @@ describe("SectionNoteSuggestModal pinned suggestions", () => {
 		vi.useRealTimers();
 	});
 
-	it("fires onCancel when the modal closes without a choice", () => {
+	it("fires onCancel when the modal closes without a choice and no skip is available", () => {
 		vi.useFakeTimers();
 		const onCancel = vi.fn();
 		const app = appWithThreeNotes();
@@ -127,6 +127,24 @@ describe("SectionNoteSuggestModal pinned suggestions", () => {
 		modal.onClose();
 		vi.runAllTimers();
 		expect(onCancel).toHaveBeenCalledTimes(1);
+		vi.useRealTimers();
+	});
+
+	it("treats a dismiss as skip (not cancel) when onSkip is available", () => {
+		vi.useFakeTimers();
+		const onSkip = vi.fn();
+		const onCancel = vi.fn();
+		const app = appWithThreeNotes();
+		const modal = new SectionNoteSuggestModal(app as never, SECTION_TAGS, {
+			placeholder: "x",
+			onPick: () => undefined,
+			onSkip,
+			onCancel,
+		});
+		modal.onClose();
+		vi.runAllTimers();
+		expect(onSkip).toHaveBeenCalledTimes(1);
+		expect(onCancel).not.toHaveBeenCalled();
 		vi.useRealTimers();
 	});
 

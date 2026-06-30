@@ -45,6 +45,7 @@ export class FuzzySuggestModal<T> {
 	scope: any = { register: () => undefined };
 	constructor(app: any) { this.app = app; }
 	setPlaceholder(_p: string): void {}
+	setInstructions(_i: unknown): void {}
 	open(): void {}
 	close(): void {}
 	getItems(): T[] { return []; }
