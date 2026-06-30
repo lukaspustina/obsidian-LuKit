@@ -427,7 +427,7 @@ function runInitConfig(_args, io) {
 }
 function runCli(argv, io) {
   if (argv.includes("--version")) {
-    io.out((true ? "1.12.4" : "unknown") + "\n");
+    io.out((true ? "1.13.1" : "unknown") + "\n");
     io.exit(0);
   }
   const firstPositional = argv.find((a) => !a.startsWith("--"));
