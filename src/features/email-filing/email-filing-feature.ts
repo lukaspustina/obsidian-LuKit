@@ -15,7 +15,7 @@ import {
 } from "./email-format-engine";
 import { mergeDetectedAccounts, isAccountIncluded } from "./email-filing-settings";
 import { addVorgangSection } from "../vorgang/vorgang-engine";
-import { suggestFilingTargets } from "../besprechung/besprechung-suggest-engine";
+import { suggestFilingTargets, type FiledRecord } from "../besprechung/besprechung-suggest-engine";
 import { frontmatterTagsInclude } from "../../shared/frontmatter";
 import { SectionNoteSuggestModal } from "../../shared/modals/section-note-suggest";
 import { EmailPreviewModal } from "./email-preview-modal";
@@ -51,6 +51,9 @@ export class EmailFilingFeature implements LuKitFeature {
 	// Messages whose body couldn't be read (transient Mail/Apple Event failure)
 	// — skipped, summarized at walk end.
 	private unreadableCount = 0;
+	// In-walk routing memory: each successful filing feeds the suggestion ranker
+	// so later emails (e.g. same thread) are steered to the same Vorgang.
+	private walkFiledRecords: FiledRecord[] = [];
 
 	onload(plugin: LuKitPlugin): void {
 		this.plugin = plugin;
@@ -119,6 +122,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		this.bodyCache.clear();
 		this.vanishedCount = 0;
 		this.unreadableCount = 0;
+		this.walkFiledRecords = [];
 		this.walkCandidates = this.sectionNoteBasenames();
 		this.presentMessage(metas, 0);
 	}
@@ -280,6 +284,12 @@ export class EmailFilingFeature implements LuKitFeature {
 			const { sectionName, bodyLines } = formatEmailSection(emailMeta, body, attachments, locale);
 			const { newContent } = addVorgangSection(content, sectionName, locale, emailMeta.dateSent, bodyLines);
 			await this.plugin.app.vault.modify(vorgang, newContent);
+			// Feed the in-walk routing memory so same-thread emails follow suit.
+			this.walkFiledRecords.push({
+				rawTitle: this.titleFor(meta),
+				target: vorgang.basename,
+				filedAt: Date.now(),
+			});
 			new Notice(`Abgelegt: „${meta.subject}" → „${vorgang.basename}".`);
 		} catch (e) {
 			this.logBridgeError(e);
@@ -301,10 +311,13 @@ export class EmailFilingFeature implements LuKitFeature {
 		this.openUrl(meta.messageUrl);
 	}
 
+	private titleFor(meta: RawMailMessageMeta): string {
+		return `${stripSubjectPrefixes(meta.subject)} ${meta.senderName}`;
+	}
+
 	private suggestionsFor(meta: RawMailMessageMeta): string[] {
 		try {
-			const title = `${stripSubjectPrefixes(meta.subject)} ${meta.senderName}`;
-			return suggestFilingTargets(title, [], this.walkCandidates, {
+			return suggestFilingTargets(this.titleFor(meta), this.walkFiledRecords, this.walkCandidates, {
 				now: Date.now(),
 				minScore: SUGGEST_MIN_SCORE,
 			}).map((s) => s.target);

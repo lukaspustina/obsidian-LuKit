@@ -44,6 +44,8 @@ interface FeatureInternals {
 	archiveOnly: (m: RawMailMessageMeta) => Promise<void>;
 	openMessage: (meta: { messageUrl: string }) => void;
 	presentMessageAsync: (m: RawMailMessageMeta[], i: number) => Promise<void>;
+	walkCandidates: string[];
+	suggestionsFor: (m: RawMailMessageMeta) => string[];
 }
 
 function setup(bridge: MailBridge, overrides: Parameters<typeof makeTestSettings>[0] = {}) {
@@ -183,5 +185,19 @@ describe("EmailFilingFeature — other actions", () => {
 		);
 		await internals.presentMessageAsync([RAW], 0);
 		expect(lastNotice()).toContain("nicht ladbar");
+	});
+
+	it("learns within the walk: a Vorgang filed earlier is suggested for a same-thread email", async () => {
+		const { app, internals } = setup(fakeBridge());
+		const vorgang = createMockTFile("Vorgänge/Müller GmbH.md");
+		app.vault.register(vorgang, "# Inhalt\n");
+		// Candidate name does NOT match the subject, so name-match alone would not surface it.
+		internals.walkCandidates = ["Müller GmbH", "Schmidt AG"];
+
+		const first = { ...RAW, subject: "Quartalsbericht", senderName: "Alice" };
+		await internals.fileEmailIntoVorgang(first, "body", [], vorgang);
+
+		const followUp = { ...RAW, id: "b", subject: "AW: Quartalsbericht", senderName: "Alice" };
+		expect(internals.suggestionsFor(followUp)).toContain("Müller GmbH");
 	});
 });
