@@ -8,6 +8,18 @@ import {
 const NOW = 1_700_000_000_000;
 const DAY = 86_400_000;
 
+describe("suggestFilingTargets with an empty corpus (name-match only)", () => {
+	it("ranks candidates by name-match alone when no history is supplied", () => {
+		const result = suggestFilingTargets(
+			"Angebot Müller",
+			[],
+			["Müller GmbH", "Schmidt AG"],
+			{ now: NOW, minScore: 0.01 },
+		);
+		expect(result[0].target).toBe("Müller GmbH");
+	});
+});
+
 describe("normalizeTitleTokens", () => {
 	it("strips the Besprechung prefix, trailing date groups, the 'call' stopword, and length-1 tokens", () => {
 		expect(

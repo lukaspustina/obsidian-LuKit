@@ -62,11 +62,12 @@ export function addVorgangSection(
 	name: string,
 	locale: DateLocale,
 	date?: Date,
+	bodyLines: string[] = [],
 ): { newContent: string; cursorLineIndex: number } {
 	const d = date ?? new Date();
 	const bullet = formatVorgangBullet(name, locale, d);
 	const header = formatVorgangHeader(name, locale, d);
-	return insertVorgangContent(content, bullet, header, [], d, locale);
+	return insertVorgangContent(content, bullet, header, bodyLines, d, locale);
 }
 
 // Used by besprechung-feature.ts to insert a meeting note section with body lines.

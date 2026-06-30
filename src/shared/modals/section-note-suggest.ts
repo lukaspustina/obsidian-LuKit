@@ -33,6 +33,12 @@ export interface SectionNoteSuggestOptions {
 	// the full list. Basenames that do not resolve to a current candidate file
 	// are ignored. Absent or empty leaves the list unchanged.
 	suggestions?: string[];
+	// Optional label overrides for the virtual entries; each defaults to the
+	// module's hardcoded string when absent. Lets callers (e.g. email filing)
+	// relabel "Skip"/"Don't file"/"Stop and open" for their domain.
+	skipLabel?: string;
+	dropLabel?: string;
+	openLabel?: string;
 }
 
 export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
@@ -76,9 +82,9 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 	}
 
 	getItemText(item: Item): string {
-		if (item === SKIP_SENTINEL) return SKIP_LABEL;
-		if (item === DROP_SENTINEL) return DROP_LABEL;
-		if (item === OPEN_SENTINEL) return OPEN_LABEL;
+		if (item === SKIP_SENTINEL) return this.options.skipLabel ?? SKIP_LABEL;
+		if (item === DROP_SENTINEL) return this.options.dropLabel ?? DROP_LABEL;
+		if (item === OPEN_SENTINEL) return this.options.openLabel ?? OPEN_LABEL;
 		if (isPinned(item)) return `★ ${item.file.basename} (suggested)`;
 		return item.basename;
 	}

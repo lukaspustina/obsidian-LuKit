@@ -643,3 +643,29 @@ describe("extractDateFromTitle", () => {
 		expect(extractDateFromTitle("Vorgang Something, not-a-date", "de")).toBeNull();
 	});
 });
+
+describe("addVorgangSection with bodyLines", () => {
+	const content = [
+		"# Fakten und Pointer",
+		"",
+		"# Inhalt",
+		"- [[#Alpha, 01.01.2026]]",
+		"",
+		"##### Alpha, 01.01.2026",
+		"- existing",
+		"",
+	].join("\n");
+
+	it("inserts the body lines under the new h5 and adds one TOC bullet", () => {
+		const date = new Date(2026, 5, 30); // 30.06.2026
+		const { newContent } = addVorgangSection(content, "Müller", "de", date, ["line1", "line2"]);
+
+		expect(newContent).toContain("##### Müller, 30.06.2026");
+		expect(newContent).toContain("line1");
+		expect(newContent).toContain("line2");
+		// Body lines sit below the new heading.
+		expect(newContent.indexOf("line1")).toBeGreaterThan(newContent.indexOf("##### Müller, 30.06.2026"));
+		// TOC gains exactly one new wikilink bullet (1 existing → 2).
+		expect((newContent.match(/- \[\[#/g) ?? []).length).toBe(2);
+	});
+});
