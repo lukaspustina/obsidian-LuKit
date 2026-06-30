@@ -10,6 +10,7 @@ import {
 	removeTagFromFrontmatter,
 	markFiledInFrontmatter,
 } from "./besprechung-engine";
+import { suggestFilingTargets, type FiledRecord } from "./besprechung-suggest-engine";
 import { renderBesprechungSettings } from "./besprechung-settings";
 import { FolderNoteSuggestModal } from "../../shared/modals/folder-note-suggest";
 import { SectionNoteSuggestModal } from "../../shared/modals/section-note-suggest";
@@ -252,6 +253,7 @@ export class BesprechungFeature implements LuKitFeature {
 				BesprechungFeature.SECTION_NOTE_TAGS,
 				{
 					placeholder,
+					suggestions: this.suggestionsFor(besprechung),
 					onPick: (vorgang) => {
 						i++;
 						void this.fileBesprechungIntoVorgang(besprechung, vorgang).then(next);
@@ -294,6 +296,7 @@ export class BesprechungFeature implements LuKitFeature {
 			BesprechungFeature.SECTION_NOTE_TAGS,
 			{
 				placeholder: `File "${active.basename}" under…`,
+				suggestions: this.suggestionsFor(active),
 				onPick: (vorgang) => {
 					void this.fileBesprechungIntoVorgang(active, vorgang);
 				},
@@ -316,6 +319,53 @@ export class BesprechungFeature implements LuKitFeature {
 				return frontmatterTagsInclude(tags, pendingTag);
 			})
 			.sort((a, b) => direction * (a.stat.ctime - b.stat.ctime));
+	}
+
+	// Computes ranked filing-target basenames for the besprechung from past
+	// filings + its title. Never throws: any failure degrades to no suggestions
+	// so the picker still opens with the full list.
+	private suggestionsFor(besprechung: TFile): string[] {
+		try {
+			const corpus = this.buildFilingCorpus(besprechung);
+			const candidateBasenames = this.sectionNoteBasenames();
+			const fm = this.plugin.app.metadataCache.getFileCache(besprechung)?.frontmatter;
+			const candidateTitle = typeof fm?.title === "string" ? fm.title : besprechung.basename;
+			return suggestFilingTargets(candidateTitle, corpus, candidateBasenames, { now: Date.now() })
+				.map((s) => s.target);
+		} catch (e) {
+			console.warn("LuKit: failed to compute filing suggestions:", e);
+			return [];
+		}
+	}
+
+	// Builds the filing corpus from besprechungen under folderPath that carry a
+	// filed_into value, excluding the one currently being filed.
+	private buildFilingCorpus(exclude: TFile): FiledRecord[] {
+		const prefix = normalizePath(this.plugin.settings.besprechung.folderPath) + "/";
+		const records: FiledRecord[] = [];
+		for (const f of this.plugin.app.vault.getMarkdownFiles()) {
+			if (f.path === exclude.path || !f.path.startsWith(prefix)) continue;
+			const fm = this.plugin.app.metadataCache.getFileCache(f)?.frontmatter;
+			const filedInto = fm?.filed_into;
+			if (typeof filedInto !== "string") continue;
+			const target = extractWikilinkTarget(filedInto);
+			if (target === null) continue;
+			const rawTitle = typeof fm?.title === "string" ? fm.title : f.basename;
+			const parsed = fm?.filed_at == null ? NaN : Date.parse(String(fm.filed_at));
+			records.push({ rawTitle, target, filedAt: Number.isFinite(parsed) ? parsed : null });
+		}
+		return records;
+	}
+
+	// Selectable section-note basenames, using the same filter the modal applies.
+	private sectionNoteBasenames(): string[] {
+		return this.plugin.app.vault
+			.getMarkdownFiles()
+			.filter((f) => {
+				const tags = this.plugin.app.metadataCache.getFileCache(f)?.frontmatter?.tags;
+				return frontmatterTagsInclude(tags, BesprechungFeature.SECTION_NOTE_TAGS);
+			})
+			.map((f) => f.basename);
 	}
 
 	private async fileBesprechungIntoVorgang(besprechung: TFile, vorgang: TFile): Promise<void> {
