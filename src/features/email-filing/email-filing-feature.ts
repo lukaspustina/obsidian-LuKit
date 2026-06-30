@@ -232,8 +232,10 @@ export class EmailFilingFeature implements LuKitFeature {
 							this.presentMessage(metas, i + 1),
 						);
 					},
+					// Cancelling the preview returns to the picker for this same
+					// message (re-pick or choose Skip/Don't-file), rather than skipping it.
 					() => {
-						this.presentMessage(metas, i + 1);
+						this.presentMessage(metas, i);
 					},
 				).open();
 			},
