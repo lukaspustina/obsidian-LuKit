@@ -1,6 +1,7 @@
 # SDD: Besprechung Filing Suggestions
 
-**Status**: Ready for Implementation
+**Status**: Done
+**Finished**: 2026-06-30
 **Original**: specs/sdd/besprechung-filing-suggestions.md
 **Refined**: 2026-06-30
 
