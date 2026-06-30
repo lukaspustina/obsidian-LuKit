@@ -53,8 +53,8 @@ describe("sanitizeSenderSubject", () => {
 });
 
 describe("buildMessageUrl", () => {
-	it("percent-encodes a bare message id", () => {
-		expect(buildMessageUrl("foo@bar.com")).toBe("message://foo%40bar.com");
+	it("wraps the bare message id in encoded angle brackets", () => {
+		expect(buildMessageUrl("foo@bar.com")).toBe("message://%3Cfoo@bar.com%3E");
 	});
 });
 

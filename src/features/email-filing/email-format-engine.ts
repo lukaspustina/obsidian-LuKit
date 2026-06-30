@@ -22,10 +22,12 @@ const INLINE_IMAGE_MAX_BYTES = 51200;
 // Reply/forward subject prefixes: AW:, Re:, Fwd:, FWD:, WG: (case-insensitive).
 const SUBJECT_PREFIX = /^\s*(AW|RE|FWD|WG)\s*:\s*/i;
 
-// Percent-encodes a bare Message-ID (no angle brackets) into a message:// URL.
-// Example: buildMessageUrl("foo@bar.com") → "message://foo%40bar.com".
+// Wraps a bare Message-ID (no angle brackets) in encoded angle brackets to form
+// a message:// URL Apple Mail can open. Matches the proven LaunchBar AppleScript
+// form `message://%3c<id>%3e`; the id is left literal (Message-IDs are URL-safe).
+// Example: buildMessageUrl("foo@bar.com") → "message://%3Cfoo@bar.com%3E".
 export function buildMessageUrl(messageId: string): string {
-	return `message://${encodeURIComponent(messageId)}`;
+	return `message://%3C${messageId}%3E`;
 }
 
 // Removes/replaces characters that collide with the vorgang "name, DD.MM.YYYY"
