@@ -46,6 +46,7 @@ interface FeatureInternals {
 	presentMessageAsync: (m: RawMailMessageMeta[], i: number) => Promise<void>;
 	walkCandidates: string[];
 	suggestionsFor: (m: RawMailMessageMeta) => string[];
+	skippedThreads: Set<string>;
 }
 
 function setup(bridge: MailBridge, overrides: Parameters<typeof makeTestSettings>[0] = {}) {
@@ -185,6 +186,17 @@ describe("EmailFilingFeature — other actions", () => {
 		);
 		await internals.presentMessageAsync([RAW], 0);
 		expect(lastNotice()).toContain("nicht ladbar");
+	});
+
+	it("auto-skips a same-thread message (before fetching) once its thread was skipped", async () => {
+		const fetchBody = vi.fn(async () => ({ body: "x", attachments: [] }));
+		const { internals } = setup(fakeBridge({ fetchBody }));
+		internals.skippedThreads.add("quartalsbericht");
+
+		await internals.presentMessageAsync([{ ...RAW, subject: "AW: Quartalsbericht" }], 0);
+
+		expect(fetchBody).not.toHaveBeenCalled();
+		expect(lastNotice()).toContain("automatisch übersprungen");
 	});
 
 	it("learns within the walk: a Vorgang filed earlier is suggested for a same-thread email", async () => {

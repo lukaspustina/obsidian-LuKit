@@ -10,6 +10,7 @@ import {
 	filterAttachments,
 	buildMessageUrl,
 	stripSubjectPrefixes,
+	threadKey,
 	type EmailMeta,
 	type MailAttachment,
 } from "./email-format-engine";
@@ -54,6 +55,10 @@ export class EmailFilingFeature implements LuKitFeature {
 	// In-walk routing memory: each successful filing feeds the suggestion ranker
 	// so later emails (e.g. same thread) are steered to the same Vorgang.
 	private walkFiledRecords: FiledRecord[] = [];
+	// In-walk skip memory: subjects (thread keys) the user skipped; later emails
+	// of the same thread are auto-skipped (left in the inbox).
+	private skippedThreads = new Set<string>();
+	private autoSkippedCount = 0;
 
 	onload(plugin: LuKitPlugin): void {
 		this.plugin = plugin;
@@ -122,7 +127,9 @@ export class EmailFilingFeature implements LuKitFeature {
 		this.bodyCache.clear();
 		this.vanishedCount = 0;
 		this.unreadableCount = 0;
+		this.autoSkippedCount = 0;
 		this.walkFiledRecords = [];
+		this.skippedThreads.clear();
 		this.walkCandidates = this.sectionNoteBasenames();
 		this.presentMessage(metas, 0);
 	}
@@ -151,6 +158,7 @@ export class EmailFilingFeature implements LuKitFeature {
 	private presentMessage(metas: RawMailMessageMeta[], i: number): void {
 		if (i >= metas.length) {
 			const parts: string[] = [];
+			if (this.autoSkippedCount > 0) parts.push(`${this.autoSkippedCount} automatisch übersprungen (gleicher Thread)`);
 			if (this.vanishedCount > 0) parts.push(`${this.vanishedCount} nicht mehr im Posteingang`);
 			if (this.unreadableCount > 0) parts.push(`${this.unreadableCount} nicht ladbar`);
 			const suffix = parts.length > 0 ? `, ${parts.join(", ")}` : "";
@@ -163,6 +171,14 @@ export class EmailFilingFeature implements LuKitFeature {
 
 	private async presentMessageAsync(metas: RawMailMessageMeta[], i: number): Promise<void> {
 		const meta = metas[i];
+		// Auto-skip a message whose thread the user already skipped this walk
+		// (before fetching its body — left in the inbox, counted at the end).
+		const key = threadKey(meta.subject);
+		if (key.length > 0 && this.skippedThreads.has(key)) {
+			this.autoSkippedCount++;
+			this.presentMessage(metas, i + 1);
+			return;
+		}
 		const loading = new Notice(`Lade Nachricht ${i + 1}/${metas.length}…`, 0);
 		let attachments: MailAttachment[];
 		let body: string;
@@ -221,7 +237,10 @@ export class EmailFilingFeature implements LuKitFeature {
 					},
 				).open();
 			},
-			onSkip: () => this.presentMessage(metas, i + 1),
+			onSkip: () => {
+				if (key.length > 0) this.skippedThreads.add(key);
+				this.presentMessage(metas, i + 1);
+			},
 			onDrop: () => {
 				void this.archiveOnly(meta).then(() => this.presentMessage(metas, i + 1));
 			},

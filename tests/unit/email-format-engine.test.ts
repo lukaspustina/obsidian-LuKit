@@ -5,6 +5,7 @@ import {
 	stripSubjectPrefixes,
 	filterAttachments,
 	formatEmailSection,
+	threadKey,
 	type EmailMeta,
 } from "../../src/features/email-filing/email-format-engine";
 
@@ -49,6 +50,16 @@ describe("sanitizeSenderSubject", () => {
 		const out = sanitizeSenderSubject("Pustina, Lukas |#x ]]");
 		expect(out).not.toMatch(/[,#|]/);
 		expect(out).not.toContain("]]");
+	});
+});
+
+describe("threadKey", () => {
+	it("normalizes a subject to a thread identity (prefixes stripped, lowercased)", () => {
+		expect(threadKey("AW: Re: Quartalsbericht Q3")).toBe("quartalsbericht q3");
+	});
+
+	it("maps replies and the original to the same key", () => {
+		expect(threadKey("Quartalsbericht Q3")).toBe(threadKey("Re:  Quartalsbericht   Q3"));
 	});
 });
 

@@ -53,6 +53,14 @@ export function stripSubjectPrefixes(subject: string): string {
 	return trimmed === "" ? subject : trimmed;
 }
 
+// Normalized thread identity for a subject: reply/forward prefixes stripped,
+// lowercased, whitespace collapsed. Emails of one thread share the same base
+// subject (only AW:/Re:/Fwd: prefixes differ) → same key. Empty when the subject
+// is blank after stripping.
+export function threadKey(subject: string): string {
+	return stripSubjectPrefixes(subject).trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 // Drops inline images: image/* attachments at or below 50 KiB (this also covers
 // size === -1 unknown). Returns a new array; does not mutate the input.
 export function filterAttachments(all: MailAttachment[]): MailAttachment[] {
