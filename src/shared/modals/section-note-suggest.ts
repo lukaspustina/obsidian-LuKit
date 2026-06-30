@@ -7,7 +7,18 @@ const OPEN_LABEL = "→ Stop and open this Besprechung in a new tab";
 const SKIP_SENTINEL: unique symbol = Symbol("skip");
 const DROP_SENTINEL: unique symbol = Symbol("drop");
 const OPEN_SENTINEL: unique symbol = Symbol("open");
-type Item = TFile | typeof SKIP_SENTINEL | typeof DROP_SENTINEL | typeof OPEN_SENTINEL;
+
+// A suggested note pinned above the full list. Wraps the TFile so getItemText
+// can decorate it without affecting the same file's plain row.
+interface PinnedItem {
+	__pinned: true;
+	file: TFile;
+}
+type Item = TFile | PinnedItem | typeof SKIP_SENTINEL | typeof DROP_SENTINEL | typeof OPEN_SENTINEL;
+
+function isPinned(item: Item): item is PinnedItem {
+	return typeof item === "object" && item !== null && "__pinned" in item;
+}
 
 export interface SectionNoteSuggestOptions {
 	placeholder: string;
@@ -18,6 +29,10 @@ export interface SectionNoteSuggestOptions {
 	onDrop?: () => void;
 	onOpenSource?: () => void;
 	onCancel?: () => void;
+	// Ordered list of suggested note basenames pinned above the sentinels and
+	// the full list. Basenames that do not resolve to a current candidate file
+	// are ignored. Absent or empty leaves the list unchanged.
+	suggestions?: string[];
 }
 
 export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
@@ -40,17 +55,31 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 				return frontmatterTagsInclude(tags, this.sectionTags);
 			})
 			.sort((a, b) => b.stat.mtime - a.stat.mtime);
+
+		const pinnedFiles: TFile[] = [];
+		const pinnedPaths = new Set<string>();
+		for (const basename of this.options.suggestions ?? []) {
+			const file = matches.find((m) => m.basename === basename);
+			if (file && !pinnedPaths.has(file.path)) {
+				pinnedFiles.push(file);
+				pinnedPaths.add(file.path);
+			}
+		}
+		const pinnedItems: Item[] = pinnedFiles.map((file) => ({ __pinned: true, file }));
+		const rest = matches.filter((m) => !pinnedPaths.has(m.path));
+
 		const sentinels: Item[] = [];
 		if (this.options.onSkip) sentinels.push(SKIP_SENTINEL);
 		if (this.options.onDrop) sentinels.push(DROP_SENTINEL);
 		if (this.options.onOpenSource) sentinels.push(OPEN_SENTINEL);
-		return [...sentinels, ...matches];
+		return [...pinnedItems, ...sentinels, ...rest];
 	}
 
 	getItemText(item: Item): string {
 		if (item === SKIP_SENTINEL) return SKIP_LABEL;
 		if (item === DROP_SENTINEL) return DROP_LABEL;
 		if (item === OPEN_SENTINEL) return OPEN_LABEL;
+		if (isPinned(item)) return `★ ${item.file.basename} (suggested)`;
 		return item.basename;
 	}
 
@@ -59,6 +88,7 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 		if (item === SKIP_SENTINEL) this.options.onSkip?.();
 		else if (item === DROP_SENTINEL) this.options.onDrop?.();
 		else if (item === OPEN_SENTINEL) this.options.onOpenSource?.();
+		else if (isPinned(item)) this.options.onPick(item.file);
 		else this.options.onPick(item);
 	}
 
