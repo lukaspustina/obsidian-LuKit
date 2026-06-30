@@ -138,11 +138,17 @@ function run(argv) {
   let raw = [];
   try { raw = m.mailAttachments(); } catch (e) { raw = []; }
   for (let i = 0; i < raw.length; i++) {
-    let size = -1;
-    try { size = raw[i].fileSize(); } catch (e) {}
-    atts.push({ name: raw[i].name(), mimeType: raw[i].mimeType(), size: size });
+    try {
+      let size = -1;
+      try { size = raw[i].fileSize(); } catch (e) {}
+      atts.push({ name: raw[i].name(), mimeType: raw[i].mimeType(), size: size });
+    } catch (e) {}
   }
-  return JSON.stringify({ body: m.content(), attachments: atts });
+  // content() can fail (-10000) for messages whose body isn't retrievable;
+  // degrade to an empty body so the message still files with its link line.
+  let body = "";
+  try { const c = m.content(); if (c != null) body = String(c); } catch (e) { body = ""; }
+  return JSON.stringify({ body: body, attachments: atts });
 }
 `;
 

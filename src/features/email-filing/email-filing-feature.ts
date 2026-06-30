@@ -48,6 +48,9 @@ export class EmailFilingFeature implements LuKitFeature {
 	// Messages that left the inbox (server rule, another client) between the
 	// snapshot and their turn — skipped silently, summarized at walk end.
 	private vanishedCount = 0;
+	// Messages whose body couldn't be read (transient Mail/Apple Event failure)
+	// — skipped, summarized at walk end.
+	private unreadableCount = 0;
 
 	onload(plugin: LuKitPlugin): void {
 		this.plugin = plugin;
@@ -115,6 +118,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		// Compute the picker candidate set once for the whole walk.
 		this.bodyCache.clear();
 		this.vanishedCount = 0;
+		this.unreadableCount = 0;
 		this.walkCandidates = this.sectionNoteBasenames();
 		this.presentMessage(metas, 0);
 	}
@@ -142,9 +146,11 @@ export class EmailFilingFeature implements LuKitFeature {
 
 	private presentMessage(metas: RawMailMessageMeta[], i: number): void {
 		if (i >= metas.length) {
-			const vanished =
-				this.vanishedCount > 0 ? `, ${this.vanishedCount} nicht mehr im Posteingang` : "";
-			new Notice(`E-Mail-Ablage fertig (${metas.length} bearbeitet${vanished}).`);
+			const parts: string[] = [];
+			if (this.vanishedCount > 0) parts.push(`${this.vanishedCount} nicht mehr im Posteingang`);
+			if (this.unreadableCount > 0) parts.push(`${this.unreadableCount} nicht ladbar`);
+			const suffix = parts.length > 0 ? `, ${parts.join(", ")}` : "";
+			new Notice(`E-Mail-Ablage fertig (${metas.length} bearbeitet${suffix}).`);
 			this.walkInProgress = false;
 			return;
 		}
@@ -163,17 +169,22 @@ export class EmailFilingFeature implements LuKitFeature {
 		} catch (e) {
 			loading.hide();
 			const msg = e instanceof Error ? e.message : String(e);
-			if (msg.includes("lukit-not-found")) {
-				// Benign: the message left the inbox since the snapshot. Skip silently;
-				// summarized at walk end.
-				this.vanishedCount++;
-				this.presentMessage(metas, i + 1);
+			if (msg.includes("-1743")) {
+				// Mail automation permission lost — fatal, stop the walk.
+				this.logBridgeError(e);
+				new Notice(msg);
+				this.walkInProgress = false;
 				return;
 			}
-			// Unexpected bridge error (e.g. Mail access lost mid-walk) — surface and stop.
-			this.logBridgeError(e);
-			new Notice(e instanceof Error ? e.message : "Mail-Fehler beim Laden der Nachricht.");
-			this.walkInProgress = false;
+			if (msg.includes("lukit-not-found")) {
+				// Benign: the message left the inbox since the snapshot.
+				this.vanishedCount++;
+			} else {
+				// Transient per-message read failure — skip, never halt the walk.
+				this.logBridgeError(e);
+				this.unreadableCount++;
+			}
+			this.presentMessage(metas, i + 1);
 			return;
 		}
 		loading.hide();

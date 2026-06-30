@@ -169,11 +169,19 @@ describe("EmailFilingFeature — other actions", () => {
 		expect(noticeMessages().some((m) => m.includes("Angebot"))).toBe(false);
 	});
 
-	it("surfaces an unexpected bridge error and stops the walk", async () => {
+	it("stops the walk on a Mail permission error (-1743)", async () => {
 		const { internals } = setup(
 			fakeBridge({ fetchBody: vi.fn(async () => { throw new Error("Mail nicht erreichbar (-1743)"); }) }),
 		);
 		await internals.presentMessageAsync([RAW, { ...RAW, id: "b" }], 0);
 		expect(lastNotice()).toContain("-1743");
+	});
+
+	it("skips an unreadable message and continues the walk", async () => {
+		const { internals } = setup(
+			fakeBridge({ fetchBody: vi.fn(async () => { throw new Error("AppleEvent handler failed (-10000)"); }) }),
+		);
+		await internals.presentMessageAsync([RAW], 0);
+		expect(lastNotice()).toContain("nicht ladbar");
 	});
 });
