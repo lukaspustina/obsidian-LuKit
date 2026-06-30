@@ -62,12 +62,17 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 		if (text && this.modalEl) {
 			const panel = this.modalEl.createDiv({ cls: "lukit-email-peek" });
 			panel.setText(text);
-			panel.style.maxHeight = "200px";
+			// flex-shrink:0 keeps the picker's suggestion list from collapsing the
+			// panel; the list below scrolls instead.
+			panel.style.flex = "0 0 auto";
+			panel.style.maxHeight = "45vh";
 			panel.style.overflowY = "auto";
 			panel.style.whiteSpace = "pre-wrap";
-			panel.style.padding = "8px 12px";
+			panel.style.padding = "10px 14px";
+			panel.style.marginBottom = "6px";
 			panel.style.borderBottom = "1px solid var(--background-modifier-border)";
 			panel.style.fontSize = "var(--font-ui-smaller)";
+			panel.style.userSelect = "text";
 			this.modalEl.prepend(panel);
 		}
 	}
