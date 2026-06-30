@@ -98,6 +98,38 @@ describe("SectionNoteSuggestModal pinned suggestions", () => {
 		expect(all.slice(1)).toEqual(["Vorgang - A", "Vorgang - B", "Vorgang - C"]);
 	});
 
+	it("does not fire onCancel when an item was chosen, even if onClose runs first", () => {
+		vi.useFakeTimers();
+		const onCancel = vi.fn();
+		const app = appWithThreeNotes();
+		const modal = new SectionNoteSuggestModal(app as never, SECTION_TAGS, {
+			placeholder: "x",
+			onPick: () => undefined,
+			onCancel,
+		});
+		// Reproduce the observed Obsidian order: onClose() before onChooseItem().
+		modal.onClose();
+		modal.onChooseItem(modal.getItems()[0]);
+		vi.runAllTimers();
+		expect(onCancel).not.toHaveBeenCalled();
+		vi.useRealTimers();
+	});
+
+	it("fires onCancel when the modal closes without a choice", () => {
+		vi.useFakeTimers();
+		const onCancel = vi.fn();
+		const app = appWithThreeNotes();
+		const modal = new SectionNoteSuggestModal(app as never, SECTION_TAGS, {
+			placeholder: "x",
+			onPick: () => undefined,
+			onCancel,
+		});
+		modal.onClose();
+		vi.runAllTimers();
+		expect(onCancel).toHaveBeenCalledTimes(1);
+		vi.useRealTimers();
+	});
+
 	it("treats an empty suggestions array identically to absent", () => {
 		const app = appWithThreeNotes();
 		const modal = new SectionNoteSuggestModal(app as never, SECTION_TAGS, {

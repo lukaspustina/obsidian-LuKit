@@ -124,6 +124,12 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 
 	onClose(): void {
 		super.onClose();
-		if (!this.chosen) this.options.onCancel?.();
+		// Some Obsidian builds call onClose() BEFORE onChooseItem() on a
+		// selection, so `chosen` isn't set yet at this point. Defer the cancel
+		// decision a tick so it reflects whether an item was actually chosen,
+		// regardless of the close/choose order.
+		setTimeout(() => {
+			if (!this.chosen) this.options.onCancel?.();
+		}, 0);
 	}
 }
