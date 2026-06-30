@@ -17,12 +17,13 @@ export function __resetNotices(): void {
 }
 
 export class Notice {
-	constructor(message?: string) {
+	constructor(message?: string, _duration?: number) {
 		if (message !== undefined) {
 			lastNoticeMessage = message;
 			noticeHistory.push(message);
 		}
 	}
+	hide(): void {}
 }
 export class TFile {
 	path = "";

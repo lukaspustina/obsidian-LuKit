@@ -3,7 +3,7 @@ import { Notice, Setting, type TFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature, HelpEntry } from "../../types";
-import { createOsascriptBridge, type MailBridge, type RawMailMessageMeta } from "./mail-bridge";
+import { createOsascriptBridge, type MailBridge, type RawMailMessageMeta, type RawMailBody } from "./mail-bridge";
 import { parseEmailBody } from "./email-quote-engine";
 import {
 	formatEmailSection,
@@ -40,6 +40,11 @@ export class EmailFilingFeature implements LuKitFeature {
 		execFile("open", [url], () => undefined);
 	};
 	private walkInProgress = false;
+	// Section-note candidates, computed once per walk (not per message).
+	private walkCandidates: string[] = [];
+	// Lazily-fetched message bodies keyed by walk index; the next message is
+	// prefetched while the user works the current one.
+	private bodyCache = new Map<number, Promise<RawMailBody>>();
 
 	onload(plugin: LuKitPlugin): void {
 		this.plugin = plugin;
@@ -87,21 +92,38 @@ export class EmailFilingFeature implements LuKitFeature {
 	}
 
 	private async beginWalk(): Promise<void> {
+		const loading = new Notice("Lade Posteingang…", 0);
 		let metas: RawMailMessageMeta[];
 		try {
 			metas = this.selectWalkMessages(await this.bridge.listInbox());
 		} catch (e) {
+			loading.hide();
 			this.logBridgeError(e);
 			new Notice(e instanceof Error ? e.message : "Mail-Zugriff fehlgeschlagen.");
 			this.walkInProgress = false;
 			return;
 		}
+		loading.hide();
 		if (metas.length === 0) {
 			new Notice("Inbox ist leer.");
 			this.walkInProgress = false;
 			return;
 		}
+		// Compute the picker candidate set once for the whole walk.
+		this.bodyCache.clear();
+		this.walkCandidates = this.sectionNoteBasenames();
 		this.presentMessage(metas, 0);
+	}
+
+	// Lazily fetches (and memoizes) a message body so the next message can be
+	// prefetched while the user works the current one.
+	private fetchBodyFor(metas: RawMailMessageMeta[], i: number): Promise<RawMailBody> {
+		let p = this.bodyCache.get(i);
+		if (!p) {
+			p = this.bridge.fetchBody(metas[i].accountName, metas[i].id);
+			this.bodyCache.set(i, p);
+		}
+		return p;
 	}
 
 	// Keeps only messages from included accounts, then applies the configured order.
@@ -125,17 +147,24 @@ export class EmailFilingFeature implements LuKitFeature {
 
 	private async presentMessageAsync(metas: RawMailMessageMeta[], i: number): Promise<void> {
 		const meta = metas[i];
+		const loading = new Notice(`Lade Nachricht ${i + 1}/${metas.length}…`, 0);
 		let attachments: MailAttachment[];
 		let body: string;
 		try {
-			const raw = await this.bridge.fetchBody(meta.accountName, meta.id);
+			const raw = await this.fetchBodyFor(metas, i);
 			body = parseEmailBody(raw.body).body;
 			attachments = filterAttachments(raw.attachments);
 		} catch (e) {
+			loading.hide();
 			this.logBridgeError(e);
 			new Notice(`Nachricht nicht mehr im Posteingang: ${meta.subject}`);
 			this.presentMessage(metas, i + 1);
 			return;
+		}
+		loading.hide();
+		// Prefetch the next body while the user works this message.
+		if (i + 1 < metas.length) {
+			void this.fetchBodyFor(metas, i + 1).catch(() => undefined);
 		}
 
 		const emailMeta = this.toEmailMeta(meta);
@@ -249,7 +278,7 @@ export class EmailFilingFeature implements LuKitFeature {
 	private suggestionsFor(meta: RawMailMessageMeta): string[] {
 		try {
 			const title = `${stripSubjectPrefixes(meta.subject)} ${meta.senderName}`;
-			return suggestFilingTargets(title, [], this.sectionNoteBasenames(), {
+			return suggestFilingTargets(title, [], this.walkCandidates, {
 				now: Date.now(),
 				minScore: SUGGEST_MIN_SCORE,
 			}).map((s) => s.target);

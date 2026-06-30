@@ -86,18 +86,35 @@ function lukitFindInInbox(Mail, accountName, messageId) {
 }
 `;
 
+// Bulk property reads: one Apple Event per property per account's inbox, rather
+// than per-property-per-message (which is O(messages) round-trips and the main
+// source of multi-second startup latency). Iterates each account's INBOX so the
+// account name is known without a per-message mailbox→account hop.
 const LIST_INBOX_JS = `
 function run() {
   const Mail = Application("Mail");
-  const msgs = Mail.inbox.messages();
+  const accts = Mail.accounts;
+  const names = [].concat(accts.name());
   const out = [];
-  for (let i = 0; i < msgs.length; i++) {
-    const m = msgs[i];
-    let acct = "";
-    try { acct = m.mailbox().account().name(); } catch (e) {}
-    let sent = "";
-    try { sent = m.dateSent().toISOString(); } catch (e) {}
-    out.push({ id: m.messageId(), accountName: acct, sender: m.sender(), subject: m.subject(), dateSent: sent });
+  for (let ai = 0; ai < names.length; ai++) {
+    let box = null;
+    try {
+      const bs = accts[ai].mailboxes.whose({ name: "INBOX" })();
+      box = bs.length ? bs[0] : null;
+    } catch (e) { box = null; }
+    if (!box) continue;
+    const msgs = box.messages;
+    let ids;
+    try { ids = [].concat(msgs.messageId()); } catch (e) { continue; }
+    if (ids.length === 0) continue;
+    const senders = [].concat(msgs.sender());
+    const subjects = [].concat(msgs.subject());
+    const dates = [].concat(msgs.dateSent());
+    for (let i = 0; i < ids.length; i++) {
+      let sent = "";
+      try { sent = dates[i] ? dates[i].toISOString() : ""; } catch (e) {}
+      out.push({ id: ids[i], accountName: names[ai], sender: senders[i], subject: subjects[i], dateSent: sent });
+    }
   }
   return JSON.stringify(out);
 }
