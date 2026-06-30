@@ -106,6 +106,13 @@ Each feature has up to 4 files:
 - No dynamic imports or `eval`
 - No innerHTML — use Obsidian's DOM creation APIs (`createEl`, `Setting`)
 
+## No PII (test data, examples, docs, source)
+This plugin operates on personal notes, so real data leaks easily into fixtures. **Never** put real personal data anywhere in the repo — tests, example notes, docs, SDDs, or source constants. This includes: real people's names (including the maintainer's own name and colleagues), employer/company names, cities/locations, vendor/product names, account references, amounts tied to real events, and meeting/Vorgang titles copied from the real vault.
+- Use clearly-fictional German placeholders: persons `Max Mustermann` / `Erika Beispiel` / `Petra Schneider` / `Jonas Klein` / `Anna` / `Hans`; place `Musterstadt`; company `Acme`; only `example.com` for domains.
+- Never hardcode a real name as a constant (e.g. a stopword) — make it a setting that defaults to empty (see `besprechung.selfNameStopwords`).
+- The only sanctioned real name is plugin authorship in `package.json` / `manifest.json`.
+- When adding fixtures derived from real notes, genericize names/orgs/places but keep structure (dates, headers, edge-case characters).
+
 ## Testing
 - **Every change must pass all tests** — run `npm run test` before considering any change complete
 - Unit test all pure logic functions with full branch coverage
