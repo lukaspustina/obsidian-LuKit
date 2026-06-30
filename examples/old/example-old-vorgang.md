@@ -10,22 +10,21 @@ Author: Max Mustermann
 - More stuff
 
 **nächste Schritte**
-- Vertragswechsel überlegen, Ende 31.08.2025 -- ETA Juli 2026
-- Nach Vertragswechsel
-    - Preis pro m3 in Stromtabelle ändern
-    - Preis pro m3 in Home Assistant Energy Dashboard anpassen
+- Angebot prüfen, Ende 31.08.2025 -- ETA Juli 2026
+- Nach Entscheidung
+    - Wert in Tabelle A ändern
+    - Wert in Tabelle B anpassen
 
 **Inhalt**
-- Gaspreis-Update, 26.11.2025
-- Erstattung Guthaben: 100,49, 17.09.2025
-- Abschlussrechnung, 12.09.2025
+- Status-Update, 26.11.2025
+- Zwischenstand: 12,34, 17.09.2025
+- Abschluss, 12.09.2025
 
-**Gaspreis-Update, 26.11.2025**
+**Status-Update, 26.11.2025**
 - aa
 
-**Erstattung Guthaben: 100,49, 17.09.2025**
-- Hauskonto
+**Zwischenstand: 12,34, 17.09.2025**
+- Notiz
 
-**Abschlussrechnung, 12.09.2025**
-- Rechnung
-
+**Abschluss, 12.09.2025**
+- Eintrag
