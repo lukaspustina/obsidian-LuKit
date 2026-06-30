@@ -45,6 +45,9 @@ export class EmailFilingFeature implements LuKitFeature {
 	// Lazily-fetched message bodies keyed by walk index; the next message is
 	// prefetched while the user works the current one.
 	private bodyCache = new Map<number, Promise<RawMailBody>>();
+	// Messages that left the inbox (server rule, another client) between the
+	// snapshot and their turn — skipped silently, summarized at walk end.
+	private vanishedCount = 0;
 
 	onload(plugin: LuKitPlugin): void {
 		this.plugin = plugin;
@@ -111,6 +114,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		}
 		// Compute the picker candidate set once for the whole walk.
 		this.bodyCache.clear();
+		this.vanishedCount = 0;
 		this.walkCandidates = this.sectionNoteBasenames();
 		this.presentMessage(metas, 0);
 	}
@@ -138,7 +142,9 @@ export class EmailFilingFeature implements LuKitFeature {
 
 	private presentMessage(metas: RawMailMessageMeta[], i: number): void {
 		if (i >= metas.length) {
-			new Notice(`E-Mail-Ablage fertig (${metas.length} bearbeitet).`);
+			const vanished =
+				this.vanishedCount > 0 ? `, ${this.vanishedCount} nicht mehr im Posteingang` : "";
+			new Notice(`E-Mail-Ablage fertig (${metas.length} bearbeitet${vanished}).`);
 			this.walkInProgress = false;
 			return;
 		}
@@ -156,9 +162,18 @@ export class EmailFilingFeature implements LuKitFeature {
 			attachments = filterAttachments(raw.attachments);
 		} catch (e) {
 			loading.hide();
+			const msg = e instanceof Error ? e.message : String(e);
+			if (msg.includes("lukit-not-found")) {
+				// Benign: the message left the inbox since the snapshot. Skip silently;
+				// summarized at walk end.
+				this.vanishedCount++;
+				this.presentMessage(metas, i + 1);
+				return;
+			}
+			// Unexpected bridge error (e.g. Mail access lost mid-walk) — surface and stop.
 			this.logBridgeError(e);
-			new Notice(`Nachricht nicht mehr im Posteingang: ${meta.subject}`);
-			this.presentMessage(metas, i + 1);
+			new Notice(e instanceof Error ? e.message : "Mail-Fehler beim Laden der Nachricht.");
+			this.walkInProgress = false;
 			return;
 		}
 		loading.hide();

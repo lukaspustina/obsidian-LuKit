@@ -48,6 +48,18 @@ describe("createOsascriptBridge — argv safety and mailbox resolution", () => {
 		expect(await bridge.isInInbox("iCloud", "id-1")).toBe(false);
 	});
 
+	it("throws lukit-not-found when the body script reports the message is gone", async () => {
+		execFileMock.mockImplementation(callbackWith(JSON.stringify({ notFound: true })));
+		const bridge = createOsascriptBridge({}, "Archive");
+		await expect(bridge.fetchBody("iCloud", "id-1")).rejects.toThrow(/lukit-not-found/);
+	});
+
+	it("returns body and attachments on a successful fetch", async () => {
+		execFileMock.mockImplementation(callbackWith(JSON.stringify({ body: "hi", attachments: [] })));
+		const bridge = createOsascriptBridge({}, "Archive");
+		expect(await bridge.fetchBody("iCloud", "id-1")).toEqual({ body: "hi", attachments: [] });
+	});
+
 	it("surfaces a readable error on TCC denial (-1743)", async () => {
 		execFileMock.mockImplementation(
 			(_f: string, _a: string[], _o: unknown, cb: (e: Error | null, out: string) => void) =>

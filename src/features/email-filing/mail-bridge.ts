@@ -133,7 +133,7 @@ const FETCH_BODY_JS =
 function run(argv) {
   const Mail = Application("Mail");
   const m = lukitFindInInbox(Mail, argv[0], argv[1]);
-  if (!m) throw new Error("lukit-not-found");
+  if (!m) return JSON.stringify({ notFound: true });
   const atts = [];
   let raw = [];
   try { raw = m.mailAttachments(); } catch (e) { raw = []; }
@@ -213,8 +213,12 @@ export function createOsascriptBridge(
 		},
 
 		async fetchBody(accountName: string, messageId: string): Promise<RawMailBody> {
-			const out = await runJxa(FETCH_BODY_JS, [accountName, messageId]);
-			return JSON.parse(out) as RawMailBody;
+			const parsed = JSON.parse(await runJxa(FETCH_BODY_JS, [accountName, messageId])) as
+				RawMailBody & { notFound?: boolean };
+			if (parsed.notFound) {
+				throw new Error("lukit-not-found");
+			}
+			return parsed;
 		},
 
 		async archive(accountName: string, messageId: string): Promise<void> {

@@ -8,6 +8,7 @@ import {
 	makeTestSettings,
 	asLuKitPlugin,
 	lastNotice,
+	noticeMessages,
 	resetNotices,
 } from "../helpers/obsidian-mocks";
 
@@ -42,6 +43,7 @@ interface FeatureInternals {
 	fileEmailIntoVorgang: (m: RawMailMessageMeta, body: string, attachments: unknown[], vorgang: unknown) => Promise<void>;
 	archiveOnly: (m: RawMailMessageMeta) => Promise<void>;
 	openMessage: (meta: { messageUrl: string }) => void;
+	presentMessageAsync: (m: RawMailMessageMeta[], i: number) => Promise<void>;
 }
 
 function setup(bridge: MailBridge, overrides: Parameters<typeof makeTestSettings>[0] = {}) {
@@ -155,5 +157,23 @@ describe("EmailFilingFeature — other actions", () => {
 		const { internals } = setup(fakeBridge({ listInbox: vi.fn(async () => []) }));
 		await internals.beginWalk();
 		expect(lastNotice()).toContain("Inbox ist leer");
+	});
+
+	it("skips a vanished message silently and summarizes it at walk end", async () => {
+		const { internals } = setup(
+			fakeBridge({ fetchBody: vi.fn(async () => { throw new Error("lukit-not-found"); }) }),
+		);
+		await internals.presentMessageAsync([RAW], 0);
+		expect(lastNotice()).toContain("nicht mehr im Posteingang");
+		// No per-message Notice leaked the subject.
+		expect(noticeMessages().some((m) => m.includes("Angebot"))).toBe(false);
+	});
+
+	it("surfaces an unexpected bridge error and stops the walk", async () => {
+		const { internals } = setup(
+			fakeBridge({ fetchBody: vi.fn(async () => { throw new Error("Mail nicht erreichbar (-1743)"); }) }),
+		);
+		await internals.presentMessageAsync([RAW, { ...RAW, id: "b" }], 0);
+		expect(lastNotice()).toContain("-1743");
 	});
 });
