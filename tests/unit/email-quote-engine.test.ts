@@ -53,6 +53,46 @@ describe("parseEmailBody", () => {
 		expect(body).toBe("");
 	});
 
+	it("cuts a German closing salutation and the signature below it", () => {
+		const raw = [
+			"Danke für die Info.",
+			"",
+			"Mit freundlichen Grüßen",
+			"Max Mustermann",
+			"Scopevisio AG",
+			"Tel: 0228 1234",
+		].join("\n");
+		const { body, signature } = parseEmailBody(raw);
+		expect(body).toBe("Danke für die Info.");
+		expect(signature).toContain("Mit freundlichen Grüßen");
+		expect(body).not.toContain("Scopevisio AG");
+	});
+
+	it("cuts a standalone salutation abbreviation", () => {
+		const { body } = parseEmailBody("Passt so.\nVG\nMax");
+		expect(body).toBe("Passt so.");
+	});
+
+	it("cuts a German legal disclaimer without a salutation", () => {
+		const raw = [
+			"Hier ist die Datei.",
+			"Diese E-Mail enthält vertrauliche Informationen und ist nur für den Empfänger bestimmt.",
+		].join("\n");
+		const { body } = parseEmailBody(raw);
+		expect(body).toBe("Hier ist die Datei.");
+	});
+
+	it("cuts an English closing salutation", () => {
+		const { body } = parseEmailBody("Sounds good.\n\nBest regards,\nAlice");
+		expect(body).toBe("Sounds good.");
+	});
+
+	it("does not cut a salutation word used mid-sentence (under-trim)", () => {
+		const raw = "Ich grüße dich herzlich. Wie läuft das Projekt?";
+		const { body } = parseEmailBody(raw);
+		expect(body).toBe(raw);
+	});
+
 	it("retains non-quoted inline-reply text after an attribution line (under-trim)", () => {
 		const raw = [
 			"Am 01.06.2026 schrieb Max:",
