@@ -57,6 +57,7 @@ describe("mergeSettings", () => {
 				order: "newest" as const,
 				defaultArchiveMailbox: "Archiv",
 				archiveMailboxes: { Gmail: "[Gmail]/All Mail" },
+				walkAccounts: { Gmail: true, iCloud: false },
 			},
 		};
 		const merged = mergeSettings(input);

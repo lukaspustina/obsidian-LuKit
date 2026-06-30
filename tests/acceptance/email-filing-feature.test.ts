@@ -38,6 +38,7 @@ interface FeatureInternals {
 	startWalk: () => void;
 	beginWalk: () => Promise<void>;
 	orderMessages: (m: RawMailMessageMeta[]) => RawMailMessageMeta[];
+	selectWalkMessages: (m: RawMailMessageMeta[]) => RawMailMessageMeta[];
 	fileEmailIntoVorgang: (m: RawMailMessageMeta, body: string, attachments: unknown[], vorgang: unknown) => Promise<void>;
 	archiveOnly: (m: RawMailMessageMeta) => Promise<void>;
 	openMessage: (meta: { messageUrl: string }) => void;
@@ -117,10 +118,20 @@ describe("EmailFilingFeature — other actions", () => {
 	});
 
 	it("orderMessages reverses to newest-first when configured", () => {
-		const { internals } = setup(fakeBridge(), { emailFiling: { order: "newest", defaultArchiveMailbox: "Archive", archiveMailboxes: {} } });
+		const { internals } = setup(fakeBridge(), { emailFiling: { order: "newest", defaultArchiveMailbox: "Archive", archiveMailboxes: {}, walkAccounts: {} } });
 		const older = { ...RAW, id: "old" };
 		const newer = { ...RAW, id: "new" };
 		expect(internals.orderMessages([older, newer]).map((m) => m.id)).toEqual(["new", "old"]);
+	});
+
+	it("selectWalkMessages keeps only included accounts, in order", () => {
+		const { internals } = setup(fakeBridge(), {
+			emailFiling: { order: "oldest", defaultArchiveMailbox: "Archive", archiveMailboxes: {}, walkAccounts: { Gmail: false } },
+		});
+		const a = { ...RAW, id: "a", accountName: "iCloud" };
+		const b = { ...RAW, id: "b", accountName: "Gmail" };
+		const c = { ...RAW, id: "c", accountName: "iCloud" };
+		expect(internals.selectWalkMessages([a, b, c]).map((m) => m.id)).toEqual(["a", "c"]);
 	});
 
 	it("openMessage opens the pre-built message:// URL", () => {

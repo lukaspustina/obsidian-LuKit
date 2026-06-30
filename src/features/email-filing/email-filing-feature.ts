@@ -13,7 +13,7 @@ import {
 	type EmailMeta,
 	type MailAttachment,
 } from "./email-format-engine";
-import { mergeDetectedAccounts } from "./email-filing-settings";
+import { mergeDetectedAccounts, isAccountIncluded } from "./email-filing-settings";
 import { addVorgangSection } from "../vorgang/vorgang-engine";
 import { suggestFilingTargets } from "../besprechung/besprechung-suggest-engine";
 import { frontmatterTagsInclude } from "../../shared/frontmatter";
@@ -89,7 +89,7 @@ export class EmailFilingFeature implements LuKitFeature {
 	private async beginWalk(): Promise<void> {
 		let metas: RawMailMessageMeta[];
 		try {
-			metas = this.orderMessages(await this.bridge.listInbox());
+			metas = this.selectWalkMessages(await this.bridge.listInbox());
 		} catch (e) {
 			this.logBridgeError(e);
 			new Notice(e instanceof Error ? e.message : "Mail-Zugriff fehlgeschlagen.");
@@ -102,6 +102,12 @@ export class EmailFilingFeature implements LuKitFeature {
 			return;
 		}
 		this.presentMessage(metas, 0);
+	}
+
+	// Keeps only messages from included accounts, then applies the configured order.
+	private selectWalkMessages(metas: RawMailMessageMeta[]): RawMailMessageMeta[] {
+		const { walkAccounts } = this.plugin.settings.emailFiling;
+		return this.orderMessages(metas.filter((m) => isAccountIncluded(walkAccounts, m.accountName)));
 	}
 
 	private orderMessages(metas: RawMailMessageMeta[]): RawMailMessageMeta[] {
@@ -305,7 +311,15 @@ export class EmailFilingFeature implements LuKitFeature {
 		for (const account of Object.keys(settings.archiveMailboxes)) {
 			new Setting(containerEl)
 				.setName(account)
-				.setDesc("Archive mailbox for this account (e.g. Gmail → [Gmail]/All Mail)")
+				.setDesc("Toggle = include this account in the walk; field = its archive mailbox (e.g. Gmail → [Gmail]/All Mail)")
+				.addToggle((toggle) =>
+					toggle
+						.setValue(isAccountIncluded(settings.walkAccounts, account))
+						.onChange(async (value) => {
+							settings.walkAccounts[account] = value;
+							await plugin.saveSettings();
+						}),
+				)
 				.addText((text) =>
 					text
 						.setValue(settings.archiveMailboxes[account])
@@ -329,6 +343,11 @@ export class EmailFilingFeature implements LuKitFeature {
 							accounts,
 							settings.defaultArchiveMailbox,
 						);
+						for (const account of accounts) {
+							if (!(account in settings.walkAccounts)) {
+								settings.walkAccounts[account] = true;
+							}
+						}
 						await plugin.saveSettings();
 						this.bridge = this.makeBridge();
 						containerEl.empty();

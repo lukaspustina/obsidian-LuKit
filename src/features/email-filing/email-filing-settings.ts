@@ -4,13 +4,29 @@ export interface EmailFilingSettings {
 	defaultArchiveMailbox: string;
 	/** Maps Mail account name → archive mailbox name. */
 	archiveMailboxes: Record<string, string>;
+	/**
+	 * Maps Mail account name → whether its inbox is walked. An account absent
+	 * from the map (or set to true) is included; only an explicit `false`
+	 * excludes it. Lets the walk skip accounts the user doesn't triage here.
+	 */
+	walkAccounts: Record<string, boolean>;
 }
 
 export const DEFAULT_EMAIL_FILING_SETTINGS: EmailFilingSettings = {
 	order: "oldest",
 	defaultArchiveMailbox: "Archive",
 	archiveMailboxes: {},
+	walkAccounts: {},
 };
+
+// An account is included in the walk unless it is explicitly disabled
+// (false). Unknown accounts default to included, preserving prior behavior.
+export function isAccountIncluded(
+	walkAccounts: Record<string, boolean>,
+	account: string,
+): boolean {
+	return walkAccounts[account] !== false;
+}
 
 // Adds any detected account not already present in `existing`, defaulting its
 // mailbox to `def`. Existing entries are left untouched. Returns a new object.

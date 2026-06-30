@@ -64,7 +64,7 @@ The inbox is the queue: filing or dismissing a message moves it out of the inbox
 
 - **E-Mail: File inbox emails** — Walk the inbox. Per message: pick a target (then edit + confirm in a preview), `↪ Überspringen` (leave in inbox), `✕ Nicht ablegen` (archive without filing), or `→ Stopp` (open in Mail and stop). ESC stops.
 
-**Setup:** In Settings > LuKit, set the walk order, the default archive mailbox, and a per-account archive mailbox (use **Detect accounts** to populate them). Gmail accounts typically archive to `[Gmail]/All Mail`. Requires granting Obsidian permission to control Mail (System Settings → Privacy → Automation).
+**Setup:** In Settings > LuKit, set the walk order, the default archive mailbox, and a per-account archive mailbox (use **Detect accounts** to populate them). Each detected account also gets an **include-in-walk** toggle — uncheck accounts you don't triage here to keep the walk fast. Gmail accounts typically archive to `[Gmail]/All Mail`. Requires granting Obsidian permission to control Mail (System Settings → Privacy → Automation).
 
 ## Settings
 
