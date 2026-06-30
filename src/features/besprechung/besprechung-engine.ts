@@ -4,13 +4,26 @@ export {
 	extractCreatedDate,
 } from "../../shared/frontmatter";
 
+// Returns the heading level (1-6) if the line is a Markdown heading whose text
+// exactly matches `heading`, otherwise 0. Matches any level so notes that use
+// h1 sections (e.g. Granola-generated meeting notes) extract like h3 ones.
+function matchHeadingLevel(line: string, heading: string): number {
+	const trimmed = line.trim();
+	const match = /^(#{1,6}) /.exec(trimmed);
+	if (!match) return 0;
+	const level = match[1].length;
+	return trimmed.slice(level + 1) === heading ? level : 0;
+}
+
 export function extractSection(content: string, heading: string, bulletsOnly = false): string | null {
 	const lines = content.split("\n");
-	const target = `### ${heading}`;
 
 	let startIdx = -1;
+	let level = 0;
 	for (let i = 0; i < lines.length; i++) {
-		if (lines[i].trim() === target) {
+		const matched = matchHeadingLevel(lines[i], heading);
+		if (matched > 0) {
+			level = matched;
 			startIdx = i + 1;
 			break;
 		}
@@ -20,9 +33,11 @@ export function extractSection(content: string, heading: string, bulletsOnly = f
 		return null;
 	}
 
+	// End the section at the next heading of the same or higher level.
+	const sectionEnd = new RegExp(`^#{1,${level}} `);
 	let endIdx = lines.length;
 	for (let i = startIdx; i < lines.length; i++) {
-		if (/^#{1,3} /.test(lines[i])) {
+		if (sectionEnd.test(lines[i])) {
 			endIdx = i;
 			break;
 		}

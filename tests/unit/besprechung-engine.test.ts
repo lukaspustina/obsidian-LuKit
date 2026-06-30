@@ -96,6 +96,47 @@ describe("extractSection", () => {
 		expect(extractSection(content, "Solo")).toBe("Just this");
 	});
 
+	it("extracts an h1 section (Granola-style note)", () => {
+		const content = [
+			"# Nächste Schritte",
+			"- Do something",
+			"# Zusammenfassung",
+			"- A point",
+			"# Meine Notizen",
+			"prose",
+		].join("\n");
+		expect(extractSection(content, "Nächste Schritte")).toBe("- Do something");
+		expect(extractSection(content, "Zusammenfassung")).toBe("- A point");
+	});
+
+	it("an h1 section is not stopped by an h2 or h3 subheading", () => {
+		const content = [
+			"# Nächste Schritte",
+			"- Top bullet",
+			"## Subsection",
+			"- Nested bullet",
+			"### Deeper",
+			"more",
+			"# Zusammenfassung",
+			"- Summary",
+		].join("\n");
+		expect(extractSection(content, "Nächste Schritte")).toBe(
+			"- Top bullet\n## Subsection\n- Nested bullet\n### Deeper\nmore"
+		);
+	});
+
+	it("extracts an h2 section, stopping at the next h1 or h2", () => {
+		const content = [
+			"## Target",
+			"content",
+			"### Inner",
+			"inner content",
+			"## Next",
+			"other",
+		].join("\n");
+		expect(extractSection(content, "Target")).toBe("content\n### Inner\ninner content");
+	});
+
 	it("handles content with frontmatter before the section", () => {
 		const content = [
 			"---",
@@ -219,6 +260,36 @@ describe("formatBesprechungSummary", () => {
 		// Should not contain Meine Notizen content
 		expect(result.body).not.toContain("Meine Notizen");
 		expect(result.body).not.toContain("...");
+	});
+
+	it("extracts both sections from a Granola-style note with h1 headings", () => {
+		const content = [
+			"---",
+			"granola_id: not_abc",
+			"tags:",
+			"  - Besprechung",
+			"---",
+			"%% granola:enhanced:start %%",
+			"# Nächste Schritte",
+			"",
+			"Max:",
+			"- SOW unterzeichnen",
+			"",
+			"# Zusammenfassung",
+			"- SOW gelesen, gefällt",
+			"# Meine Notizen",
+			"Teilnehmer: ...",
+			"%% granola:enhanced:end %%",
+		].join("\n");
+
+		const result = formatBesprechungSummary(content);
+		expect(result.missing).toEqual([]);
+		expect(result.body).toContain("**Nächste Schritte**");
+		expect(result.body).toContain("- SOW unterzeichnen");
+		expect(result.body).toContain("**Zusammenfassung**");
+		expect(result.body).toContain("- SOW gelesen, gefällt");
+		expect(result.body).not.toContain("Meine Notizen");
+		expect(result.body).not.toContain("Teilnehmer");
 	});
 
 	it("preserves inline formatting within bullet lines", () => {
