@@ -13,7 +13,7 @@ Extends the email-filing feature so a filed Vorgang captures the whole conversat
 
 - Builds on the implemented base feature (`src/features/email-filing/`): the inbox walk, `MailBridge`, pure engines, `SectionNoteSuggestModal` keyboard scheme, in-walk routing/skip caches.
 - **Mail scripting cannot expose `References`/`In-Reply-To` headers**, so threads are identified heuristically by **correspondent address + normalized subject (`threadKey`)**. The editable preview is the backstop for mismatches.
-- **The Vorgänge already record what's filed**: each filed message leaves a `- siehe [E-Mail von <sender>: <subject>](message://%3C<id>%3E)` link (angle-bracketed, percent-encoded id, built by `buildMessageUrl`), and `##### E-Mail von <sender>` headings encode the correspondent. Dedup and cross-session routing mine this — **no new vault storage**. Persistent caches live in plugin data (`data.json`, via `loadData`/`saveData`) — **not** in the vault and **not** per-email notes.
+- **The Vorgänge already record what's filed**: each filed message leaves a `- siehe [E-Mail von <sender>: <subject>](message://%3C<id>%3E)` link (angle-bracketed, percent-encoded id, built by `buildMessageUrl`), and `##### E-Mail von <sender>` headings encode the correspondent. Dedup and cross-session routing mine this — **no new vault storage**. Persistent caches live in plugin settings (`data.json`, via `plugin.settings` + `saveSettings`) — **not** in the vault and **not** per-email notes.
 - macOS/Apple Mail only; bridge via `osascript` JXA (`child_process.execFile`, argv-passed values).
 - **Bridge mailbox scope:** The existing `lukitFindInInbox` helper searches only the INBOX mailbox. `listSentForThread` must search the account's Sent mailbox (configured per account in `sentMailboxes`). `getSelection` reads `selection of Mail` across any open mailbox. These are noted explicitly because the implementations differ.
 - **threadKey matching:** `listSentForThread` JXA returns all Sent messages to the named correspondent in the configured Sent mailbox. The TS layer then filters by `threadKey` using `stripSubjectPrefixes` (already imported from `email-format-engine.ts`) — no normalization inside JXA. This is consistent with the existing engine and keeps the JXA scripts simple and testable.
@@ -23,10 +23,10 @@ Extends the email-filing feature so a filed Vorgang captures the whole conversat
 
 1. When the user files an inbound message into a Vorgang, the system shall assemble the thread: the inbound message plus the user's Sent messages in the same thread, matched by **correspondent email address** and **`threadKey`** (normalized subject via `stripSubjectPrefixes`), ordered chronologically by sent date.
 2. The system shall exclude from assembly any message whose Message-ID already appears as a `message://` link in the **target Vorgang's current content** (de-duplication within and across sessions). `extractFiledMessageIds` parses links of the form `message://%3C<id>%3E` (angle brackets percent-encoded by `buildMessageUrl`) and URL-decodes each captured id via `decodeURIComponent`.
-3. The system shall render the assembled conversation as one h5 section whose body contains, per message in date order, a sub-header `**<DD.MM.YYYY> — <partyName> (eingegangen|gesendet):**`, the message body (stripped by `parseEmailBody`), a `- siehe [E-Mail von <partyName>: <strippedSubject>](<messageUrl>)` link, and an `Anhänge: <names>` line when attachments are present; messages are blank-line separated.
-4. After filing a thread, the system shall record its `threadKey` in the walk's `skippedThreads` set so the walk auto-skips remaining inbox messages of that thread (reusing the existing mechanism).
+3. The system shall render the assembled conversation as one h5 section whose body contains, per message in date order, a sub-header `**<DD.MM.YYYY> — <partyName> (eingegangen|gesendet):**`, the message body (stripped by `parseEmailBody`), a `- siehe [E-Mail von <partyName>: <strippedSubject>](<messageUrl>)` link, and an `Anhänge: <names>` line when attachments are present; messages are blank-line separated. Note: `formatThreadSection` places the `- siehe` link **after** each message's sub-header/body, whereas `formatEmailSection` places it **first** — implement and match accordingly.
+4. After filing a thread, the system shall record its `threadKey` in the walk's `skippedThreads` set so the walk auto-skips remaining inbox messages of that thread (reusing the existing `skippedThreads` Set — the post-file write-path itself is new; today `skippedThreads.add` is only called in `onSkip`).
 5. The system shall register a command "E-Mail: File selected Mail message" that files the message(s) currently selected in Apple Mail (any mailbox, including Sent) and their assembled thread into a chosen Vorgang, **without archiving** (capture-only). Archiving is never performed by this command, regardless of which mailbox the selected message came from.
-6. The system shall, at the start of a walk or single-shot command, build a `FiledRecord[]` corpus by mining existing section-note contents for prior email filings (`E-Mail von <sender>` headings → target note basename), and feed the combined corpus (mined + in-walk records) to `suggestFilingTargets`. The mined corpus is cached in `emailFiling.routingCache` in plugin data and is rebuilt when `routingCache.builtAt` is older than 24 hours (hardcoded constant `ROUTING_CACHE_TTL_MS = 24 * 60 * 60 * 1000` in `email-routing.ts`) or when no cache exists. The cache is also rebuilt after every successful filing (to reflect the just-filed record immediately). `section notes` for mining are all `TFile`s whose frontmatter tags include any of `Vorgang`, `Person`, `Bestellung`, `Bewerbung` — the same set `SectionNoteSuggestModal` lists as candidates.
+6. The system shall, at the start of a walk or single-shot command, build a `FiledRecord[]` corpus by mining existing section-note contents for prior email filings (`E-Mail von <sender>` headings → target note basename), and feed the combined corpus (mined + in-walk records) to `suggestFilingTargets`. The mined corpus is cached in `emailFiling.routingCache` in plugin settings and is rebuilt when `routingCache.builtAt` is older than 24 hours (hardcoded constant `ROUTING_CACHE_TTL_MS = 24 * 60 * 60 * 1000` in `email-routing.ts`) or when no cache exists. The cache is also rebuilt after every successful filing (to reflect the just-filed record immediately). `section notes` for mining are all `TFile`s whose frontmatter tags include any of `Vorgang`, `Person`, `Bestellung`, `Bewerbung` — the same set `SectionNoteSuggestModal` lists as candidates.
 7. The system shall not create per-email notes; the Vorgänge and the hidden plugin-data routing cache are the only persistence.
 8. Sent messages shall never be archived or moved; only the inbound message of a filed thread is archived (by the existing walk contract). The single-shot command archives nothing.
 
@@ -41,7 +41,7 @@ Inbox walk — on Pick (file):
   assemble = [inbound, ...sentReplies].filter(m => !alreadyFiled.has(m.id)), sorted by dateSent
   formatThreadSection(assemble, subject, locale)  (pure)  → { sectionName, bodyLines }
   addVorgangSection(content, sectionName, locale, latestDate, bodyLines) → vault.modify
-  skippedThreads.add(threadKey(subject))         (existing mechanism)
+  skippedThreads.add(threadKey(subject))   (existing skippedThreads Set; post-file write-path is new)
 
 Single-shot "E-Mail: File selected Mail message":
   bridge.getSelection()  [osascript JXA]  → selected message(s) across any mailbox
@@ -55,23 +55,26 @@ Single-shot "E-Mail: File selected Mail message":
 Cross-session routing (called at walk/command start):
   isCacheStale(routingCache, now)  (pure, injectable now: number)
   → stale: scan all section-note TFiles, mineVorgangFilings(content, basename) per file
-           write routingCache = { builtAt: now.toISOString(), records } to data.json
-  → fresh: use routingCache.records
+           set this.plugin.settings.emailFiling.routingCache = { builtAt: now.toISOString(), records }
+           await this.plugin.saveSettings()
+  → fresh: use this.plugin.settings.emailFiling.routingCache.records
   suggestFilingTargets(title, [...routingCache.records, ...walkFiledRecords], candidates, opts)
 ```
 
 ## File & Module Structure
 
 New files (in `src/features/email-filing/`):
-- `email-routing.ts` — pure: `mineVorgangFilings`, `isCacheStale`, `ROUTING_CACHE_TTL_MS`
+- `email-routing.ts` — pure: `mineVorgangFilings`, `minedFilingsToFiledRecords`, `isCacheStale`, `ROUTING_CACHE_TTL_MS`
 - New JXA script constants added to `mail-bridge.ts`: `LIST_SENT_FOR_THREAD_JS`, `GET_SELECTION_JS`
 - New methods on `MailBridge` interface in `mail-bridge.ts`: `listSentForThread`, `getSelection`
+- New helper in `mail-bridge.ts`: `parseSenderAddress(sender: string): string` (regex `match[2]`, raw-string fallback; `parseSenderName` is NOT modified)
 
 Modified files:
 - `src/features/email-filing/email-format-engine.ts` — add `extractFiledMessageIds`, `formatThreadSection`
 - `src/features/email-filing/email-filing-settings.ts` — add `sentMailboxes: Record<string, string>`, `routingCache?: RoutingCache` to `EmailFilingSettings`; update `DEFAULT_EMAIL_FILING_SETTINGS`; update `mergeDetectedAccounts` to populate `sentMailboxes` alongside `archiveMailboxes`
-- `src/features/email-filing/email-filing-feature.ts` — add `listSentForThread` call in file path; add single-shot command; add routing-cache load/rebuild at walk/command start; update settings UI to show `sentMailboxes` per-account field
-- `src/types.ts` — update `mergeSettings` to deep-merge new `sentMailboxes` and `routingCache` fields (matching the existing `archiveMailboxes` pattern)
+- `src/features/email-filing/email-filing-feature.ts` — add `listSentForThread` call in file path; add single-shot command; add routing-cache load/rebuild at walk/command start; update settings UI to show `sentMailboxes` per-account field; update `makeBridge()` to call `createOsascriptBridge(s.archiveMailboxes, s.defaultArchiveMailbox, s.sentMailboxes, s.defaultSentMailbox)`
+- `src/types.ts` — extend `mergeSettings` with explicit per-key spread for `sentMailboxes` (extends the existing shallow per-key spread; see Configuration section); add corresponding `tests/unit/types.test.ts` assertion
+- `tests/acceptance/email-filing-feature.test.ts` — extend the existing `fakeBridge()` object literal with defaults `listSentForThread: vi.fn(async () => [])` and `getSelection: vi.fn(async () => [])` so existing acceptance tests continue to compile under strict mode
 
 New test files:
 - `tests/unit/email-routing.test.ts` — unit tests for `mineVorgangFilings`, `isCacheStale`
@@ -87,7 +90,8 @@ New test files:
 // Add to the existing interface:
 export interface RawMailMessageMeta {
   // …existing fields…
-  /** Sender's email address (inbound messages). Used to match Sent replies. */
+  /** Sender's email address (inbound messages). Used to match Sent replies.
+   *  Populated by parseSenderAddress(sender) in listInbox. */
   senderAddress: string;  // NEW
 }
 
@@ -148,13 +152,19 @@ export interface MailBridge {
   getSelection(): Promise<SelectedMessage[]>;
 }
 
-// Updated createOsascriptBridge signature — gains sentMailboxes:
+// Updated createOsascriptBridge signature — gains sentMailboxes and defaultSentMailbox:
 export function createOsascriptBridge(
   archiveMailboxes: Record<string, string>,
   defaultArchiveMailbox: string,
   sentMailboxes: Record<string, string>,
   defaultSentMailbox: string,
 ): MailBridge;
+
+// New helper (not exported on the interface; used internally by listInbox):
+// parseSenderAddress(sender: string): string
+//   Regex: same "Display Name <addr>" pattern as parseSenderName, capturing match[2] (the address).
+//   Falls back to the raw string when no "<…>" bracket is present.
+//   parseSenderName is NOT modified.
 ```
 
 ```ts
@@ -177,9 +187,13 @@ export function extractFiledMessageIds(vorgangContent: string): Set<string>;
  *
  * bodyLines (per message, blank-line separated between messages):
  *   "**<DD.MM.YYYY> — <partyName> (eingegangen|gesendet):**"
- *   "- siehe [E-Mail von <partyName>: <strippedSubject>](<messageUrl>)"
  *   <body lines, if any>
+ *   "- siehe [E-Mail von <partyName>: <strippedSubject>](<messageUrl>)"
  *   "Anhänge: <name1>, <name2>"  (omitted when no attachments)
+ *
+ * Note: the `- siehe` link appears AFTER the sub-header/body (contrast with
+ * formatEmailSection, which places it FIRST). Keep this order consistent when
+ * writing the render logic and when updating mineVorgangFilings matchers.
  *
  * Messages are sorted by dateSent ascending before rendering (caller may pre-sort;
  * this function re-sorts to guarantee order).
@@ -230,7 +244,16 @@ export function mineVorgangFilings(content: string, basename: string): MinedFili
 
 /**
  * Converts MinedFiling records to FiledRecord[] for use with suggestFilingTargets.
- * correspondent → rawTitle, target → target, filedAt → null.
+ *
+ * rawTitle = subject (for both "E-Mail von" and "E-Mail-Thread" headings).
+ * The subject is present in both heading forms and produces non-zero token signal
+ * when matched against the incoming email's title `${subject} ${sender}`.
+ * When a sender is also present (the "E-Mail von" form), it may optionally be
+ * appended to rawTitle as `${subject} ${correspondent}` to mirror that live title.
+ * "E-Mail-Thread" headings have an empty correspondent; using subject alone avoids
+ * zero-token records that produce no routing signal.
+ *
+ * target → target, filedAt → null.
  */
 export function minedFilingsToFiledRecords(filings: MinedFiling[]): FiledRecord[];
 
@@ -294,7 +317,8 @@ export const DEFAULT_EMAIL_FILING_SETTINGS: EmailFilingSettings = {
 
 The "Detect accounts" button in settings populates `sentMailboxes` (with `defaultSentMailbox` as the default value) alongside `archiveMailboxes`, for any account not already present. The settings UI renders one additional text field per account for the Sent mailbox name, immediately below the archive mailbox field for that account.
 
-`mergeSettings` in `src/types.ts` must deep-merge the new fields:
+`mergeSettings` in `src/types.ts` extends the existing shallow per-key spread with explicit per-key spreads for `sentMailboxes` (and the pre-existing `archiveMailboxes`, `walkAccounts`). This is a defensive extension, not a bugfix — the existing `...(saved.emailFiling ?? {})` spread is already sufficient for `Record` fields whose default is `{}`. `routingCache` is preserved on load by that same spread without special handling. The resulting block:
+
 ```ts
 emailFiling: {
   ...DEFAULT_EMAIL_FILING_SETTINGS,
@@ -304,6 +328,8 @@ emailFiling: {
   walkAccounts:     { ...DEFAULT_EMAIL_FILING_SETTINGS.walkAccounts,     ...(saved.emailFiling?.walkAccounts ?? {}) },
 }
 ```
+
+`tests/unit/types.test.ts` must include an assertion that a saved `emailFiling.sentMailboxes` (e.g. `{ Gmail: "Sent Mail" }`) survives `mergeSettings` without losing defaults, mirroring the existing `archiveMailboxes` round-trip assertion.
 
 ## Error Handling
 
@@ -319,11 +345,15 @@ emailFiling: {
 
 ## Phase 1 — Conversation assembly & dedup
 
-Add `senderAddress: string` to `RawMailMessageMeta` (updated in `mail-bridge.ts` and the `LIST_INBOX_JS` JXA script — parse the sender address from the `sender` field in `parseSenderName`, or expose it as a separate JXA property).
+Add `senderAddress: string` to `RawMailMessageMeta` (updated in `mail-bridge.ts` and the `LIST_INBOX_JS` JXA script). Add a new `parseSenderAddress(sender: string): string` helper in `mail-bridge.ts`: uses the same `"Display Name <addr>"` regex as `parseSenderName` but captures the address part (`match[2]`), falling back to the raw string when no `<…>` bracket is present. `listInbox` populates `senderAddress` by calling `parseSenderAddress(rawSender)` alongside `senderName`. **`parseSenderName` is NOT modified.**
 
 Add `listSentForThread` to the `MailBridge` interface and implement it in `createOsascriptBridge`. The `LIST_SENT_FOR_THREAD_JS` JXA script searches `sentMailboxes[accountName] ?? defaultSentMailbox` for messages where any recipient address matches `correspondentAddress`. It returns all such messages (raw subject, not normalized); the TS wrapper filters by `threadKey`. All three values (`accountName`, `correspondentAddress`, `sentMailboxName`) are passed as argv — never interpolated.
 
-Add `extractFiledMessageIds` and `formatThreadSection` to `email-format-engine.ts`.
+Update `makeBridge()` in `email-filing-feature.ts` to call `createOsascriptBridge(s.archiveMailboxes, s.defaultArchiveMailbox, s.sentMailboxes, s.defaultSentMailbox)`. This step is gated on the `EmailFilingSettings` additions (`sentMailboxes`, `defaultSentMailbox`) landing first.
+
+Extend the existing `fakeBridge()` object literal in `tests/acceptance/email-filing-feature.test.ts` with two new default methods: `listSentForThread: vi.fn(async () => [])` and `getSelection: vi.fn(async () => [])`. This is required so existing acceptance tests continue to compile under strict mode after `listSentForThread` and `getSelection` are added to the `MailBridge` interface.
+
+Add `extractFiledMessageIds` and `formatThreadSection` to `email-format-engine.ts`. Note that `formatThreadSection` places the `- siehe` link **after** each message's sub-header/body; `formatEmailSection` places it **first** — implement accordingly.
 
 In `email-filing-feature.ts`, update `fileEmailIntoVorgang` to:
 1. Read target Vorgang content (`vault.read`) before the archive step.
@@ -333,7 +363,7 @@ In `email-filing-feature.ts`, update `fileEmailIntoVorgang` to:
 5. Assemble `[inboundAsThreadMessage, ...filteredReplies]`, filter out already-filed ids, sort by dateSent.
 6. Call `formatThreadSection` to get `{ sectionName, bodyLines }`.
 7. Call `addVorgangSection(content, sectionName, locale, latestDate, bodyLines)` where `latestDate` is the latest `dateSent` in the assembled messages.
-8. After a successful `vault.modify`, add `threadKey(meta.subject)` to `skippedThreads`.
+8. After a successful `vault.modify`, add `threadKey(meta.subject)` to `skippedThreads` (reusing the existing `skippedThreads` Set — the post-file write-path itself is new; today `skippedThreads.add` is only called in `onSkip`).
 
 When `listSentForThread` rejects: log error type, show Notice, proceed with assembly of `[inboundAsThreadMessage]` only (still dedups, still records threadKey).
 
@@ -345,7 +375,7 @@ Phase complete when: unit tests for `extractFiledMessageIds` and `formatThreadSe
 
 - GIVEN content `"- siehe [E-Mail von Alice: Angebot](message://%3Cm1%3E)"`, WHEN `extractFiledMessageIds(content)`, THEN the returned Set contains `"m1"` and has size 1.
 - GIVEN content with no `message://` links, WHEN `extractFiledMessageIds(content)`, THEN returns an empty Set.
-- GIVEN messages `[{id:"m2", direction:"in", dateSent:"2026-06-01T09:00Z", partyName:"Alice", body:"Hallo", attachments:[], messageUrl:"message://%3Cm2%3E"}, {id:"m3", direction:"out", dateSent:"2026-06-01T10:00Z", partyName:"Lukas", body:"Danke", attachments:[], messageUrl:"message://%3Cm3%3E"}]`, subject `"Angebot"`, locale `"de"`, WHEN `formatThreadSection(messages, "Angebot", "de")`, THEN `sectionName === "E-Mail-Thread: Angebot"`, `bodyLines` contains `"**01.06.2026 — Alice (eingegangen):**"` before `"**01.06.2026 — Lukas (gesendet):**"`, and both `message://%3Cm2%3E` and `message://%3Cm3%3E` appear in `bodyLines` in that order.
+- GIVEN messages `[{id:"m2", direction:"in", dateSent:"2026-06-01T09:00Z", partyName:"Alice", body:"Hallo", attachments:[], messageUrl:"message://%3Cm2%3E"}, {id:"m3", direction:"out", dateSent:"2026-06-01T10:00Z", partyName:"Lukas", body:"Danke", attachments:[], messageUrl:"message://%3Cm3%3E"}]`, subject `"Angebot"`, locale `"de"`, WHEN `formatThreadSection(messages, "Angebot", "de")`, THEN `sectionName === "E-Mail-Thread: Angebot"`, `bodyLines` contains `"**01.06.2026 — Alice (eingegangen):**"` before `"**01.06.2026 — Lukas (gesendet):**"`, and both `message://%3Cm2%3E` and `message://%3Cm3%3E` appear in `bodyLines` in that order (each after its respective sub-header/body).
 - GIVEN assembled messages contain id `"m1"` and the target Vorgang already links `message://%3Cm1%3E`, WHEN dedup is applied upstream by the caller, THEN `formatThreadSection` is called without `m1` (it is filtered before `formatThreadSection`).
 - GIVEN a fake bridge where `listSentForThread` returns one Sent reply with matching threadKey, WHEN a walk files an inbound message, THEN the written Vorgang content includes both the inbound and Sent message blocks in date order.
 - GIVEN a fake bridge where `listSentForThread` rejects, WHEN a walk files an inbound message, THEN only the inbound block is written and a Notice containing "Gesendete Nachrichten" is shown.
@@ -386,19 +416,23 @@ Create `src/features/email-filing/email-routing.ts` with `mineVorgangFilings`, `
 
 `isCacheStale(builtAt, now)` returns `true` when `builtAt` is `undefined` or when `now - new Date(builtAt).getTime() > ROUTING_CACHE_TTL_MS`.
 
+`minedFilingsToFiledRecords` uses the parsed section **subject** as `FiledRecord.rawTitle` for both heading forms. For `E-Mail von <sender>: <subject>` headings, the sender may optionally be appended (`${subject} ${correspondent}`) to mirror the live title `${subject} ${sender}` and improve matching signal. `E-Mail-Thread` headings have an empty `correspondent`; using subject alone avoids zero-token `rawTitle` values that produce no routing signal. `target → target`, `filedAt → null`.
+
 In `email-filing-feature.ts`, add a private `buildRoutingCorpus(now: number): Promise<FiledRecord[]>` method:
-1. Load current settings (`this.plugin.loadData()`).
-2. Call `isCacheStale(settings.emailFiling.routingCache?.builtAt, now)`.
-3. If stale: scan all vault `TFile`s with `frontmatterTagsInclude(tags, SECTION_NOTE_TAGS)`; for each, call `mineVorgangFilings(await vault.read(file), file.basename)`; collect all `MinedFiling[]`; convert via `minedFilingsToFiledRecords`; write `routingCache = { builtAt: new Date(now).toISOString(), records }` to plugin data via `saveData`; return records. On any read error for a file, skip that file (`console.warn`, PII-safe). If the full mine fails entirely, retain the previous cache (or return `[]` if no prior cache exists).
-4. If fresh: return `routingCache.records`.
+1. Read the cache from `this.plugin.settings.emailFiling.routingCache`.
+2. Call `isCacheStale(this.plugin.settings.emailFiling.routingCache?.builtAt, now)`.
+3. If stale: scan all vault `TFile`s with `frontmatterTagsInclude(tags, SECTION_NOTE_TAGS)`; for each, call `mineVorgangFilings(await vault.read(file), file.basename)`; collect all `MinedFiling[]`; convert via `minedFilingsToFiledRecords`; set `this.plugin.settings.emailFiling.routingCache = { builtAt: new Date(now).toISOString(), records }`; call `await this.plugin.saveSettings()`; return records. On any read error for a file, skip that file (`console.warn`, PII-safe). If the full mine fails entirely, retain the previous cache (or return `[]` if no prior cache exists).
+4. If fresh: return `this.plugin.settings.emailFiling.routingCache.records`.
+
+Do NOT call `this.plugin.loadData()` directly — it reads from disk but leaves the in-memory `plugin.settings` stale, causing a split-brain state. All cache reads and writes go through `this.plugin.settings.emailFiling.routingCache` and `await this.plugin.saveSettings()`, consistent with how the feature mutates all other settings.
 
 Call `buildRoutingCorpus(Date.now())` at the start of `beginWalk()` and at the start of the single-shot command, before opening any picker. Combine the returned corpus with `this.walkFiledRecords` and pass to `suggestFilingTargets`.
 
-After each successful filing (after `vault.modify` succeeds), rebuild the routing corpus immediately: call `buildRoutingCorpus(Date.now())` again (which will be stale since we just wrote a new record — or update the in-memory corpus directly by re-running the mine). Simpler: after a successful filing, invalidate the cache by setting `routingCache.builtAt` to `new Date(0).toISOString()` in plugin data; the next call to `buildRoutingCorpus` will rescan. This avoids a second vault scan in the same walk.
+After each successful filing (after `vault.modify` succeeds), invalidate the cache by setting `this.plugin.settings.emailFiling.routingCache.builtAt` to `new Date(0).toISOString()` then calling `await this.plugin.saveSettings()`. The next call to `buildRoutingCorpus` will rescan. This avoids a second vault scan in the same walk.
 
 The `isCacheStale` and `mineVorgangFilings` functions accept `now: number` (epoch ms) as an explicit parameter so they are testable without mocking `Date`.
 
-**Format contract (pinned):** `mineVorgangFilings` must match headings produced by `formatEmailSection` (`E-Mail von <sender>: <subject>`) and `formatThreadSection` (`E-Mail-Thread: <subject>`). If either format changes in Phase 1, `mineVorgangFilings` must be updated in the same commit.
+**Format contract (pinned):** `mineVorgangFilings` must match headings produced by `formatEmailSection` (`E-Mail von <sender>: <subject>`) and `formatThreadSection` (`E-Mail-Thread: <subject>`). Note: `formatThreadSection` places the `- siehe` link after each message's sub-header/body, while `formatEmailSection` places it first — both heading prefixes are stable identifiers for `mineVorgangFilings`. If either format changes in Phase 1, `mineVorgangFilings` must be updated in the same commit.
 
 Phase complete when: unit tests for `mineVorgangFilings` and `isCacheStale` pass; an acceptance test verifies suggestions reflect a correspondent filed into a Vorgang in a prior session (via the mined corpus); a test verifies `isCacheStale` returns `true` when `builtAt` is >24h ago and `false` when fresh; existing suggestion tests still pass; `npm run test` + `npm run build` green.
 
@@ -410,14 +444,15 @@ Phase complete when: unit tests for `mineVorgangFilings` and `isCacheStale` pass
 - GIVEN `isCacheStale(undefined, Date.now())`, THEN returns `true`.
 - GIVEN `isCacheStale(new Date(Date.now() - ROUTING_CACHE_TTL_MS - 1).toISOString(), Date.now())`, THEN returns `true`.
 - GIVEN `isCacheStale(new Date(Date.now() - 3600_000).toISOString(), Date.now())` (1 hour ago), THEN returns `false`.
-- GIVEN a mined corpus `[{ correspondent: "alice@example.com", subject: "Angebot", target: "Müller GmbH" }]` converted to `FiledRecord[]`, WHEN `suggestFilingTargets` is called for a message from alice@example.com, THEN "Müller GmbH" appears in the ranked candidates.
-- GIVEN `routingCache.builtAt` is >24h old, WHEN walk starts, THEN `buildRoutingCorpus` rescans the vault and updates `routingCache` in plugin data before the first picker opens.
+- GIVEN content `"##### E-Mail-Thread: Budget-Planung, 15.06.2026\n"` mined into a `MinedFiling` and converted via `minedFilingsToFiledRecords`, WHEN inspecting the resulting `FiledRecord`, THEN `rawTitle === "Budget-Planung"` (the subject, not the empty correspondent).
+- GIVEN a mined corpus `[{ correspondent: "alice@example.com", subject: "Angebot", target: "Müller GmbH" }]` converted to `FiledRecord[]` (rawTitle = `"Angebot alice@example.com"`), WHEN `suggestFilingTargets` is called for a message from alice@example.com about "Angebot", THEN "Müller GmbH" appears in the ranked candidates.
+- GIVEN `routingCache.builtAt` is >24h old, WHEN walk starts, THEN `buildRoutingCorpus` rescans the vault, updates `this.plugin.settings.emailFiling.routingCache`, calls `saveSettings()`, and returns the fresh records before the first picker opens.
 - GIVEN all pre-existing email-filing and besprechung suggestion tests, WHEN `npm run test` is run after Phase 3, THEN all pass.
 
 ## Decision Log
 
 - **Vorgänge are the record (no new vault storage for dedup/routing).** Filed `message://` ids and `E-Mail von` headings already encode what's filed and to whom; dedup reads the target Vorgang, routing mines section-note contents. Chosen over a vault ledger/per-email notes ("doubles", rejected).
-- **Persistence, where needed, lives in `data.json` (plugin data), not the vault.** A hidden routing cache is not a vault note and not a "double"; it respects "no additional storage in the vault."
+- **Persistence, where needed, lives in plugin settings (`data.json`), not the vault.** The routing cache is read from `this.plugin.settings.emailFiling.routingCache` and persisted via `this.plugin.settings.emailFiling.routingCache = {...}` then `await this.plugin.saveSettings()` — consistent with all other settings mutations. `loadData()` is never called directly (it leaves in-memory settings stale). A hidden routing cache is not a vault note and not a "double"; it respects "no additional storage in the vault."
 - **Thread identity = correspondent address + `threadKey`.** `References`/`In-Reply-To` headers are not exposed to Mail scripting; subject+correspondent is the tightest available signal. Subject-only over-groups on generic subjects. The preview is the backstop.
 - **Assemble inbound + Sent only; do not reconstruct from Archive.** Reaching into Archive for older received messages risks re-including content filed in a prior session. Dedup against the target plus pulling Sent covers the live conversation; Archive reconstruction rejected.
 - **Sent messages are never archived/moved.** Archiving is an inbox-zero action on received mail; Sent stays in Sent. The single-shot command archives nothing (capture-only, regardless of mailbox).
@@ -425,12 +460,16 @@ Phase complete when: unit tests for `mineVorgangFilings` and `isCacheStale` pass
 - **Routing cache TTL is 24 hours, hardcoded.** `ROUTING_CACHE_TTL_MS = 24 * 60 * 60 * 1000` in `email-routing.ts`; not user-configurable. Cache is also invalidated (builtAt set to epoch 0) after each successful filing so the next call to `buildRoutingCorpus` rescans immediately. Chosen as a concrete resolution over vague "e.g. a day" language.
 - **Single-shot "File selected" is strictly capture-only.** `archive` is never called by the single-shot command, regardless of which mailbox the selected message came from. The walk is the archiving path. Predictable and consistent.
 - **JXA returns all Sent to correspondent; TS filters by threadKey.** `listSentForThread` JXA script does not normalize subjects; it returns all Sent messages to the named address. The TS wrapper filters by `threadKey(reply.subject) === threadKey(inbound.subject)` using the existing `stripSubjectPrefixes` function. Keeps JXA simple and the normalization logic testable.
-- **`sentMailboxes` mirrors `archiveMailboxes` pattern.** Per-account Sent mailbox name, populated by the "Detect accounts" button, with a `defaultSentMailbox` fallback. Necessary because Sent mailbox names vary by account type and locale.
+- **`sentMailboxes` mirrors `archiveMailboxes` pattern.** Per-account Sent mailbox name, populated by the "Detect accounts" button, with a `defaultSentMailbox` fallback. Necessary because Sent mailbox names vary by account type and locale. `makeBridge()` passes both `s.sentMailboxes` and `s.defaultSentMailbox` to `createOsascriptBridge`.
 - **First To: recipient is the correspondent for outbound messages.** When a selected Sent message has multiple recipients, `partyAddress` is the first To: address and `partyName` is the first To: display name. Deterministic; handles the common case.
 - **mineVorgangFilings scope = section-note tags.** Scans all TFiles with frontmatter tags `Vorgang|Person|Bestellung|Bewerbung` — the same set as `SectionNoteSuggestModal` candidates. Avoids scanning the entire vault.
 - **`isCacheStale` accepts `now: number` parameter.** Makes TTL logic testable as a pure function without mocking `Date.now()`.
-- **Format contract pinned between Phase 1 and Phase 3.** `mineVorgangFilings` targets exactly the heading formats produced by `formatEmailSection` and `formatThreadSection`. Changes to either format must update `mineVorgangFilings` in the same commit.
+- **Format contract pinned between Phase 1 and Phase 3.** `mineVorgangFilings` targets exactly the heading formats produced by `formatEmailSection` and `formatThreadSection`. Note: `formatThreadSection` places `- siehe` after each sub-header/body; `formatEmailSection` places it first — both heading prefixes remain stable identifiers. Changes to either format must update `mineVorgangFilings` in the same commit.
 - **`getSelection` direction: exact match when configured, `"sent"` substring fallback otherwise.** When the account has a `sentMailboxes[accountName]` entry, `direction` is `"out"` iff `mailboxName` equals it exactly. When the account has no entry (e.g. "Detect accounts" not yet run), fall back to a case-insensitive substring match: `direction = "out"` iff `mailboxName.toLowerCase().includes("sent")`. This handles localized/Gmail Sent names before detection without exposing full mailbox paths from JXA. (Resolves the prior open decision.)
+- **`parseSenderAddress` is a new helper; `parseSenderName` is unchanged.** `parseSenderAddress(sender: string): string` uses the same `"Display Name <addr>"` regex as `parseSenderName` but captures `match[2]` (the address), falling back to the raw string. Adding a separate helper avoids modifying the existing tested function. `listInbox` calls both in parallel: `senderName = parseSenderName(raw)`, `senderAddress = parseSenderAddress(raw)`.
+- **`minedFilingsToFiledRecords` uses subject as `rawTitle`.** For both `E-Mail von <sender>: <subject>` and `E-Mail-Thread: <subject>` headings, `rawTitle = subject` (optionally `${subject} ${correspondent}` for the "von" form). Using `correspondent` alone for thread records yields an empty string → zero tokens → zero routing signal. Subject is present in both forms and produces useful Jaccard signal. Empty-correspondent thread records now contribute routing signal.
+- **`fakeBridge()` extended for new interface methods.** The existing `fakeBridge()` object literal in `tests/acceptance/email-filing-feature.test.ts` is extended with `listSentForThread: vi.fn(async () => [])` and `getSelection: vi.fn(async () => [])` defaults so existing tests compile after the interface additions under strict mode.
+- **`mergeSettings` change is an extension, not a bugfix.** The explicit per-key spread for `sentMailboxes` (mirroring `archiveMailboxes`) is defensive — the existing `...(saved.emailFiling ?? {})` spread already preserves `Record` fields and `routingCache`. The extension makes merging explicit and consistent. A `types.test.ts` assertion verifies a saved `emailFiling.sentMailboxes` (e.g. `{ Gmail: "Sent Mail" }`) survives `mergeSettings`.
 
 ## Open Decisions
 
