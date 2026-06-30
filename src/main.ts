@@ -6,6 +6,7 @@ import { WorkDiaryFeature } from "./features/work-diary/work-diary-feature";
 import { VorgangFeature } from "./features/vorgang/vorgang-feature";
 import { BesprechungFeature } from "./features/besprechung/besprechung-feature";
 import { MigrationFeature } from "./features/migration/migration-feature";
+import { EmailFilingFeature } from "./features/email-filing/email-filing-feature";
 import { HelpModal } from "./shared/modals/help-modal";
 
 const LUKIT_ICON_SVG = `<rect x="18.75" y="18.75" width="18.75" height="18.75" rx="3.5" fill="currentColor"/><rect x="18.75" y="40.625" width="18.75" height="18.75" rx="3.5" fill="currentColor"/><rect x="18.75" y="62.5" width="18.75" height="18.75" rx="3.5" fill="currentColor"/><rect x="40.625" y="62.5" width="18.75" height="18.75" rx="3.5" fill="currentColor"/><rect x="62.5" y="62.5" width="18.75" height="18.75" rx="3.5" fill="currentColor"/>`;
@@ -22,6 +23,7 @@ export default class LuKitPlugin extends Plugin {
 		this.features.push(new VorgangFeature());
 		this.features.push(new BesprechungFeature());
 		this.features.push(new MigrationFeature());
+		this.features.push(new EmailFilingFeature());
 
 		loadFeatures(this.features, this, (id, e) => {
 			console.error(`LuKit: Failed to load feature ${id}:`, e);

@@ -1,6 +1,8 @@
 import type LuKitPlugin from "./main";
 import type { DateLocale } from "./shared/date-format";
 import { isDateLocale } from "./shared/date-format";
+import type { EmailFilingSettings } from "./features/email-filing/email-filing-settings";
+import { DEFAULT_EMAIL_FILING_SETTINGS } from "./features/email-filing/email-filing-settings";
 
 export interface WorkDiarySettings {
 	diaryNotePath: string;
@@ -34,6 +36,7 @@ export interface LuKitSettings {
 	dateLocale: DateLocale;
 	workDiary: WorkDiarySettings;
 	besprechung: BesprechungSettings;
+	emailFiling: EmailFilingSettings;
 }
 
 export const LUKIT_ICON_ID = "lukit-logo";
@@ -50,6 +53,7 @@ export const DEFAULT_SETTINGS: LuKitSettings = {
 		pendingOrder: "oldest",
 		selfNameStopwords: [],
 	},
+	emailFiling: DEFAULT_EMAIL_FILING_SETTINGS,
 };
 
 export function mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings {
@@ -67,5 +71,6 @@ export function mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings {
 		dateLocale,
 		workDiary: { ...DEFAULT_SETTINGS.workDiary, ...(saved.workDiary ?? {}) },
 		besprechung: { ...DEFAULT_SETTINGS.besprechung, ...(saved.besprechung ?? {}) },
+		emailFiling: { ...DEFAULT_EMAIL_FILING_SETTINGS, ...(saved.emailFiling ?? {}) },
 	};
 }

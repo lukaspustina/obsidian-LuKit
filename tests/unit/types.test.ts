@@ -53,6 +53,11 @@ describe("mergeSettings", () => {
 				pendingOrder: "newest" as const,
 				selfNameStopwords: ["Mustermann"],
 			},
+			emailFiling: {
+				order: "newest" as const,
+				defaultArchiveMailbox: "Archiv",
+				archiveMailboxes: { Gmail: "[Gmail]/All Mail" },
+			},
 		};
 		const merged = mergeSettings(input);
 		expect(merged).toEqual(input);

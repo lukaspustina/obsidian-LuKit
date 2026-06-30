@@ -54,6 +54,14 @@ Auto-detects and converts old-format notes to current format. Idempotent (safe t
 - **Diary notes** (no Inhalt section): bold date headers → h5
 - Engine: `migration-engine.ts` (reuses `vorgang-engine.ts` helpers), Feature: `migration-feature.ts`
 
+### Email Filing (`src/features/email-filing/`)
+macOS/Apple Mail only. Walks the Apple Mail inbox and files each message into a section note (Vorgang/Person/Bestellung/Bewerbung), mirroring Besprechung's "File pending" flow. Inbox-zero: the inbox IS the pending queue; filing/dismissing moves the message to the account's archive mailbox; **no email state is stored in the vault**.
+- "File inbox emails" command (`email-filing-walk`): walks `listInbox()` in `order` (oldest/newest); per message opens `SectionNoteSuggestModal` (name-match suggestions + relabeled Skip/Don't-file/Stop entries). Pick → `EmailPreviewModal` (editable body) → on confirm the **archive-first → verify (`isInInbox`) → modify Vorgang** contract runs (any failed step shows an error Notice and skips the rest). Don't-file archives without filing; Skip leaves in inbox; Stop+open opens via `message://` and halts; a concurrent-walk guard rejects re-entry.
+- Body extraction is plain-text only (`parseEmailBody`): strips `>` quotes, Apple Mail `Am … schrieb:`, German Outlook `Von:/Gesendet:` blocks, `-----Ursprüngliche Nachricht-----`, and `-- ` signatures, biased to under-trim. Inline images are filtered (`filterAttachments`); only real attachments are listed (`Anhänge:`). HTML→markdown is a deferred v2 concern.
+- Engines (pure): `email-quote-engine.ts` (`parseEmailBody`), `email-format-engine.ts` (`formatEmailSection`, `filterAttachments`, `sanitizeSenderSubject`, `stripSubjectPrefixes`, `buildMessageUrl`, `MailAttachment`, `EmailMeta`). Bridge (impure, injectable): `mail-bridge.ts` (`createOsascriptBridge` over `osascript` JXA via `child_process.execFile`; runtime values passed as **argv, never interpolated**; `child_process` externalized in the plugin esbuild bundle). Feature: `email-filing-feature.ts` (inline `renderSettings` with a "Detect accounts" button). Settings: `email-filing-settings.ts` (`order`, `defaultArchiveMailbox`, per-account `archiveMailboxes`).
+- Name-match suggestions reuse `suggestFilingTargets` with an **empty corpus** + explicit `minScore` (no `besprechung-suggest-engine` change). Console logging is PII-safe (error type only, never subject/sender).
+- **Status:** Phases 1–4 implemented; the osascript bridge's live behavior (esp. Gmail archive mailbox) awaits a manual smoke test against real accounts — see `specs/sdd/email-filing.report.md`.
+
 ### CLI (`src/cli.ts` → `cli.js`)
 Command-line interface for use outside Obsidian. Commands: `add-text-to-diary`, `ensure-today-header`, `add-diary-entry`, `add-reminder`, `init-config`. Uses `~/.lukit.json` config (includes `dateLocale` field). LaunchBar actions in `launchbar/` directory for macOS integration.
 

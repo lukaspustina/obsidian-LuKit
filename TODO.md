@@ -8,3 +8,4 @@
 - [x] Migration: auto-detect Vorgang vs Diary notes, top-level bold → h1, Fakten → Fakten und Pointer rename, frontmatter tag insertion
 - [x] Diary: Add current note — one-step diary entry from the active note (heading at cursor, no modals)
 - [x] Vorgang: Add section now also creates a linked diary entry automatically
+- [x] Email Filing: walk Apple Mail inbox, file each message into a Vorgang/Person/Bestellung/Bewerbung note (engines, bridge, feature) — osascript bridge pending manual smoke test against real accounts (esp. Gmail archive mailbox)

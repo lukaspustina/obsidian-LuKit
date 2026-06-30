@@ -82,6 +82,7 @@ export function makeTestSettings(overrides: Partial<LuKitSettings> = {}): LuKitS
 			folderPath: "Besprechungen",
 			...(overrides.besprechung ?? {}),
 		},
+		emailFiling: { ...DEFAULT_SETTINGS.emailFiling, ...(overrides.emailFiling ?? {}) },
 	};
 }
 
