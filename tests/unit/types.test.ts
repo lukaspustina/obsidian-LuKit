@@ -51,6 +51,7 @@ describe("mergeSettings", () => {
 				sectionHeadings: ["Action Items"],
 				pendingTag: "open",
 				pendingOrder: "newest" as const,
+				selfNameStopwords: ["Mustermann"],
 			},
 		};
 		const merged = mergeSettings(input);

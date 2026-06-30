@@ -330,8 +330,10 @@ export class BesprechungFeature implements LuKitFeature {
 			const candidateBasenames = this.sectionNoteBasenames();
 			const fm = this.plugin.app.metadataCache.getFileCache(besprechung)?.frontmatter;
 			const candidateTitle = typeof fm?.title === "string" ? fm.title : besprechung.basename;
-			return suggestFilingTargets(candidateTitle, corpus, candidateBasenames, { now: Date.now() })
-				.map((s) => s.target);
+			return suggestFilingTargets(candidateTitle, corpus, candidateBasenames, {
+				now: Date.now(),
+				selfNameStopwords: this.plugin.settings.besprechung.selfNameStopwords,
+			}).map((s) => s.target);
 		} catch (e) {
 			console.warn("LuKit: failed to compute filing suggestions:", e);
 			return [];

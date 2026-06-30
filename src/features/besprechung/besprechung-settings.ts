@@ -53,6 +53,24 @@ export function renderBesprechungSettings(
 		);
 
 	new Setting(containerEl)
+		.setName("Self-name stopwords")
+		.setDesc(
+			"Comma-separated names to ignore when matching filing suggestions (e.g. your own name, since you attend every meeting)"
+		)
+		.addText((text) =>
+			text
+				.setPlaceholder("")
+				.setValue(plugin.settings.besprechung.selfNameStopwords.join(", "))
+				.onChange(async (value) => {
+					plugin.settings.besprechung.selfNameStopwords = value
+						.split(",")
+						.map((s) => s.trim())
+						.filter((s) => s.length > 0);
+					await plugin.saveSettings();
+				})
+		);
+
+	new Setting(containerEl)
 		.setName("Pending order")
 		.setDesc("Order in which 'File pending notes' walks the backlog")
 		.addDropdown((dropdown) =>

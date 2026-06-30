@@ -13,6 +13,7 @@ export interface BesprechungSettings {
 	sectionHeadings: string[];
 	pendingTag: string;
 	pendingOrder: PendingOrder;
+	selfNameStopwords: string[];
 }
 
 export interface HelpEntry {
@@ -47,6 +48,7 @@ export const DEFAULT_SETTINGS: LuKitSettings = {
 		sectionHeadings: ["Nächste Schritte", "Zusammenfassung"],
 		pendingTag: "todo",
 		pendingOrder: "oldest",
+		selfNameStopwords: [],
 	},
 };
 

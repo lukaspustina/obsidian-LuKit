@@ -56,6 +56,18 @@ describe("suggestFilingTargets", () => {
 		expect(result[0].reason).toBe("name-match");
 	});
 
+	it("ignores selfNameStopwords tokens when matching", () => {
+		const result = suggestFilingTargets(
+			"Abstimmung Petra Schneider Mustermann",
+			[],
+			["Person - Mustermann"],
+			{ now: NOW, selfNameStopwords: ["Mustermann"] },
+		);
+		// "mustermann" is filtered from both the title and the candidate name,
+		// so the only remaining candidate-name token set is empty → no name-match.
+		expect(result.find((r) => r.target === "Person - Mustermann")).toBeUndefined();
+	});
+
 	it("drops history targets that are not in candidateBasenames", () => {
 		const corpus: FiledRecord[] = [
 			{ rawTitle: "Board Meeting", target: "Protokolle Vorstand", filedAt: NOW },

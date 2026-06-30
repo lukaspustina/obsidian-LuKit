@@ -20,6 +20,7 @@ export interface SuggestOptions {
 	now: number; // epoch ms, for recency weighting
 	maxSuggestions?: number; // default 3
 	minScore?: number; // default 0.15
+	selfNameStopwords?: string[]; // extra tokens to ignore (e.g. the note-owner's own name)
 }
 
 const DEFAULT_MAX_SUGGESTIONS = 3;
@@ -47,12 +48,11 @@ const DEFAULT_STOPWORDS: ReadonlySet<string> = new Set([
 	"status",
 	"bi",
 	"weekly",
-	"mustermann",
 ]);
 
 const SECTION_TYPE_PREFIX = /^(?:vorgang|person|bestellung|bewerbung)\s*-\s*/i;
 
-export function normalizeTitleTokens(raw: string): string[] {
+export function normalizeTitleTokens(raw: string, extraStopwords?: ReadonlySet<string>): string[] {
 	let text = raw.replace(/^besprechung\s*-\s*/i, "");
 	while (/(?:,\s*\d{2}\.\d{2}\.\d{4})\s*$/.test(text)) {
 		text = text.replace(/(?:,\s*\d{2}\.\d{2}\.\d{4})\s*$/, "");
@@ -60,7 +60,13 @@ export function normalizeTitleTokens(raw: string): string[] {
 	return text
 		.toLowerCase()
 		.split(/[^a-z0-9äöüß]+/)
-		.filter((token) => token.length > 1 && !/^\d+$/.test(token) && !DEFAULT_STOPWORDS.has(token));
+		.filter(
+			(token) =>
+				token.length > 1 &&
+				!/^\d+$/.test(token) &&
+				!DEFAULT_STOPWORDS.has(token) &&
+				!(extraStopwords?.has(token) ?? false),
+		);
 }
 
 function jaccard(a: ReadonlySet<string>, b: ReadonlySet<string>): number {
@@ -80,8 +86,12 @@ function recencyWeight(filedAt: number | null, now: number): number {
 	return Math.max(RECENCY_FLOOR, weight);
 }
 
-function nameMatchScore(candidateBasename: string, titleTokens: ReadonlySet<string>): number {
-	const nameTokens = normalizeTitleTokens(candidateBasename.replace(SECTION_TYPE_PREFIX, ""));
+function nameMatchScore(
+	candidateBasename: string,
+	titleTokens: ReadonlySet<string>,
+	extraStopwords: ReadonlySet<string>,
+): number {
+	const nameTokens = normalizeTitleTokens(candidateBasename.replace(SECTION_TYPE_PREFIX, ""), extraStopwords);
 	if (nameTokens.length === 0) return 0;
 	let present = 0;
 	for (const token of nameTokens) {
@@ -99,12 +109,13 @@ export function suggestFilingTargets(
 	const maxSuggestions = options.maxSuggestions ?? DEFAULT_MAX_SUGGESTIONS;
 	const minScore = options.minScore ?? DEFAULT_MIN_SCORE;
 
-	const titleTokens = new Set(normalizeTitleTokens(candidateTitle));
+	const extraStopwords = new Set((options.selfNameStopwords ?? []).map((s) => s.toLowerCase()));
+	const titleTokens = new Set(normalizeTitleTokens(candidateTitle, extraStopwords));
 
 	// Summed, recency-weighted Jaccard per target.
 	const historyByTarget = new Map<string, number>();
 	for (const record of corpus) {
-		const sim = jaccard(titleTokens, new Set(normalizeTitleTokens(record.rawTitle)));
+		const sim = jaccard(titleTokens, new Set(normalizeTitleTokens(record.rawTitle, extraStopwords)));
 		if (sim === 0) continue;
 		const contribution = sim * recencyWeight(record.filedAt, options.now);
 		historyByTarget.set(record.target, (historyByTarget.get(record.target) ?? 0) + contribution);
@@ -118,7 +129,7 @@ export function suggestFilingTargets(
 	const scored = candidateBasenames.map((target) => {
 		const summedHistory = historyByTarget.get(target) ?? 0;
 		const normalizedHistory = maxHistory > 0 ? summedHistory / maxHistory : 0;
-		const nameMatch = nameMatchScore(target, titleTokens);
+		const nameMatch = nameMatchScore(target, titleTokens, extraStopwords);
 		const score = HISTORY_WEIGHT * normalizedHistory + NAME_MATCH_WEIGHT * nameMatch;
 		const reason: SuggestionReason =
 			summedHistory > 0 && nameMatch > 0
