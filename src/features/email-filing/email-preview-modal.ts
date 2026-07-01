@@ -47,6 +47,9 @@ export class EmailPreviewModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
+		// Size the modal to a fraction of the main window (scales with it, not a
+		// fixed size); the content area scrolls when the thread is long.
+		this.modalEl.addClass("lukit-email-preview-modal");
 		contentEl.empty();
 		contentEl.createEl("h3", { text: `E-Mail ablegen → ${this.targetNoteName}` });
 		contentEl.createEl("p", { text: this.subtitle });

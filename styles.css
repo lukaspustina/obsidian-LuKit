@@ -38,6 +38,18 @@
 	margin-bottom: var(--size-4-1);
 }
 
+.lukit-email-preview-modal {
+	width: min(90vw, 1200px);
+	height: 85vh;
+}
+
+.lukit-email-preview-modal .modal-content {
+	display: flex;
+	flex-direction: column;
+	max-height: 100%;
+	overflow-y: auto;
+}
+
 .lukit-email-preview-msg {
 	margin-bottom: var(--size-4-3);
 	border-bottom: 1px solid var(--background-modifier-border);
@@ -54,6 +66,11 @@
 	font-size: var(--font-smaller);
 	color: var(--text-muted);
 	margin: var(--size-4-1) 0 0;
+}
+
+.lukit-email-preview {
+	min-height: 8em;
+	resize: vertical;
 }
 
 .lukit-email-preview:disabled {
