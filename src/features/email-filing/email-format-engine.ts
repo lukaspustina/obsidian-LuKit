@@ -18,8 +18,11 @@ export interface EmailMeta {
 	messageUrl: string;
 }
 
-// 50 KiB — inline images (logos, signature icons, tracking pixels) sit below this.
-const INLINE_IMAGE_MAX_BYTES = 51200;
+// Auto-generated inline-image names: mail clients embed signature logos and
+// pasted images as imageNNN.<ext>. mimeType is unreliable via JXA (often throws
+// / comes back empty), so inline detection keys off this filename pattern, not
+// the MIME type. Real attachments (Rechnung.pdf, Foto_Urlaub.jpg) don't match.
+const INLINE_IMAGE_NAME = /^image\d+\.(png|jpe?g|gif|bmp|tiff?)$/i;
 // Reply/forward subject prefixes: AW:, Re:, Fwd:, FWD:, WG: (case-insensitive).
 const SUBJECT_PREFIX = /^\s*(AW|RE|FWD|WG)\s*:\s*/i;
 
@@ -62,12 +65,13 @@ export function threadKey(subject: string): string {
 	return stripSubjectPrefixes(subject).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-// Drops inline images: image/* attachments at or below 50 KiB (this also covers
-// size === -1 unknown). Returns a new array; does not mutate the input.
+// Drops client-embedded inline images (signature logos, pasted images),
+// identified by their auto-generated imageNNN.<ext> name. Real attachments —
+// including images with meaningful names — are kept. Biased to under-filter: a
+// stray logo name in the list beats silently dropping a real attachment.
+// Returns a new array; does not mutate the input.
 export function filterAttachments(all: MailAttachment[]): MailAttachment[] {
-	return all.filter(
-		(a) => !(a.mimeType.startsWith("image/") && a.size <= INLINE_IMAGE_MAX_BYTES),
-	);
+	return all.filter((a) => !INLINE_IMAGE_NAME.test(a.name));
 }
 
 // Builds the section name (no date suffix — the caller passes the date to

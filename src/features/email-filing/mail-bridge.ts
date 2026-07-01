@@ -161,6 +161,25 @@ function lukitSentMailbox(Mail, accountName, preferredName) {
   }
   return null;
 }
+// Reads a message's attachments resiliently: name, mimeType and size are read
+// independently so a throwing property (mimeType() throws in some Mail versions)
+// does not drop the whole attachment. Skips only entries with no readable name.
+function lukitReadAttachments(m) {
+  let raw = [];
+  try { raw = m.mailAttachments(); } catch (e) { return []; }
+  const out = [];
+  for (let i = 0; i < raw.length; i++) {
+    let name = "";
+    try { name = raw[i].name(); } catch (e) {}
+    if (!name) continue;
+    let mimeType = "";
+    try { mimeType = raw[i].mimeType(); } catch (e) {}
+    let size = -1;
+    try { size = raw[i].fileSize(); } catch (e) {}
+    out.push({ name: name, mimeType: mimeType, size: size });
+  }
+  return out;
+}
 `;
 
 // Bulk property reads: one Apple Event per property per account's inbox, rather
@@ -211,16 +230,7 @@ function run(argv) {
   const Mail = Application("Mail");
   const m = lukitFindInInbox(Mail, argv[0], argv[1]);
   if (!m) return JSON.stringify({ notFound: true });
-  const atts = [];
-  let raw = [];
-  try { raw = m.mailAttachments(); } catch (e) { raw = []; }
-  for (let i = 0; i < raw.length; i++) {
-    try {
-      let size = -1;
-      try { size = raw[i].fileSize(); } catch (e) {}
-      atts.push({ name: raw[i].name(), mimeType: raw[i].mimeType(), size: size });
-    } catch (e) {}
-  }
+  const atts = lukitReadAttachments(m);
   // content() can fail (-10000) for messages whose body isn't retrievable;
   // degrade to an empty body so the message still files with its link line.
   let body = "";
@@ -285,12 +295,7 @@ function run(argv) {
     if (!match) continue;
     let body = "";
     try { const c = m.content(); if (c != null) body = String(c); } catch (e) {}
-    const atts = [];
-    let raw = [];
-    try { raw = m.mailAttachments(); } catch (e) { raw = []; }
-    for (let k = 0; k < raw.length; k++) {
-      try { let size = -1; try { size = raw[k].fileSize(); } catch (e) {} atts.push({ name: raw[k].name(), mimeType: raw[k].mimeType(), size: size }); } catch (e) {}
-    }
+    const atts = lukitReadAttachments(m);
     let sent = "";
     try { sent = m.dateSent().toISOString(); } catch (e) {}
     out.push({ id: m.messageId(), sender: m.sender(), subject: m.subject(), dateSent: sent, body: body, attachments: atts });
@@ -301,7 +306,9 @@ function run(argv) {
 
 // Returns the message(s) currently selected in Apple Mail (any mailbox). The TS
 // wrapper derives direction and the correspondent party from mailboxName/sender/To.
-const GET_SELECTION_JS = `
+const GET_SELECTION_JS =
+	JXA_HELPERS +
+	`
 function run() {
   const Mail = Application("Mail");
   let sel = [];
@@ -317,12 +324,7 @@ function run() {
     try { sent = m.dateSent().toISOString(); } catch (e) {}
     let body = "";
     try { const c = m.content(); if (c != null) body = String(c); } catch (e) {}
-    const atts = [];
-    let raw = [];
-    try { raw = m.mailAttachments(); } catch (e) { raw = []; }
-    for (let k = 0; k < raw.length; k++) {
-      try { let size = -1; try { size = raw[k].fileSize(); } catch (e) {} atts.push({ name: raw[k].name(), mimeType: raw[k].mimeType(), size: size }); } catch (e) {}
-    }
+    const atts = lukitReadAttachments(m);
     out.push({ id: m.messageId(), accountName: acct, mailboxName: box, subject: m.subject(), sender: m.sender(), toName: toName, toAddress: toAddr, dateSent: sent, body: body, attachments: atts });
   }
   return JSON.stringify(out);
@@ -351,12 +353,7 @@ function run(argv) {
     const m = msgs[i];
     let body = "";
     try { const c = m.content(); if (c != null) body = String(c); } catch (e) {}
-    const atts = [];
-    let raw = [];
-    try { raw = m.mailAttachments(); } catch (e) { raw = []; }
-    for (let k = 0; k < raw.length; k++) {
-      try { let size = -1; try { size = raw[k].fileSize(); } catch (e) {} atts.push({ name: raw[k].name(), mimeType: raw[k].mimeType(), size: size }); } catch (e) {}
-    }
+    const atts = lukitReadAttachments(m);
     let sent = "";
     try { sent = m.dateSent().toISOString(); } catch (e) {}
     out.push({ id: m.messageId(), sender: m.sender(), subject: m.subject(), dateSent: sent, body: body, attachments: atts });

@@ -19,9 +19,10 @@ const meta = (senderName: string, subject: string, messageUrl: string): EmailMet
 });
 
 describe("filterAttachments", () => {
-	it("drops small inline images but keeps real attachments, without mutating input", () => {
+	it("drops auto-generated inline images but keeps real attachments, without mutating input", () => {
 		const all = [
 			attach("image001.png", "image/png", 2048),
+			attach("image042.JPG", "", -1),
 			attach("Angebot.pdf", "application/pdf", 81920),
 		];
 		const snapshot = [...all];
@@ -30,8 +31,17 @@ describe("filterAttachments", () => {
 		expect(all).toEqual(snapshot);
 	});
 
-	it("drops image attachments with unknown size (-1)", () => {
-		expect(filterAttachments([attach("x.png", "image/png", -1)])).toEqual([]);
+	it("keeps a real attachment even when mimeType is unreadable (empty)", () => {
+		// JXA mimeType() often throws → bridge returns "". Must not drop the file.
+		expect(filterAttachments([attach("Rechnung.pdf", "", -1)]).map((a) => a.name)).toEqual([
+			"Rechnung.pdf",
+		]);
+	});
+
+	it("keeps a real image attachment with a meaningful name", () => {
+		expect(
+			filterAttachments([attach("Foto_Urlaub.jpg", "", -1)]).map((a) => a.name),
+		).toEqual(["Foto_Urlaub.jpg"]);
 	});
 });
 
