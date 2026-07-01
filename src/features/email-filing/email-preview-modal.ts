@@ -82,9 +82,7 @@ export class EmailPreviewModal extends Modal {
 			});
 		}
 
-		const buttons = contentEl.createEl("div", { cls: "lukit-email-preview-buttons" });
-		const confirmBtn = buttons.createEl("button", { text: "Ablegen" });
-		confirmBtn.addEventListener("click", () => {
+		const submit = (): void => {
 			this.confirmed = true;
 			this.onConfirm(
 				this.messages.map((_, i) => ({
@@ -93,10 +91,29 @@ export class EmailPreviewModal extends Modal {
 				})),
 			);
 			this.close();
-		});
+		};
+
+		const buttons = contentEl.createEl("div", { cls: "lukit-email-preview-buttons" });
+		const confirmBtn = buttons.createEl("button", { text: "Ablegen", cls: "mod-cta" });
+		confirmBtn.addEventListener("click", submit);
 		const cancelBtn = buttons.createEl("button", { text: "Abbrechen" });
 		cancelBtn.addEventListener("click", () => {
 			this.close();
+		});
+
+		// Enter files the thread — but not while editing a body (there it inserts a
+		// newline). ⌘/Ctrl+Enter files from anywhere, including a body.
+		this.scope.register([], "Enter", (evt) => {
+			const active = this.contentEl.ownerDocument.activeElement;
+			if (active instanceof HTMLTextAreaElement) return true;
+			evt.preventDefault();
+			submit();
+			return false;
+		});
+		this.scope.register(["Mod"], "Enter", (evt) => {
+			evt.preventDefault();
+			submit();
+			return false;
 		});
 	}
 
