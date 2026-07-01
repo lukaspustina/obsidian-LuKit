@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-07-01
+
+### Added
+- **Email Filing (macOS / Apple Mail)** — walk the Apple Mail inbox and file each message into a Vorgang/Person/Bestellung/Bewerbung note; the inbox-zero counterpart to *Besprechung: File pending*. Filing assembles the **whole conversation** — the received message, your Sent replies, and the thread's other emails still in the inbox — newest-first as one section, de-duplicated against what the Vorgang already contains; sibling inbox emails are archived too, so the whole thread leaves the inbox. A per-message preview offers include/exclude checkboxes and editable bodies (headers and `message://` links are locked). Quoted history, signatures, and inline images are stripped. Filing suggestions are mined from existing Vorgänge and learn across sessions. A single-shot **E-Mail: File selected Mail message** command (capture-only) covers threads you started. No copies stored in the vault; the osascript bridge passes all values as argv, never interpolated (997787b…e3f922e).
+- Besprechung: **filing-target suggestions** — the section-note picker pins the most likely targets on top (`★ … (suggested)`), ranked by recency-weighted history of past filings plus name-match against the candidate's own name (49f3ce0, 65d6f1b, 0a344b7).
+- Besprechung: configurable **self-name stopwords** setting — names ignored when matching filing suggestions (default empty) (287567f).
+- Modals: keyboard shortcuts for picker actions — **Esc** = Skip, **⌘.** = Stop, **⌘D** = Don't file, **⌘P** = toggle peek panel (e3dd498).
+
+### Changed
+- Besprechung: extract summary sections at **any heading level** (h1–h6), not only h3 — supports Granola-style h1 headings (b4ebc91).
+
+### Fixed
+- Modals: picker cancel detection is now order-independent (Obsidian 1.12.7 fires `onClose` before `onChooseItem`), so picks no longer spuriously trigger the dismiss path (afafb17).
+
+### Internal
+- Forbid PII across fixtures, examples, and source; scrubbed real names from test data (7e2d0bb, 674dd1f).
+
 ## [1.13.1] - 2026-05-04
 
 ### Fixed
