@@ -37,6 +37,15 @@ const RAW: RawMailMessageMeta = {
 	dateSent: "2026-06-30T10:00:00Z",
 };
 
+interface AssembledThreadShape {
+	sectionName: string;
+	bodyLines: string[];
+	siblingIds: string[];
+	latestDate: Date;
+	messageCount: number;
+	threadKey: string;
+}
+
 // Casts to reach the feature's private methods at runtime (TS private is
 // compile-time only) — same pattern as the besprechung acceptance tests.
 interface FeatureInternals {
@@ -47,6 +56,8 @@ interface FeatureInternals {
 	orderMessages: (m: RawMailMessageMeta[]) => RawMailMessageMeta[];
 	selectWalkMessages: (m: RawMailMessageMeta[]) => RawMailMessageMeta[];
 	fileEmailIntoVorgang: (m: RawMailMessageMeta, body: string, attachments: unknown[], vorgang: unknown) => Promise<void>;
+	assembleThread: (m: RawMailMessageMeta, body: string, attachments: unknown[], vorgang: unknown) => Promise<AssembledThreadShape | null>;
+	commitThread: (m: RawMailMessageMeta, assembled: AssembledThreadShape, editedBodyLines: string[], vorgang: unknown) => Promise<void>;
 	archiveOnly: (m: RawMailMessageMeta) => Promise<void>;
 	openMessage: (meta: { messageUrl: string }) => void;
 	presentMessageAsync: (m: RawMailMessageMeta[], i: number) => Promise<void>;
@@ -319,6 +330,30 @@ describe("EmailFilingFeature.fileEmailIntoVorgang — thread assembly (Phase 1)"
 		const { vorgang, internals } = setup(fakeBridge());
 		await internals.fileEmailIntoVorgang(RAW, "Text", [], vorgang);
 		expect(internals.skippedThreads.has(threadKey("Angebot"))).toBe(true);
+	});
+
+	it("assembleThread gathers the whole thread without archiving or writing", async () => {
+		const archive = vi.fn(async () => undefined);
+		const { app, vorgang, internals } = setup(
+			fakeBridge({ archive, listSentForThread: vi.fn(async () => [reply()]) }),
+		);
+		const assembled = await internals.assembleThread(RAW, "Eingehender Text", [], vorgang);
+		expect(assembled).not.toBeNull();
+		expect(assembled?.messageCount).toBe(2);
+		expect(assembled?.bodyLines.join("\n")).toContain("Meine Antwort");
+		expect(archive).not.toHaveBeenCalled();
+		expect(app.vault.modify).not.toHaveBeenCalled();
+	});
+
+	it("commitThread writes the edited section text, not the assembled original", async () => {
+		const { app, vorgang, internals } = setup(fakeBridge());
+		const assembled = await internals.assembleThread(RAW, "Original Text", [], vorgang);
+		expect(assembled).not.toBeNull();
+		if (!assembled) return;
+		await internals.commitThread(RAW, assembled, ["Ersetzter Text"], vorgang);
+		const updated = app.vault.files.get(vorgang.path) ?? "";
+		expect(updated).toContain("Ersetzter Text");
+		expect(updated).not.toContain("Original Text");
 	});
 });
 

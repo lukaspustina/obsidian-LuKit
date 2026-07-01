@@ -35,6 +35,19 @@ const SECTION_NOTE_TAGS: ReadonlySet<string> = new Set([
 // (empty corpus) surfaces suggestions.
 const SUGGEST_MIN_SCORE = 0.01;
 
+// A fully-gathered thread, ready to preview and then commit. Built read-only by
+// assembleThread (no archive, no write); committed by commitThread.
+interface AssembledThread {
+	sectionName: string;
+	bodyLines: string[];
+	/** Inbox sibling message ids to archive on commit (empty for single-shot capture). */
+	siblingIds: string[];
+	latestDate: Date;
+	/** Total messages in the section (headline + replies + siblings). */
+	messageCount: number;
+	threadKey: string;
+}
+
 export class EmailFilingFeature implements LuKitFeature {
 	id = "email-filing";
 	private plugin!: LuKitPlugin;
@@ -264,22 +277,30 @@ export class EmailFilingFeature implements LuKitFeature {
 			dropLabel: "✕ Nicht ablegen (nur archivieren)",
 			openLabel: "→ Stopp und E-Mail in Mail öffnen",
 			onPick: (vorgang) => {
-				new EmailPreviewModal(
-					this.plugin.app,
-					emailMeta,
-					body,
-					vorgang.basename,
-					(edited) => {
-						void this.fileEmailIntoVorgang(meta, edited, attachments, vorgang).then(() =>
-							this.presentMessage(metas, i + 1),
-						);
-					},
-					// Cancelling the preview returns to the picker for this same
-					// message (re-pick or choose Skip/Don't-file), rather than skipping it.
-					() => {
-						this.presentMessage(metas, i);
-					},
-				).open();
+				const loading = new Notice("Thread wird zusammengestellt…", 0);
+				void this.assembleThread(meta, body, attachments, vorgang).then((assembled) => {
+					loading.hide();
+					if (!assembled) {
+						this.presentMessage(metas, i + 1);
+						return;
+					}
+					new EmailPreviewModal(
+						this.plugin.app,
+						vorgang.basename,
+						`Betreff: ${meta.subject} · ${assembled.messageCount} Nachricht(en)`,
+						assembled.bodyLines.join("\n"),
+						(edited) => {
+							void this.commitThread(meta, assembled, edited.split("\n"), vorgang).then(() =>
+								this.presentMessage(metas, i + 1),
+							);
+						},
+						// Cancelling the preview returns to the picker for this same
+						// message (re-pick or choose Skip/Don't-file), rather than skipping it.
+						() => {
+							this.presentMessage(metas, i);
+						},
+					).open();
+				});
 			},
 			onSkip: () => {
 				if (key.length > 0) this.skippedThreads.add(key);
@@ -309,12 +330,105 @@ export class EmailFilingFeature implements LuKitFeature {
 		};
 	}
 
-	// Archive-first → verify left inbox → modify Vorgang. Any failed step shows
-	// an error Notice and does not run subsequent steps.
-	private async fileEmailIntoVorgang(
+	// Read-only: gather the whole thread (this message + the user's Sent replies +
+	// the thread's other inbox emails) and build the section for preview. No
+	// archive, no write. Returns null when nothing new remains to file.
+	private async assembleThread(
 		meta: RawMailMessageMeta,
 		body: string,
 		attachments: MailAttachment[],
+		vorgang: TFile,
+	): Promise<AssembledThread | null> {
+		const locale = this.plugin.settings.dateLocale;
+		const content = await this.plugin.app.vault.read(vorgang);
+		const alreadyFiled = extractFiledMessageIds(content);
+		const k = threadKey(meta.subject);
+
+		// The user's Sent replies in this thread; degrade to none on failure.
+		let replies: ThreadSectionMessage[] = [];
+		try {
+			const sent = await this.bridge.listSentForThread(
+				meta.accountName,
+				meta.senderAddress,
+				this.sentMailboxFor(meta.accountName),
+				stripSubjectPrefixes(meta.subject),
+			);
+			replies = sent
+				.filter((s) => threadKey(s.subject) === k && !alreadyFiled.has(s.id))
+				.map((s) => ({
+					direction: "out" as const,
+					partyName: s.partyName,
+					dateSent: s.dateSent,
+					body: parseEmailBody(s.body).body,
+					attachments: filterAttachments(s.attachments),
+					messageUrl: buildMessageUrl(s.id),
+				}));
+		} catch (e) {
+			this.logBridgeError(e);
+			new Notice(
+				"Gesendete Nachrichten konnten nicht geladen werden – nur die eingegangene E-Mail abgelegt.",
+			);
+		}
+
+		// The thread's other received emails still in the inbox (archived on commit).
+		let siblings: ThreadSectionMessage[] = [];
+		const siblingIds: string[] = [];
+		try {
+			const inbox = await this.bridge.listInboxForThread(
+				meta.accountName,
+				stripSubjectPrefixes(meta.subject),
+			);
+			const toFile = inbox.filter(
+				(s) => s.id !== meta.id && threadKey(s.subject) === k && !alreadyFiled.has(s.id),
+			);
+			siblings = toFile.map((s) => ({
+				direction: "in" as const,
+				partyName: s.partyName,
+				dateSent: s.dateSent,
+				body: parseEmailBody(s.body).body,
+				attachments: filterAttachments(s.attachments),
+				messageUrl: buildMessageUrl(s.id),
+			}));
+			for (const s of toFile) siblingIds.push(s.id);
+		} catch (e) {
+			this.logBridgeError(e);
+		}
+
+		const sectionMsgs: ThreadSectionMessage[] = [];
+		if (!alreadyFiled.has(meta.id)) {
+			sectionMsgs.push({
+				direction: "in",
+				partyName: meta.senderName,
+				dateSent: meta.dateSent,
+				body,
+				attachments,
+				messageUrl: buildMessageUrl(meta.id),
+			});
+		}
+		sectionMsgs.push(...replies);
+		sectionMsgs.push(...siblings);
+
+		if (sectionMsgs.length === 0) {
+			new Notice(`„${meta.subject}" ist bereits abgelegt.`);
+			this.skippedThreads.add(k);
+			return null;
+		}
+
+		const { sectionName, bodyLines } = formatThreadSection(sectionMsgs, meta.subject, locale);
+		const times = sectionMsgs
+			.map((m) => new Date(m.dateSent).getTime())
+			.filter((t) => !Number.isNaN(t));
+		const latestDate = times.length > 0 ? new Date(Math.max(...times)) : new Date(meta.dateSent);
+		return { sectionName, bodyLines, siblingIds, latestDate, messageCount: sectionMsgs.length, threadKey: k };
+	}
+
+	// Commit an assembled thread: archive-first (this message) → verify it left the
+	// inbox → archive the sibling inbox messages → write the (edited) section into
+	// the Vorgang. Any failed step shows a Notice and stops.
+	private async commitThread(
+		meta: RawMailMessageMeta,
+		assembled: AssembledThread,
+		editedBodyLines: string[],
 		vorgang: TFile,
 	): Promise<void> {
 		const emailMeta = this.toEmailMeta(meta);
@@ -342,114 +456,56 @@ export class EmailFilingFeature implements LuKitFeature {
 			return;
 		}
 
+		// Archive the thread's other inbox emails too, so the inbox is truly zeroed.
+		for (const id of assembled.siblingIds) {
+			try {
+				await this.bridge.archive(meta.accountName, id);
+				this.threadHandledIds.add(id);
+			} catch (e) {
+				this.logBridgeError(e);
+			}
+		}
+
 		try {
 			const locale = this.plugin.settings.dateLocale;
 			const content = await this.plugin.app.vault.read(vorgang);
-			const alreadyFiled = extractFiledMessageIds(content);
-			const k = threadKey(meta.subject);
-
-			// Pull the user's Sent replies in this thread; degrade to inbound-only on failure.
-			let replies: ThreadSectionMessage[] = [];
-			try {
-				const sent = await this.bridge.listSentForThread(
-					meta.accountName,
-					meta.senderAddress,
-					this.sentMailboxFor(meta.accountName),
-					stripSubjectPrefixes(meta.subject),
-				);
-				replies = sent
-					.filter((s) => threadKey(s.subject) === k && !alreadyFiled.has(s.id))
-					.map((s) => ({
-						direction: "out" as const,
-						partyName: s.partyName,
-						dateSent: s.dateSent,
-						body: parseEmailBody(s.body).body,
-						attachments: filterAttachments(s.attachments),
-						messageUrl: buildMessageUrl(s.id),
-					}));
-			} catch (e) {
-				this.logBridgeError(e);
-				new Notice(
-					"Gesendete Nachrichten konnten nicht geladen werden – nur die eingegangene E-Mail abgelegt.",
-				);
-			}
-
-			// Pull the thread's other received emails still in the inbox and archive
-			// them too, so the whole conversation lands in the Vorgang and the inbox
-			// is truly zeroed. Degrade to just this message on failure.
-			let siblings: ThreadSectionMessage[] = [];
-			try {
-				const inbox = await this.bridge.listInboxForThread(
-					meta.accountName,
-					stripSubjectPrefixes(meta.subject),
-				);
-				const toFile = inbox.filter(
-					(s) => s.id !== meta.id && threadKey(s.subject) === k && !alreadyFiled.has(s.id),
-				);
-				siblings = toFile.map((s) => ({
-					direction: "in" as const,
-					partyName: s.partyName,
-					dateSent: s.dateSent,
-					body: parseEmailBody(s.body).body,
-					attachments: filterAttachments(s.attachments),
-					messageUrl: buildMessageUrl(s.id),
-				}));
-				for (const s of toFile) {
-					try {
-						await this.bridge.archive(meta.accountName, s.id);
-						this.threadHandledIds.add(s.id);
-					} catch (e) {
-						this.logBridgeError(e);
-					}
-				}
-			} catch (e) {
-				this.logBridgeError(e);
-			}
-
-			const sectionMsgs: ThreadSectionMessage[] = [];
-			if (!alreadyFiled.has(meta.id)) {
-				sectionMsgs.push({
-					direction: "in",
-					partyName: meta.senderName,
-					dateSent: meta.dateSent,
-					body,
-					attachments,
-					messageUrl: buildMessageUrl(meta.id),
-				});
-			}
-			sectionMsgs.push(...replies);
-			sectionMsgs.push(...siblings);
-
-			if (sectionMsgs.length === 0) {
-				new Notice(`„${meta.subject}" ist bereits abgelegt.`);
-				this.skippedThreads.add(k);
-				return;
-			}
-
-			const { sectionName, bodyLines } = formatThreadSection(sectionMsgs, meta.subject, locale);
-			const times = sectionMsgs
-				.map((m) => new Date(m.dateSent).getTime())
-				.filter((t) => !Number.isNaN(t));
-			const latestDate = times.length > 0 ? new Date(Math.max(...times)) : emailMeta.dateSent;
-			const { newContent } = addVorgangSection(content, sectionName, locale, latestDate, bodyLines);
+			const { newContent } = addVorgangSection(
+				content,
+				assembled.sectionName,
+				locale,
+				assembled.latestDate,
+				editedBodyLines,
+			);
 			await this.plugin.app.vault.modify(vorgang, newContent);
-
-			// Record the thread as handled (auto-skip its other inbox messages) and
-			// feed the in-walk routing memory.
-			this.skippedThreads.add(k);
-			this.walkFiledRecords.push({
-				rawTitle: this.titleFor(meta),
-				target: vorgang.basename,
-				filedAt: Date.now(),
-			});
-			void this.invalidateRoutingCache();
-			const extra = replies.length + siblings.length;
-			const suffix = extra > 0 ? ` (+${extra} Thread-Nachrichten)` : "";
-			new Notice(`Abgelegt: „${meta.subject}" → „${vorgang.basename}".${suffix}`);
 		} catch (e) {
 			this.logBridgeError(e);
 			new Notice(`Archiviert, aber nicht in „${vorgang.basename}" abgelegt.`);
+			return;
 		}
+
+		this.skippedThreads.add(assembled.threadKey);
+		this.walkFiledRecords.push({
+			rawTitle: this.titleFor(meta),
+			target: vorgang.basename,
+			filedAt: Date.now(),
+		});
+		void this.invalidateRoutingCache();
+		const extra = assembled.messageCount - 1;
+		const suffix = extra > 0 ? ` (+${extra} Thread-Nachrichten)` : "";
+		new Notice(`Abgelegt: „${meta.subject}" → „${vorgang.basename}".${suffix}`);
+	}
+
+	// Non-interactive filing (assemble → commit with the unedited section). The
+	// interactive walk inserts an editable preview between the two steps.
+	private async fileEmailIntoVorgang(
+		meta: RawMailMessageMeta,
+		body: string,
+		attachments: MailAttachment[],
+		vorgang: TFile,
+	): Promise<void> {
+		const assembled = await this.assembleThread(meta, body, attachments, vorgang);
+		if (!assembled) return;
+		await this.commitThread(meta, assembled, assembled.bodyLines, vorgang);
 	}
 
 	private async archiveOnly(meta: RawMailMessageMeta): Promise<void> {
@@ -507,32 +563,34 @@ export class EmailFilingFeature implements LuKitFeature {
 		const m = sel[i];
 		const body = parseEmailBody(m.body).body;
 		const attachments = filterAttachments(m.attachments);
-		const emailMeta: EmailMeta = {
-			senderName: m.partyName,
-			subject: m.subject,
-			dateSent: new Date(m.dateSent),
-			messageUrl: buildMessageUrl(m.id),
-		};
 		new SectionNoteSuggestModal(this.plugin.app, SECTION_NOTE_TAGS, {
 			placeholder: `[${i + 1}/${sel.length}] „${m.subject}" ablegen unter… (ESC = Stopp)`,
 			previewText: `${m.direction === "in" ? "Von" : "An"}: ${m.partyName}\nBetreff: ${m.subject}\n\n${body || "(kein Textinhalt)"}`,
 			suggestions: this.suggestionsForTitle(`${stripSubjectPrefixes(m.subject)} ${m.partyName}`),
 			dropLabel: "✕ Nicht ablegen",
 			onPick: (vorgang) => {
-				new EmailPreviewModal(
-					this.plugin.app,
-					emailMeta,
-					body,
-					vorgang.basename,
-					(edited) => {
-						void this.captureSelectedThread(m, edited, attachments, vorgang).then(() =>
-							this.presentSelected(sel, i + 1),
-						);
-					},
-					() => {
-						this.presentSelected(sel, i);
-					},
-				).open();
+				const loading = new Notice("Thread wird zusammengestellt…", 0);
+				void this.assembleSelectedThread(m, body, attachments, vorgang).then((assembled) => {
+					loading.hide();
+					if (!assembled) {
+						this.presentSelected(sel, i + 1);
+						return;
+					}
+					new EmailPreviewModal(
+						this.plugin.app,
+						vorgang.basename,
+						`Betreff: ${m.subject} · ${assembled.messageCount} Nachricht(en)`,
+						assembled.bodyLines.join("\n"),
+						(edited) => {
+							void this.commitSelectedThread(m, assembled, edited.split("\n"), vorgang).then(() =>
+								this.presentSelected(sel, i + 1),
+							);
+						},
+						() => {
+							this.presentSelected(sel, i);
+						},
+					).open();
+				});
 			},
 			onDrop: () => this.presentSelected(sel, i + 1),
 			onCancel: () => {
@@ -544,86 +602,89 @@ export class EmailFilingFeature implements LuKitFeature {
 
 	// Capture-only: assembles the selected message's thread and inserts it into
 	// the Vorgang. Never archives (the selected message may live in any mailbox).
-	private async captureSelectedThread(
+	// Read-only: assemble the selected message + its Sent replies into a section
+	// for preview. Capture-only — no archive. Returns null when nothing new remains.
+	private async assembleSelectedThread(
 		m: SelectedMessage,
-		editedBody: string,
-		editedAttachments: MailAttachment[],
+		body: string,
+		attachments: MailAttachment[],
+		vorgang: TFile,
+	): Promise<AssembledThread | null> {
+		const locale = this.plugin.settings.dateLocale;
+		const content = await this.plugin.app.vault.read(vorgang);
+		const filed = extractFiledMessageIds(content);
+		const k = threadKey(m.subject);
+		const selUrl = buildMessageUrl(m.id);
+
+		let replies: ThreadSectionMessage[] = [];
+		try {
+			const sent = await this.bridge.listSentForThread(
+				m.accountName,
+				m.partyAddress,
+				this.sentMailboxFor(m.accountName),
+				stripSubjectPrefixes(m.subject),
+			);
+			// Exclude the selected message itself; it is added explicitly below so it
+			// carries the parsed/edited `body` rather than a re-fetched one.
+			replies = sent
+				.filter((s) => threadKey(s.subject) === k && !filed.has(s.id) && s.id !== m.id)
+				.map((s) => ({
+					direction: "out" as const,
+					partyName: s.partyName,
+					dateSent: s.dateSent,
+					body: parseEmailBody(s.body).body,
+					attachments: filterAttachments(s.attachments),
+					messageUrl: buildMessageUrl(s.id),
+				}));
+		} catch (e) {
+			this.logBridgeError(e);
+			new Notice("Gesendete Nachrichten konnten nicht geladen werden.");
+		}
+
+		const sectionMsgs: ThreadSectionMessage[] = [];
+		if (!filed.has(m.id)) {
+			sectionMsgs.push({
+				direction: m.direction,
+				partyName: m.partyName,
+				dateSent: m.dateSent,
+				body,
+				attachments,
+				messageUrl: selUrl,
+			});
+		}
+		sectionMsgs.push(...replies);
+
+		if (sectionMsgs.length === 0) {
+			new Notice(`„${m.subject}" ist bereits abgelegt.`);
+			return null;
+		}
+
+		const { sectionName, bodyLines } = formatThreadSection(sectionMsgs, m.subject, locale);
+		const times = sectionMsgs
+			.map((x) => new Date(x.dateSent).getTime())
+			.filter((t) => !Number.isNaN(t));
+		const latestDate = times.length > 0 ? new Date(Math.max(...times)) : new Date(m.dateSent);
+		return { sectionName, bodyLines, siblingIds: [], latestDate, messageCount: sectionMsgs.length, threadKey: k };
+	}
+
+	// Commit a selected-thread assembly: write the (edited) section into the
+	// Vorgang. Capture-only — never archives.
+	private async commitSelectedThread(
+		m: SelectedMessage,
+		assembled: AssembledThread,
+		editedBodyLines: string[],
 		vorgang: TFile,
 	): Promise<void> {
 		try {
 			const locale = this.plugin.settings.dateLocale;
 			const content = await this.plugin.app.vault.read(vorgang);
-			const filed = extractFiledMessageIds(content);
-			const k = threadKey(m.subject);
-			const selUrl = buildMessageUrl(m.id);
-
-			let replies: ThreadSectionMessage[] = [];
-			try {
-				const sent = await this.bridge.listSentForThread(
-					m.accountName,
-					m.partyAddress,
-					this.sentMailboxFor(m.accountName),
-					stripSubjectPrefixes(m.subject),
-				);
-				replies = sent
-					.filter((s) => threadKey(s.subject) === k && !filed.has(s.id))
-					.map((s) => ({
-						direction: "out" as const,
-						partyName: s.partyName,
-						dateSent: s.dateSent,
-						body: parseEmailBody(s.body).body,
-						attachments: filterAttachments(s.attachments),
-						messageUrl: buildMessageUrl(s.id),
-					}));
-			} catch (e) {
-				this.logBridgeError(e);
-				new Notice("Gesendete Nachrichten konnten nicht geladen werden.");
-			}
-
-			const sectionMsgs: ThreadSectionMessage[] = [];
-			if (m.direction === "in" && !filed.has(m.id)) {
-				sectionMsgs.push({
-					direction: "in",
-					partyName: m.partyName,
-					dateSent: m.dateSent,
-					body: editedBody,
-					attachments: editedAttachments,
-					messageUrl: selUrl,
-				});
-			}
-			// Include Sent replies; the selected message's own body uses the edited text.
-			for (const r of replies) {
-				sectionMsgs.push(
-					r.messageUrl === selUrl ? { ...r, body: editedBody, attachments: editedAttachments } : r,
-				);
-			}
-			// If an outbound selection wasn't returned by listSentForThread, add it directly.
-			if (
-				m.direction === "out" &&
-				!filed.has(m.id) &&
-				!sectionMsgs.some((x) => x.messageUrl === selUrl)
-			) {
-				sectionMsgs.push({
-					direction: "out",
-					partyName: m.partyName,
-					dateSent: m.dateSent,
-					body: editedBody,
-					attachments: editedAttachments,
-					messageUrl: selUrl,
-				});
-			}
-
-			if (sectionMsgs.length === 0) {
-				new Notice(`„${m.subject}" ist bereits abgelegt.`);
-				return;
-			}
-
-			const { sectionName, bodyLines } = formatThreadSection(sectionMsgs, m.subject, locale);
-			const times = sectionMsgs
-				.map((x) => new Date(x.dateSent).getTime())
-				.filter((t) => !Number.isNaN(t));
-			const latestDate = times.length > 0 ? new Date(Math.max(...times)) : new Date(m.dateSent);
-			const { newContent } = addVorgangSection(content, sectionName, locale, latestDate, bodyLines);
+			const { newContent } = addVorgangSection(
+				content,
+				assembled.sectionName,
+				locale,
+				assembled.latestDate,
+				editedBodyLines,
+			);
 			await this.plugin.app.vault.modify(vorgang, newContent);
 			this.walkFiledRecords.push({
 				rawTitle: `${stripSubjectPrefixes(m.subject)} ${m.partyName}`,
@@ -636,6 +697,18 @@ export class EmailFilingFeature implements LuKitFeature {
 			this.logBridgeError(e);
 			new Notice(`Nicht in „${vorgang.basename}" abgelegt.`);
 		}
+	}
+
+	// Non-interactive capture (assemble → commit with the unedited section).
+	private async captureSelectedThread(
+		m: SelectedMessage,
+		body: string,
+		attachments: MailAttachment[],
+		vorgang: TFile,
+	): Promise<void> {
+		const assembled = await this.assembleSelectedThread(m, body, attachments, vorgang);
+		if (!assembled) return;
+		await this.commitSelectedThread(m, assembled, assembled.bodyLines, vorgang);
 	}
 
 	private openMessage(meta: EmailMeta): void {
