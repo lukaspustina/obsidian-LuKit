@@ -60,9 +60,12 @@ Walks your Apple Mail inbox one message at a time and files each into a Vorgang/
 
 The inbox is the queue: filing or dismissing a message moves it out of the inbox, so nothing is re-offered and no copies are stored in the vault.
 
+Filing an email captures the **whole conversation**: your Sent replies in the same thread are pulled in alongside the received message and written as one chronological section, de-duplicated against what the Vorgang already contains (so re-filing a thread only adds new messages). Suggestions also learn across sessions from Vorgänge you've filed into before.
+
 **Commands:**
 
 - **E-Mail: File inbox emails** — Walk the inbox. Per message: pick a target (then edit + confirm in a preview), `↪ Überspringen` (leave in inbox), `✕ Nicht ablegen` (archive without filing), or `→ Stopp` (open in Mail and stop). Keyboard: Enter files, **Esc = Skip**, **⌘. = Stop**, **⌘D = Nur archivieren**, **⌘P = toggle the email peek**; shortcuts shown in the modal's hint bar.
+- **E-Mail: File selected Mail message** — File the message(s) currently selected in Apple Mail (any mailbox, **including Sent**) and their thread into a Vorgang — **capture-only, nothing is archived**. Use it for threads you started (which never land in the inbox). Configure a Sent mailbox per account in settings (**Detect accounts** fills it in).
 
 **Setup:** In Settings > LuKit, set the walk order, the default archive mailbox, and a per-account archive mailbox (use **Detect accounts** to populate them). Each detected account also gets an **include-in-walk** toggle — uncheck accounts you don't triage here to keep the walk fast. Gmail accounts typically archive to `[Gmail]/All Mail`. Requires granting Obsidian permission to control Mail (System Settings → Privacy → Automation).
 
@@ -92,7 +95,8 @@ Controls the date format used in diary headers, Vorgang sections, and reminders.
 | **Besprechung: Add multiple summaries** | Picker re-opens after each insertion (already-picked files hidden) until ESC |
 | **Besprechung: File pending notes** | Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary and removes the pending tag |
 | **Besprechung: File this Besprechung** | File the active Besprechung into a section note (Vorgang/Person/Bestellung/Bewerbung); same insertion + frontmatter stamping as File pending |
-| **E-Mail: File inbox emails** | (macOS/Apple Mail) Walk the inbox; file each message into a section note (archive + embed) or dismiss; inbox-zero, no vault copies |
+| **E-Mail: File inbox emails** | (macOS/Apple Mail) Walk the inbox; file each message's conversation (received + your Sent replies) into a section note (archive + embed) or dismiss; inbox-zero, no vault copies |
+| **E-Mail: File selected Mail message** | (macOS/Apple Mail) File the selected Mail message(s) + thread into a section note; capture-only (no archive); for threads you initiated |
 | **Migration: Convert note** | Auto-detect note type and convert old format to current |
 | **Help** | Show the LuKit help dialog |
 

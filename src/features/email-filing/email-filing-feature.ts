@@ -17,6 +17,7 @@ import {
 	type ThreadSectionMessage,
 } from "./email-format-engine";
 import { mergeDetectedAccounts, isAccountIncluded } from "./email-filing-settings";
+import { mineVorgangFilings, minedFilingsToFiledRecords, isCacheStale } from "./email-routing";
 import { addVorgangSection } from "../vorgang/vorgang-engine";
 import { suggestFilingTargets, type FiledRecord } from "../besprechung/besprechung-suggest-engine";
 import { frontmatterTagsInclude } from "../../shared/frontmatter";
@@ -57,6 +58,8 @@ export class EmailFilingFeature implements LuKitFeature {
 	// In-walk routing memory: each successful filing feeds the suggestion ranker
 	// so later emails (e.g. same thread) are steered to the same Vorgang.
 	private walkFiledRecords: FiledRecord[] = [];
+	// Cross-session routing corpus mined from existing Vorgänge (cached in data.json).
+	private routingCorpus: FiledRecord[] = [];
 	// In-walk skip memory: subjects (thread keys) the user skipped; later emails
 	// of the same thread are auto-skipped (left in the inbox).
 	private skippedThreads = new Set<string>();
@@ -158,6 +161,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		this.walkFiledRecords = [];
 		this.skippedThreads.clear();
 		this.walkCandidates = this.sectionNoteBasenames();
+		this.routingCorpus = await this.buildRoutingCorpus();
 		this.presentMessage(metas, 0);
 	}
 
@@ -393,6 +397,7 @@ export class EmailFilingFeature implements LuKitFeature {
 				target: vorgang.basename,
 				filedAt: Date.now(),
 			});
+			void this.invalidateRoutingCache();
 			new Notice(`Abgelegt: „${meta.subject}" → „${vorgang.basename}".`);
 		} catch (e) {
 			this.logBridgeError(e);
@@ -442,6 +447,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		const ordered = [...sel].sort((a, b) => a.dateSent.localeCompare(b.dateSent));
 		this.walkFiledRecords = [];
 		this.walkCandidates = this.sectionNoteBasenames();
+		this.routingCorpus = await this.buildRoutingCorpus();
 		this.presentSelected(ordered, 0);
 	}
 
@@ -576,6 +582,7 @@ export class EmailFilingFeature implements LuKitFeature {
 				target: vorgang.basename,
 				filedAt: Date.now(),
 			});
+			void this.invalidateRoutingCache();
 			new Notice(`Abgelegt: „${m.subject}" → „${vorgang.basename}".`);
 		} catch (e) {
 			this.logBridgeError(e);
@@ -597,7 +604,8 @@ export class EmailFilingFeature implements LuKitFeature {
 
 	private suggestionsForTitle(title: string): string[] {
 		try {
-			return suggestFilingTargets(title, this.walkFiledRecords, this.walkCandidates, {
+			const corpus = [...this.routingCorpus, ...this.walkFiledRecords];
+			return suggestFilingTargets(title, corpus, this.walkCandidates, {
 				now: Date.now(),
 				minScore: SUGGEST_MIN_SCORE,
 			}).map((s) => s.target);
@@ -607,7 +615,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		}
 	}
 
-	private sectionNoteBasenames(): string[] {
+	private sectionNoteFiles(): TFile[] {
 		return this.plugin.app.vault
 			.getMarkdownFiles()
 			.filter((f) =>
@@ -615,8 +623,41 @@ export class EmailFilingFeature implements LuKitFeature {
 					this.plugin.app.metadataCache.getFileCache(f)?.frontmatter?.tags,
 					SECTION_NOTE_TAGS,
 				),
-			)
-			.map((f) => f.basename);
+			);
+	}
+
+	private sectionNoteBasenames(): string[] {
+		return this.sectionNoteFiles().map((f) => f.basename);
+	}
+
+	// Cross-session routing corpus: cached in plugin data, rebuilt when stale (or
+	// missing) by mining existing Vorgang email sections. Rebuild also happens
+	// after any filing (the cache is invalidated on success).
+	private async buildRoutingCorpus(): Promise<FiledRecord[]> {
+		const settings = this.plugin.settings.emailFiling;
+		const cache = settings.routingCache;
+		if (cache && !isCacheStale(cache.builtAt, Date.now())) {
+			return cache.records;
+		}
+		const records: FiledRecord[] = [];
+		for (const f of this.sectionNoteFiles()) {
+			try {
+				const content = await this.plugin.app.vault.read(f);
+				records.push(...minedFilingsToFiledRecords(mineVorgangFilings(content, f.basename)));
+			} catch (e) {
+				console.warn("LuKit email-filing: mining failed for a note:", e instanceof Error ? e.name : typeof e);
+			}
+		}
+		settings.routingCache = { builtAt: new Date().toISOString(), records };
+		await this.plugin.saveSettings();
+		return records;
+	}
+
+	// Invalidates the routing cache so the next walk re-mines (picking up the
+	// just-filed section). The current walk already sees it via walkFiledRecords.
+	private async invalidateRoutingCache(): Promise<void> {
+		this.plugin.settings.emailFiling.routingCache = undefined;
+		await this.plugin.saveSettings();
 	}
 
 	private logBridgeError(e: unknown): void {

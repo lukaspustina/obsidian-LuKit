@@ -53,6 +53,9 @@ interface FeatureInternals {
 	skippedThreads: Set<string>;
 	beginSelectedWalk: () => Promise<void>;
 	captureSelectedThread: (m: SelectedMessage, editedBody: string, editedAttachments: unknown[], vorgang: unknown) => Promise<void>;
+	buildRoutingCorpus: () => Promise<unknown[]>;
+	routingCorpus: unknown[];
+	suggestionsForTitle: (title: string) => string[];
 }
 
 function setup(bridge: MailBridge, overrides: Parameters<typeof makeTestSettings>[0] = {}) {
@@ -317,5 +320,24 @@ describe("EmailFilingFeature — single-shot 'File selected Mail message' (Phase
 		app.vault.files.set(vorgang.path, "# Inhalt\n- siehe [x](message://%3Cs@1%3E)\n");
 		await internals.captureSelectedThread(SEL_OUT, "Mein Vorschlag", [], vorgang);
 		expect(lastNotice()).toContain("bereits abgelegt");
+	});
+});
+
+describe("EmailFilingFeature — cross-session routing (Phase 3)", () => {
+	it("suggests a Vorgang mined from a prior filing, even without name-match", async () => {
+		const app = createMockApp({});
+		const vorgang = createMockTFile("Vorgänge/Müller GmbH.md", { basename: "Müller GmbH" });
+		app.vault.register(vorgang, "##### E-Mail von Alice: Angebot, 01.06.2026\n- siehe [x](message://%3Cm1%3E)\n");
+		app.metadataCache.setFrontmatter(vorgang.path, { tags: ["Vorgang"] });
+		const plugin = createMockPlugin(makeTestSettings(), app);
+		const feature = new EmailFilingFeature();
+		feature.onload(asLuKitPlugin(plugin));
+		const internals = feature as unknown as FeatureInternals;
+		internals.walkCandidates = ["Müller GmbH", "Schmidt AG"];
+
+		internals.routingCorpus = await internals.buildRoutingCorpus();
+		// Name-match of "Müller GmbH" against "Angebot Alice" is 0; only the mined
+		// corpus can surface it.
+		expect(internals.suggestionsForTitle("Angebot Alice")).toContain("Müller GmbH");
 	});
 });

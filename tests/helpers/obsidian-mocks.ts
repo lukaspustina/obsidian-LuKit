@@ -99,6 +99,7 @@ export interface MockPlugin {
 	features: unknown[];
 	addCommand(spec: CommandSpec): void;
 	commands: Map<string, CommandSpec>;
+	saveSettings(): Promise<void>;
 }
 
 export function createMockPlugin(settings: LuKitSettings, app: MockApp): MockPlugin {
@@ -109,6 +110,7 @@ export function createMockPlugin(settings: LuKitSettings, app: MockApp): MockPlu
 		features: [],
 		addCommand(spec: CommandSpec): void { commands.set(spec.id, spec); },
 		commands,
+		saveSettings: async (): Promise<void> => undefined,
 	};
 }
 
