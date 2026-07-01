@@ -1,3 +1,4 @@
+import { formatDate } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
 
 // Shape of a Mail attachment as surfaced by the bridge. Defined here (the pure
@@ -88,6 +89,68 @@ export function formatEmailSection(
 	}
 	if (attachments.length > 0) {
 		bodyLines.push(`Anhänge: ${attachments.map((a) => a.name).join(", ")}`);
+	}
+	return { sectionName, bodyLines };
+}
+
+// One message of an assembled conversation thread, as fed to formatThreadSection.
+export interface ThreadSectionMessage {
+	direction: "in" | "out";
+	partyName: string;
+	/** ISO 8601 string. */
+	dateSent: string;
+	/** Already stripped via parseEmailBody by the caller. */
+	body: string;
+	attachments: MailAttachment[];
+	messageUrl: string;
+}
+
+// Parses message:// links out of a Vorgang's content and returns the set of
+// already-filed Message-IDs, so a thread can be assembled without re-adding
+// messages already present. Links have the form message://%3C<id>%3E (angle
+// brackets percent-encoded by buildMessageUrl); the id is decoded with a guard.
+export function extractFiledMessageIds(vorgangContent: string): Set<string> {
+	const ids = new Set<string>();
+	const re = /message:\/\/%3C(.+?)%3E/gi;
+	let match: RegExpExecArray | null;
+	while ((match = re.exec(vorgangContent)) !== null) {
+		let id = match[1];
+		try {
+			id = decodeURIComponent(id);
+		} catch {
+			// Malformed percent-escape — keep the raw captured id.
+		}
+		ids.add(id);
+	}
+	return ids;
+}
+
+// Renders a chronological multi-message conversation as one Vorgang section.
+// Per message (blank-line separated): a sub-header, the body, the `- siehe` link
+// (after the body, unlike formatEmailSection which puts it first), then Anhänge.
+export function formatThreadSection(
+	messages: ThreadSectionMessage[],
+	subject: string,
+	locale: DateLocale,
+): { sectionName: string; bodyLines: string[] } {
+	const cleanSubject = sanitizeSenderSubject(stripSubjectPrefixes(subject));
+	const sectionName = `E-Mail-Thread: ${cleanSubject}`;
+	const sorted = [...messages].sort((a, b) => a.dateSent.localeCompare(b.dateSent));
+
+	const bodyLines: string[] = [];
+	for (let i = 0; i < sorted.length; i++) {
+		const msg = sorted[i];
+		if (i > 0) bodyLines.push("");
+		const dir = msg.direction === "in" ? "eingegangen" : "gesendet";
+		const party = sanitizeSenderSubject(msg.partyName);
+		bodyLines.push(`**${formatDate(new Date(msg.dateSent), locale)} — ${party} (${dir}):**`);
+		if (msg.body.trim().length > 0) {
+			bodyLines.push(...msg.body.split("\n"));
+		}
+		bodyLines.push(`- siehe [E-Mail von ${party}: ${cleanSubject}](${msg.messageUrl})`);
+		if (msg.attachments.length > 0) {
+			bodyLines.push(`Anhänge: ${msg.attachments.map((a) => a.name).join(", ")}`);
+		}
 	}
 	return { sectionName, bodyLines };
 }

@@ -71,6 +71,12 @@ export function mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings {
 		dateLocale,
 		workDiary: { ...DEFAULT_SETTINGS.workDiary, ...(saved.workDiary ?? {}) },
 		besprechung: { ...DEFAULT_SETTINGS.besprechung, ...(saved.besprechung ?? {}) },
-		emailFiling: { ...DEFAULT_EMAIL_FILING_SETTINGS, ...(saved.emailFiling ?? {}) },
+		emailFiling: {
+			...DEFAULT_EMAIL_FILING_SETTINGS,
+			...(saved.emailFiling ?? {}),
+			archiveMailboxes: { ...DEFAULT_EMAIL_FILING_SETTINGS.archiveMailboxes, ...(saved.emailFiling?.archiveMailboxes ?? {}) },
+			sentMailboxes: { ...DEFAULT_EMAIL_FILING_SETTINGS.sentMailboxes, ...(saved.emailFiling?.sentMailboxes ?? {}) },
+			walkAccounts: { ...DEFAULT_EMAIL_FILING_SETTINGS.walkAccounts, ...(saved.emailFiling?.walkAccounts ?? {}) },
+		},
 	};
 }

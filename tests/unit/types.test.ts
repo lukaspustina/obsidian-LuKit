@@ -58,10 +58,19 @@ describe("mergeSettings", () => {
 				defaultArchiveMailbox: "Archiv",
 				archiveMailboxes: { Gmail: "[Gmail]/All Mail" },
 				walkAccounts: { Gmail: true, iCloud: false },
+				sentMailboxes: { Gmail: "[Gmail]/Sent Mail" },
+				defaultSentMailbox: "Gesendet",
 			},
 		};
 		const merged = mergeSettings(input);
 		expect(merged).toEqual(input);
+	});
+
+	it("preserves a saved emailFiling.sentMailboxes without losing defaults", () => {
+		const merged = mergeSettings({ emailFiling: { sentMailboxes: { Gmail: "Sent Mail" } } as never });
+		expect(merged.emailFiling.sentMailboxes).toEqual({ Gmail: "Sent Mail" });
+		expect(merged.emailFiling.defaultSentMailbox).toBe("Sent");
+		expect(merged.emailFiling.order).toBe("oldest");
 	});
 });
 

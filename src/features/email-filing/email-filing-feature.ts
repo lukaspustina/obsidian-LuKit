@@ -6,13 +6,15 @@ import type { LuKitFeature, HelpEntry } from "../../types";
 import { createOsascriptBridge, type MailBridge, type RawMailMessageMeta, type RawMailBody } from "./mail-bridge";
 import { parseEmailBody } from "./email-quote-engine";
 import {
-	formatEmailSection,
+	extractFiledMessageIds,
+	formatThreadSection,
 	filterAttachments,
 	buildMessageUrl,
 	stripSubjectPrefixes,
 	threadKey,
 	type EmailMeta,
 	type MailAttachment,
+	type ThreadSectionMessage,
 } from "./email-format-engine";
 import { mergeDetectedAccounts, isAccountIncluded } from "./email-filing-settings";
 import { addVorgangSection } from "../vorgang/vorgang-engine";
@@ -91,7 +93,17 @@ export class EmailFilingFeature implements LuKitFeature {
 
 	private makeBridge(): MailBridge {
 		const s = this.plugin.settings.emailFiling;
-		return createOsascriptBridge(s.archiveMailboxes, s.defaultArchiveMailbox);
+		return createOsascriptBridge(
+			s.archiveMailboxes,
+			s.defaultArchiveMailbox,
+			s.sentMailboxes,
+			s.defaultSentMailbox,
+		);
+	}
+
+	private sentMailboxFor(accountName: string): string {
+		const s = this.plugin.settings.emailFiling;
+		return s.sentMailboxes[accountName] ?? s.defaultSentMailbox;
 	}
 
 	// Synchronous entry point: sets the guard before any await so a second
@@ -303,10 +315,64 @@ export class EmailFilingFeature implements LuKitFeature {
 		try {
 			const locale = this.plugin.settings.dateLocale;
 			const content = await this.plugin.app.vault.read(vorgang);
-			const { sectionName, bodyLines } = formatEmailSection(emailMeta, body, attachments, locale);
-			const { newContent } = addVorgangSection(content, sectionName, locale, emailMeta.dateSent, bodyLines);
+			const alreadyFiled = extractFiledMessageIds(content);
+			const k = threadKey(meta.subject);
+
+			// Pull the user's Sent replies in this thread; degrade to inbound-only on failure.
+			let replies: ThreadSectionMessage[] = [];
+			try {
+				const sent = await this.bridge.listSentForThread(
+					meta.accountName,
+					meta.senderAddress,
+					this.sentMailboxFor(meta.accountName),
+				);
+				replies = sent
+					.filter((s) => threadKey(s.subject) === k && !alreadyFiled.has(s.id))
+					.map((s) => ({
+						direction: "out" as const,
+						partyName: s.partyName,
+						dateSent: s.dateSent,
+						body: parseEmailBody(s.body).body,
+						attachments: filterAttachments(s.attachments),
+						messageUrl: buildMessageUrl(s.id),
+					}));
+			} catch (e) {
+				this.logBridgeError(e);
+				new Notice(
+					"Gesendete Nachrichten konnten nicht geladen werden – nur die eingegangene E-Mail abgelegt.",
+				);
+			}
+
+			const sectionMsgs: ThreadSectionMessage[] = [];
+			if (!alreadyFiled.has(meta.id)) {
+				sectionMsgs.push({
+					direction: "in",
+					partyName: meta.senderName,
+					dateSent: meta.dateSent,
+					body,
+					attachments,
+					messageUrl: buildMessageUrl(meta.id),
+				});
+			}
+			sectionMsgs.push(...replies);
+
+			if (sectionMsgs.length === 0) {
+				new Notice(`„${meta.subject}" ist bereits abgelegt.`);
+				this.skippedThreads.add(k);
+				return;
+			}
+
+			const { sectionName, bodyLines } = formatThreadSection(sectionMsgs, meta.subject, locale);
+			const times = sectionMsgs
+				.map((m) => new Date(m.dateSent).getTime())
+				.filter((t) => !Number.isNaN(t));
+			const latestDate = times.length > 0 ? new Date(Math.max(...times)) : emailMeta.dateSent;
+			const { newContent } = addVorgangSection(content, sectionName, locale, latestDate, bodyLines);
 			await this.plugin.app.vault.modify(vorgang, newContent);
-			// Feed the in-walk routing memory so same-thread emails follow suit.
+
+			// Record the thread as handled (auto-skip its other inbox messages) and
+			// feed the in-walk routing memory.
+			this.skippedThreads.add(k);
 			this.walkFiledRecords.push({
 				rawTitle: this.titleFor(meta),
 				target: vorgang.basename,
@@ -398,10 +464,24 @@ export class EmailFilingFeature implements LuKitFeature {
 					}),
 			);
 
+		new Setting(containerEl)
+			.setName("Default Sent mailbox")
+			.setDesc("Sent mailbox used to find your replies when an account has no specific entry below")
+			.addText((text) =>
+				text
+					.setPlaceholder("Sent")
+					.setValue(settings.defaultSentMailbox)
+					.onChange(async (value) => {
+						settings.defaultSentMailbox = value.trim() || "Sent";
+						await plugin.saveSettings();
+						this.bridge = this.makeBridge();
+					}),
+			);
+
 		for (const account of Object.keys(settings.archiveMailboxes)) {
 			new Setting(containerEl)
 				.setName(account)
-				.setDesc("Toggle = include this account in the walk; field = its archive mailbox (e.g. Gmail → [Gmail]/All Mail)")
+				.setDesc("Toggle = include in walk; first field = archive mailbox; second field = Sent mailbox")
 				.addToggle((toggle) =>
 					toggle
 						.setValue(isAccountIncluded(settings.walkAccounts, account))
@@ -412,9 +492,20 @@ export class EmailFilingFeature implements LuKitFeature {
 				)
 				.addText((text) =>
 					text
+						.setPlaceholder("Archive mailbox")
 						.setValue(settings.archiveMailboxes[account])
 						.onChange(async (value) => {
 							settings.archiveMailboxes[account] = value.trim();
+							await plugin.saveSettings();
+							this.bridge = this.makeBridge();
+						}),
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder("Sent mailbox")
+						.setValue(settings.sentMailboxes[account] ?? "")
+						.onChange(async (value) => {
+							settings.sentMailboxes[account] = value.trim();
 							await plugin.saveSettings();
 							this.bridge = this.makeBridge();
 						}),
@@ -432,6 +523,11 @@ export class EmailFilingFeature implements LuKitFeature {
 							settings.archiveMailboxes,
 							accounts,
 							settings.defaultArchiveMailbox,
+						);
+						settings.sentMailboxes = mergeDetectedAccounts(
+							settings.sentMailboxes,
+							accounts,
+							settings.defaultSentMailbox,
 						);
 						for (const account of accounts) {
 							if (!(account in settings.walkAccounts)) {

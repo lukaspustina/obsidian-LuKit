@@ -1,3 +1,12 @@
+import type { FiledRecord } from "../besprechung/besprechung-suggest-engine";
+
+/** Cached cross-session routing corpus mined from Vorgänge (plugin data, not vault). */
+export interface RoutingCache {
+	/** ISO 8601 timestamp of when this cache was built. */
+	builtAt: string;
+	records: FiledRecord[];
+}
+
 export interface EmailFilingSettings {
 	order: "oldest" | "newest";
 	/** Archive mailbox name used when an account has no entry in archiveMailboxes. */
@@ -10,6 +19,12 @@ export interface EmailFilingSettings {
 	 * excludes it. Lets the walk skip accounts the user doesn't triage here.
 	 */
 	walkAccounts: Record<string, boolean>;
+	/** Maps Mail account name → its Sent mailbox name (for thread assembly). */
+	sentMailboxes: Record<string, string>;
+	/** Default Sent mailbox name for accounts not in sentMailboxes. */
+	defaultSentMailbox: string;
+	/** Internal cross-session routing cache; not user-editable. */
+	routingCache?: RoutingCache;
 }
 
 export const DEFAULT_EMAIL_FILING_SETTINGS: EmailFilingSettings = {
@@ -17,6 +32,8 @@ export const DEFAULT_EMAIL_FILING_SETTINGS: EmailFilingSettings = {
 	defaultArchiveMailbox: "Archive",
 	archiveMailboxes: {},
 	walkAccounts: {},
+	sentMailboxes: {},
+	defaultSentMailbox: "Sent",
 };
 
 // An account is included in the walk unless it is explicitly disabled

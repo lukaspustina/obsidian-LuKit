@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { EmailFilingFeature } from "../../src/features/email-filing/email-filing-feature";
-import type { MailBridge, RawMailMessageMeta } from "../../src/features/email-filing/mail-bridge";
+import type { MailBridge, RawMailMessageMeta, ThreadMessage } from "../../src/features/email-filing/mail-bridge";
+import { threadKey } from "../../src/features/email-filing/email-format-engine";
 import {
 	createMockApp,
 	createMockTFile,
@@ -19,6 +20,8 @@ function fakeBridge(overrides: Partial<MailBridge> = {}): MailBridge {
 		fetchBody: vi.fn(async () => ({ body: "", attachments: [] })),
 		archive: vi.fn(async () => undefined),
 		isInInbox: vi.fn(async () => false),
+		listSentForThread: vi.fn(async () => []),
+		getSelection: vi.fn(async () => []),
 		...overrides,
 	};
 }
@@ -27,6 +30,7 @@ const RAW: RawMailMessageMeta = {
 	id: "m@1",
 	accountName: "iCloud",
 	senderName: "Alice",
+	senderAddress: "alice@example.com",
 	subject: "Angebot",
 	dateSent: "2026-06-30T10:00:00Z",
 };
@@ -211,5 +215,60 @@ describe("EmailFilingFeature — other actions", () => {
 
 		const followUp = { ...RAW, id: "b", subject: "AW: Quartalsbericht", senderName: "Alice" };
 		expect(internals.suggestionsFor(followUp)).toContain("Müller GmbH");
+	});
+});
+
+describe("EmailFilingFeature.fileEmailIntoVorgang — thread assembly (Phase 1)", () => {
+	const reply = (overrides: Partial<ThreadMessage> = {}): ThreadMessage => ({
+		id: "m@2",
+		direction: "out",
+		partyName: "Lukas",
+		dateSent: "2026-06-30T11:00:00Z",
+		body: "Meine Antwort",
+		subject: "AW: Angebot",
+		attachments: [],
+		...overrides,
+	});
+
+	it("assembles inbound + Sent reply in date order", async () => {
+		const { app, vorgang, internals } = setup(
+			fakeBridge({ listSentForThread: vi.fn(async () => [reply()]) }),
+		);
+		await internals.fileEmailIntoVorgang(RAW, "Eingehender Text", [], vorgang);
+		const updated = app.vault.files.get(vorgang.path) ?? "";
+		expect(updated).toContain("Eingehender Text");
+		expect(updated).toContain("Meine Antwort");
+		expect(updated.indexOf("Eingehender Text")).toBeLessThan(updated.indexOf("Meine Antwort"));
+	});
+
+	it("files inbound-only and notices when Sent retrieval fails", async () => {
+		const { app, vorgang, internals } = setup(
+			fakeBridge({ listSentForThread: vi.fn(async () => { throw new Error("jxa"); }) }),
+		);
+		await internals.fileEmailIntoVorgang(RAW, "Eingehender Text", [], vorgang);
+		const updated = app.vault.files.get(vorgang.path) ?? "";
+		expect(updated).toContain("Eingehender Text");
+		expect(noticeMessages().some((m) => m.includes("Gesendete Nachrichten"))).toBe(true);
+	});
+
+	it("excludes a Sent message whose thread does not match", async () => {
+		const { app, vorgang, internals } = setup(
+			fakeBridge({ listSentForThread: vi.fn(async () => [reply({ id: "m@9", subject: "Rechnung", body: "Anderes" })]) }),
+		);
+		await internals.fileEmailIntoVorgang(RAW, "Eingehender Text", [], vorgang);
+		expect(app.vault.files.get(vorgang.path) ?? "").not.toContain("Anderes");
+	});
+
+	it("does not re-add a message already linked in the target Vorgang", async () => {
+		const { app, vorgang, internals } = setup(fakeBridge());
+		app.vault.files.set(vorgang.path, "# Inhalt\n- siehe [x](message://%3Cm@1%3E)\n");
+		await internals.fileEmailIntoVorgang(RAW, "Eingehender Text", [], vorgang);
+		expect(lastNotice()).toContain("bereits abgelegt");
+	});
+
+	it("records the threadKey so the thread auto-skips after filing", async () => {
+		const { vorgang, internals } = setup(fakeBridge());
+		await internals.fileEmailIntoVorgang(RAW, "Text", [], vorgang);
+		expect(internals.skippedThreads.has(threadKey("Angebot"))).toBe(true);
 	});
 });

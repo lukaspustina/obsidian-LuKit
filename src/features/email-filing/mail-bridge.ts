@@ -8,6 +8,8 @@ export interface RawMailMessageMeta {
 	accountName: string;
 	/** Display name; falls back to the sender address when the display name is absent. */
 	senderName: string;
+	/** Sender's email address (used to match Sent replies in the same thread). */
+	senderAddress: string;
 	subject: string;
 	/** ISO 8601 string. */
 	dateSent: string;
@@ -16,6 +18,35 @@ export interface RawMailMessageMeta {
 export interface RawMailBody {
 	body: string;
 	attachments: MailAttachment[];
+}
+
+/** A message in an assembled thread (inbound or Sent reply). */
+export interface ThreadMessage {
+	id: string;
+	/** "in" for received; "out" for Sent. listSentForThread always returns "out". */
+	direction: "in" | "out";
+	/** Display name of the party: sender (in) or first To: recipient (out). */
+	partyName: string;
+	/** ISO 8601 string. */
+	dateSent: string;
+	/** Raw body; caller strips with parseEmailBody. */
+	body: string;
+	subject: string;
+	attachments: MailAttachment[];
+}
+
+/** A message currently selected in Apple Mail (any mailbox). */
+export interface SelectedMessage {
+	id: string;
+	accountName: string;
+	direction: "in" | "out";
+	subject: string;
+	/** Correspondent display name (sender if "in", first To: recipient if "out"). */
+	partyName: string;
+	/** Correspondent email address (sender if "in", first To: address if "out"). */
+	partyAddress: string;
+	/** ISO 8601 string. */
+	dateSent: string;
 }
 
 export interface MailBridge {
@@ -29,6 +60,19 @@ export interface MailBridge {
 	archive(accountName: string, messageId: string): Promise<void>;
 	/** True if the message is still present in the named account's inbox. */
 	isInInbox(accountName: string, messageId: string): Promise<boolean>;
+	/**
+	 * Messages in the account's Sent mailbox (sentMailboxName) addressed to
+	 * correspondentAddress, with bodies + attachments, all direction "out". The
+	 * caller filters by threadKey. Throws on JXA failure (caller degrades to
+	 * inbound-only filing).
+	 */
+	listSentForThread(
+		accountName: string,
+		correspondentAddress: string,
+		sentMailboxName: string,
+	): Promise<ThreadMessage[]>;
+	/** The message(s) currently selected in Apple Mail across any mailbox; [] when none. */
+	getSelection(): Promise<SelectedMessage[]>;
 }
 
 // Runs a JXA script via `osascript -l JavaScript -e <script> -- <args…>`. All
@@ -177,6 +221,70 @@ function run(argv) {
 }
 `;
 
+// Returns all messages in the account's named Sent mailbox addressed to the
+// given correspondent (any To: recipient match), with bodies + attachments. The
+// TS caller filters by threadKey. Iterates messages (recipient lists are not
+// bulk-readable); acceptable at occasional file-time, validated by smoke test.
+const LIST_SENT_FOR_THREAD_JS =
+	JXA_HELPERS +
+	`
+function run(argv) {
+  const Mail = Application("Mail");
+  const accountName = argv[0], correspondent = (argv[1] || "").toLowerCase(), boxName = argv[2];
+  const acct = lukitAccount(Mail, accountName);
+  if (!acct) return JSON.stringify([]);
+  const bs = acct.mailboxes.whose({ name: boxName })();
+  if (!bs.length) return JSON.stringify([]);
+  const msgs = bs[0].messages();
+  const out = [];
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i];
+    let match = false;
+    try {
+      const tos = m.toRecipients();
+      for (let j = 0; j < tos.length; j++) {
+        try { if ((tos[j].address() || "").toLowerCase() === correspondent) { match = true; break; } } catch (e) {}
+      }
+    } catch (e) {}
+    if (!match) continue;
+    let body = "";
+    try { const c = m.content(); if (c != null) body = String(c); } catch (e) {}
+    const atts = [];
+    let raw = [];
+    try { raw = m.mailAttachments(); } catch (e) { raw = []; }
+    for (let k = 0; k < raw.length; k++) {
+      try { let size = -1; try { size = raw[k].fileSize(); } catch (e) {} atts.push({ name: raw[k].name(), mimeType: raw[k].mimeType(), size: size }); } catch (e) {}
+    }
+    let sent = "";
+    try { sent = m.dateSent().toISOString(); } catch (e) {}
+    out.push({ id: m.messageId(), sender: m.sender(), subject: m.subject(), dateSent: sent, body: body, attachments: atts });
+  }
+  return JSON.stringify(out);
+}
+`;
+
+// Returns the message(s) currently selected in Apple Mail (any mailbox). The TS
+// wrapper derives direction and the correspondent party from mailboxName/sender/To.
+const GET_SELECTION_JS = `
+function run() {
+  const Mail = Application("Mail");
+  let sel = [];
+  try { sel = Mail.selection(); } catch (e) { sel = []; }
+  const out = [];
+  for (let i = 0; i < sel.length; i++) {
+    const m = sel[i];
+    let acct = "", box = "";
+    try { const mb = m.mailbox(); box = mb.name(); acct = mb.account().name(); } catch (e) {}
+    let toName = "", toAddr = "";
+    try { const tos = m.toRecipients(); if (tos.length) { try { toName = tos[0].name() || ""; } catch (e) {} try { toAddr = tos[0].address() || ""; } catch (e) {} } } catch (e) {}
+    let sent = "";
+    try { sent = m.dateSent().toISOString(); } catch (e) {}
+    out.push({ id: m.messageId(), accountName: acct, mailboxName: box, subject: m.subject(), sender: m.sender(), toName: toName, toAddress: toAddr, dateSent: sent });
+  }
+  return JSON.stringify(out);
+}
+`;
+
 // Parses Mail's "Display Name <addr@host>" sender into a display name, falling
 // back to the bare address when no display name is present.
 function parseSenderName(sender: string): string {
@@ -188,9 +296,18 @@ function parseSenderName(sender: string): string {
 	return sender.trim();
 }
 
+// Parallel to parseSenderName: extracts the address (match[2]) from a
+// "Display Name <addr@host>" sender, falling back to the raw string.
+function parseSenderAddress(sender: string): string {
+	const match = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(sender);
+	return match ? match[2].trim() : sender.trim();
+}
+
 export function createOsascriptBridge(
 	archiveMailboxes: Record<string, string>,
 	defaultArchiveMailbox: string,
+	sentMailboxes: Record<string, string>,
+	defaultSentMailbox: string,
 ): MailBridge {
 	const mailboxFor = (accountName: string): string =>
 		archiveMailboxes[accountName] ?? defaultArchiveMailbox;
@@ -209,6 +326,7 @@ export function createOsascriptBridge(
 					id: m.id,
 					accountName: m.accountName,
 					senderName: parseSenderName(m.sender),
+					senderAddress: parseSenderAddress(m.sender),
 					subject: m.subject,
 					dateSent: m.dateSent,
 				}))
@@ -239,6 +357,60 @@ export function createOsascriptBridge(
 
 		async isInInbox(accountName: string, messageId: string): Promise<boolean> {
 			return (await runJxa(IS_IN_INBOX_JS, [accountName, messageId])).trim() === "true";
+		},
+
+		async listSentForThread(
+			accountName: string,
+			correspondentAddress: string,
+			sentMailboxName: string,
+		): Promise<ThreadMessage[]> {
+			const raw = JSON.parse(
+				await runJxa(LIST_SENT_FOR_THREAD_JS, [accountName, correspondentAddress, sentMailboxName]),
+			) as Array<{
+				id: string;
+				sender: string;
+				subject: string;
+				dateSent: string;
+				body: string;
+				attachments: MailAttachment[];
+			}>;
+			return raw.map((m) => ({
+				id: m.id,
+				direction: "out" as const,
+				partyName: parseSenderName(m.sender),
+				dateSent: m.dateSent,
+				body: m.body,
+				subject: m.subject,
+				attachments: m.attachments,
+			}));
+		},
+
+		async getSelection(): Promise<SelectedMessage[]> {
+			const raw = JSON.parse(await runJxa(GET_SELECTION_JS, [])) as Array<{
+				id: string;
+				accountName: string;
+				mailboxName: string;
+				subject: string;
+				sender: string;
+				toName: string;
+				toAddress: string;
+				dateSent: string;
+			}>;
+			return raw.map((m) => {
+				const configured = sentMailboxes[m.accountName];
+				const isOut = configured
+					? m.mailboxName === configured
+					: m.mailboxName.toLowerCase().includes("sent");
+				return {
+					id: m.id,
+					accountName: m.accountName,
+					direction: isOut ? ("out" as const) : ("in" as const),
+					subject: m.subject,
+					partyName: isOut ? m.toName : parseSenderName(m.sender),
+					partyAddress: isOut ? m.toAddress : parseSenderAddress(m.sender),
+					dateSent: m.dateSent,
+				};
+			});
 		},
 	};
 }
