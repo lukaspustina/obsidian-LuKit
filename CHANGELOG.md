@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.1] - 2026-07-01
+
+### Fixed
+- Email Filing: attachments (including PDFs) were silently dropped when Mail's JXA `mimeType()` is unreadable — it throws in some Mail versions, and the bridge read name/mimeType/size in a single guard, so a failing `mimeType()` discarded the whole attachment. Each field is now read independently (mimeType defaults to empty), and the inline-image filter keys off the auto-generated `imageNNN.<ext>` filename instead of the unreliable MIME type — so real attachments and meaningfully-named images are kept while signature/logo images are still dropped (c681bde).
+
 ## [1.14.0] - 2026-07-01
 
 ### Added
