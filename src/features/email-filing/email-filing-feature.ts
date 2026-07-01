@@ -735,7 +735,7 @@ export class EmailFilingFeature implements LuKitFeature {
 				)
 				.addText((text) =>
 					text
-						.setPlaceholder("Sent mailbox")
+						.setPlaceholder("Sent mailbox (auto)")
 						.setValue(settings.sentMailboxes[account] ?? "")
 						.onChange(async (value) => {
 							settings.sentMailboxes[account] = value.trim();
@@ -757,11 +757,9 @@ export class EmailFilingFeature implements LuKitFeature {
 							accounts,
 							settings.defaultArchiveMailbox,
 						);
-						settings.sentMailboxes = mergeDetectedAccounts(
-							settings.sentMailboxes,
-							accounts,
-							settings.defaultSentMailbox,
-						);
+						// Sent mailbox names are auto-detected per provider/locale at
+						// file time (Sent Messages / Sent Items / Gesendet / …), so we do
+						// not pre-fill them here — the per-account field is an override only.
 						for (const account of accounts) {
 							if (!(account in settings.walkAccounts)) {
 								settings.walkAccounts[account] = true;

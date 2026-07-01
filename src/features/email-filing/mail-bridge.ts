@@ -132,6 +132,22 @@ function lukitFindInInbox(Mail, accountName, messageId) {
   const matches = box.messages.whose({ messageId: messageId })();
   return matches.length > 0 ? matches[0] : null;
 }
+function lukitSentMailbox(Mail, accountName, preferredName) {
+  const acct = lukitAccount(Mail, accountName);
+  if (!acct) return null;
+  // Exact configured name first (user override).
+  if (preferredName) {
+    try { const bs = acct.mailboxes.whose({ name: preferredName })(); if (bs.length) return bs[0]; } catch (e) {}
+  }
+  // Auto-detect: the Sent folder's scripting name varies by provider/locale
+  // (Sent Messages / Sent Items / Sent Mail / Gesendet / Gesendete Elemente).
+  let names = [];
+  try { names = [].concat(acct.mailboxes.name()); } catch (e) { return null; }
+  for (let i = 0; i < names.length; i++) {
+    if (/sent|gesendet/i.test(names[i])) { try { return acct.mailboxes[i]; } catch (e) {} }
+  }
+  return null;
+}
 `;
 
 // Bulk property reads: one Apple Event per property per account's inbox, rather
@@ -234,11 +250,9 @@ const LIST_SENT_FOR_THREAD_JS =
 function run(argv) {
   const Mail = Application("Mail");
   const accountName = argv[0], correspondent = (argv[1] || "").toLowerCase(), boxName = argv[2];
-  const acct = lukitAccount(Mail, accountName);
-  if (!acct) return JSON.stringify([]);
-  const bs = acct.mailboxes.whose({ name: boxName })();
-  if (!bs.length) return JSON.stringify([]);
-  const msgs = bs[0].messages();
+  const box = lukitSentMailbox(Mail, accountName, boxName);
+  if (!box) return JSON.stringify([]);
+  const msgs = box.messages();
   const out = [];
   for (let i = 0; i < msgs.length; i++) {
     const m = msgs[i];
@@ -411,9 +425,8 @@ export function createOsascriptBridge(
 			}>;
 			return raw.map((m) => {
 				const configured = sentMailboxes[m.accountName];
-				const isOut = configured
-					? m.mailboxName === configured
-					: m.mailboxName.toLowerCase().includes("sent");
+				// Configured exact name, else the provider/locale-agnostic heuristic.
+				const isOut = (!!configured && m.mailboxName === configured) || /sent|gesendet/i.test(m.mailboxName);
 				return {
 					id: m.id,
 					accountName: m.accountName,
