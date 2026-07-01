@@ -64,6 +64,10 @@ export class EmailFilingFeature implements LuKitFeature {
 	// of the same thread are auto-skipped (left in the inbox).
 	private skippedThreads = new Set<string>();
 	private autoSkippedCount = 0;
+	// Inbox messages filed + archived as siblings of a thread we filed. When the
+	// walk later reaches them (they're still in the snapshot), skip silently —
+	// they were filed, not left behind, so they must not count as auto-skipped.
+	private threadHandledIds = new Set<string>();
 
 	onload(plugin: LuKitPlugin): void {
 		this.plugin = plugin;
@@ -160,6 +164,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		this.autoSkippedCount = 0;
 		this.walkFiledRecords = [];
 		this.skippedThreads.clear();
+		this.threadHandledIds.clear();
 		this.walkCandidates = this.sectionNoteBasenames();
 		this.routingCorpus = await this.buildRoutingCorpus();
 		this.presentMessage(metas, 0);
@@ -202,6 +207,12 @@ export class EmailFilingFeature implements LuKitFeature {
 
 	private async presentMessageAsync(metas: RawMailMessageMeta[], i: number): Promise<void> {
 		const meta = metas[i];
+		// Already filed + archived as a sibling of an earlier thread filing — skip
+		// silently (not left behind, so not counted as auto-skipped).
+		if (this.threadHandledIds.has(meta.id)) {
+			this.presentMessage(metas, i + 1);
+			return;
+		}
 		// Auto-skip a message whose thread the user already skipped this walk
 		// (before fetching its body — left in the inbox, counted at the end).
 		const key = threadKey(meta.subject);
@@ -363,6 +374,38 @@ export class EmailFilingFeature implements LuKitFeature {
 				);
 			}
 
+			// Pull the thread's other received emails still in the inbox and archive
+			// them too, so the whole conversation lands in the Vorgang and the inbox
+			// is truly zeroed. Degrade to just this message on failure.
+			let siblings: ThreadSectionMessage[] = [];
+			try {
+				const inbox = await this.bridge.listInboxForThread(
+					meta.accountName,
+					stripSubjectPrefixes(meta.subject),
+				);
+				const toFile = inbox.filter(
+					(s) => s.id !== meta.id && threadKey(s.subject) === k && !alreadyFiled.has(s.id),
+				);
+				siblings = toFile.map((s) => ({
+					direction: "in" as const,
+					partyName: s.partyName,
+					dateSent: s.dateSent,
+					body: parseEmailBody(s.body).body,
+					attachments: filterAttachments(s.attachments),
+					messageUrl: buildMessageUrl(s.id),
+				}));
+				for (const s of toFile) {
+					try {
+						await this.bridge.archive(meta.accountName, s.id);
+						this.threadHandledIds.add(s.id);
+					} catch (e) {
+						this.logBridgeError(e);
+					}
+				}
+			} catch (e) {
+				this.logBridgeError(e);
+			}
+
 			const sectionMsgs: ThreadSectionMessage[] = [];
 			if (!alreadyFiled.has(meta.id)) {
 				sectionMsgs.push({
@@ -375,6 +418,7 @@ export class EmailFilingFeature implements LuKitFeature {
 				});
 			}
 			sectionMsgs.push(...replies);
+			sectionMsgs.push(...siblings);
 
 			if (sectionMsgs.length === 0) {
 				new Notice(`„${meta.subject}" ist bereits abgelegt.`);
@@ -399,7 +443,9 @@ export class EmailFilingFeature implements LuKitFeature {
 				filedAt: Date.now(),
 			});
 			void this.invalidateRoutingCache();
-			new Notice(`Abgelegt: „${meta.subject}" → „${vorgang.basename}".`);
+			const extra = replies.length + siblings.length;
+			const suffix = extra > 0 ? ` (+${extra} Thread-Nachrichten)` : "";
+			new Notice(`Abgelegt: „${meta.subject}" → „${vorgang.basename}".${suffix}`);
 		} catch (e) {
 			this.logBridgeError(e);
 			new Notice(`Archiviert, aber nicht in „${vorgang.basename}" abgelegt.`);

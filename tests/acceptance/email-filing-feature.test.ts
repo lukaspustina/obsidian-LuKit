@@ -21,6 +21,7 @@ function fakeBridge(overrides: Partial<MailBridge> = {}): MailBridge {
 		archive: vi.fn(async () => undefined),
 		isInInbox: vi.fn(async () => false),
 		listSentForThread: vi.fn(async () => []),
+		listInboxForThread: vi.fn(async () => []),
 		getSelection: vi.fn(async () => []),
 		detectSentMailboxes: vi.fn(async () => ({})),
 		...overrides,
@@ -52,6 +53,7 @@ interface FeatureInternals {
 	walkCandidates: string[];
 	suggestionsFor: (m: RawMailMessageMeta) => string[];
 	skippedThreads: Set<string>;
+	threadHandledIds: Set<string>;
 	beginSelectedWalk: () => Promise<void>;
 	captureSelectedThread: (m: SelectedMessage, editedBody: string, editedAttachments: unknown[], vorgang: unknown) => Promise<void>;
 	buildRoutingCorpus: () => Promise<unknown[]>;
@@ -246,6 +248,46 @@ describe("EmailFilingFeature.fileEmailIntoVorgang — thread assembly (Phase 1)"
 		expect(updated).toContain("Meine Antwort");
 		// Reply (11:00) is newer than the inbound (RAW dateSent 10:00) → appears first.
 		expect(updated.indexOf("Meine Antwort")).toBeLessThan(updated.indexOf("Eingehender Text"));
+	});
+
+	it("gathers the thread's other inbox emails, files and archives them", async () => {
+		const archive = vi.fn(async () => undefined);
+		const sibling: ThreadMessage = {
+			id: "m@3",
+			direction: "in",
+			partyName: "Carol",
+			dateSent: "2026-06-30T09:00:00Z",
+			body: "Frühere Mail",
+			subject: "Angebot",
+			attachments: [],
+		};
+		const { app, vorgang, internals } = setup(
+			fakeBridge({ archive, listInboxForThread: vi.fn(async () => [sibling]) }),
+		);
+		await internals.fileEmailIntoVorgang(RAW, "Eingehender Text", [], vorgang);
+		const updated = app.vault.files.get(vorgang.path) ?? "";
+		expect(updated).toContain("Eingehender Text");
+		expect(updated).toContain("Frühere Mail");
+		expect(archive).toHaveBeenCalledWith("iCloud", "m@1"); // primary
+		expect(archive).toHaveBeenCalledWith("iCloud", "m@3"); // sibling
+		expect(internals.threadHandledIds.has("m@3")).toBe(true);
+		expect(lastNotice()).toContain("Thread-Nachrichten");
+	});
+
+	it("excludes the primary message and non-matching threads from siblings", async () => {
+		const archive = vi.fn(async () => undefined);
+		const { app, vorgang, internals } = setup(
+			fakeBridge({
+				archive,
+				listInboxForThread: vi.fn(async () => [
+					{ id: "m@1", direction: "in", partyName: "Alice", dateSent: RAW.dateSent, body: "self", subject: "Angebot", attachments: [] },
+					{ id: "m@8", direction: "in", partyName: "Dave", dateSent: "2026-06-29T00:00:00Z", body: "Andere Sache", subject: "Rechnung", attachments: [] },
+				]),
+			}),
+		);
+		await internals.fileEmailIntoVorgang(RAW, "Eingehender Text", [], vorgang);
+		expect(app.vault.files.get(vorgang.path) ?? "").not.toContain("Andere Sache");
+		expect(archive).toHaveBeenCalledTimes(1); // only the primary
 	});
 
 	it("files inbound-only and notices when Sent retrieval fails", async () => {

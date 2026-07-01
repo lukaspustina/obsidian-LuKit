@@ -77,6 +77,14 @@ export interface MailBridge {
 		sentMailboxName: string,
 		subjectContains: string,
 	): Promise<ThreadMessage[]>;
+	/**
+	 * Messages in the account's inbox whose subject contains subjectContains, with
+	 * bodies + attachments, all direction "in". Used to gather a thread's other
+	 * received emails that are still in the inbox. The caller filters by threadKey
+	 * (thread identity is subject-based — a CC thread's messages have varied
+	 * senders). Throws on JXA failure (caller degrades to the single message).
+	 */
+	listInboxForThread(accountName: string, subjectContains: string): Promise<ThreadMessage[]>;
 	/** The message(s) currently selected in Apple Mail across any mailbox; [] when none. */
 	getSelection(): Promise<SelectedMessage[]>;
 	/** Resolves each account's actual Sent mailbox name (run once at Detect time). */
@@ -321,6 +329,42 @@ function run() {
 }
 `;
 
+// Like LIST_SENT_FOR_THREAD_JS but on the inbox and without a recipient filter:
+// a thread's received siblings can come from many senders (CC threads), so
+// identity is subject-based and the TS caller filters by threadKey.
+const LIST_INBOX_FOR_THREAD_JS =
+	JXA_HELPERS +
+	`
+function run(argv) {
+  const Mail = Application("Mail");
+  const accountName = argv[0], subjectContains = argv[1] || "";
+  const box = lukitInbox(Mail, accountName);
+  if (!box) return JSON.stringify([]);
+  let msgs = [];
+  try {
+    msgs = subjectContains ? box.messages.whose({ subject: { _contains: subjectContains } })() : box.messages();
+  } catch (e) {
+    try { msgs = box.messages(); } catch (e2) { return JSON.stringify([]); }
+  }
+  const out = [];
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i];
+    let body = "";
+    try { const c = m.content(); if (c != null) body = String(c); } catch (e) {}
+    const atts = [];
+    let raw = [];
+    try { raw = m.mailAttachments(); } catch (e) { raw = []; }
+    for (let k = 0; k < raw.length; k++) {
+      try { let size = -1; try { size = raw[k].fileSize(); } catch (e) {} atts.push({ name: raw[k].name(), mimeType: raw[k].mimeType(), size: size }); } catch (e) {}
+    }
+    let sent = "";
+    try { sent = m.dateSent().toISOString(); } catch (e) {}
+    out.push({ id: m.messageId(), sender: m.sender(), subject: m.subject(), dateSent: sent, body: body, attachments: atts });
+  }
+  return JSON.stringify(out);
+}
+`;
+
 // Resolves each account's actual Sent mailbox name via the same heuristic used
 // at file time — run once at Detect time so subsequent filings use the exact
 // name (fast) instead of re-detecting.
@@ -432,6 +476,31 @@ export function createOsascriptBridge(
 			return raw.map((m) => ({
 				id: m.id,
 				direction: "out" as const,
+				partyName: parseSenderName(m.sender),
+				dateSent: m.dateSent,
+				body: m.body,
+				subject: m.subject,
+				attachments: m.attachments,
+			}));
+		},
+
+		async listInboxForThread(
+			accountName: string,
+			subjectContains: string,
+		): Promise<ThreadMessage[]> {
+			const raw = JSON.parse(
+				await runJxa(LIST_INBOX_FOR_THREAD_JS, [accountName, subjectContains]),
+			) as Array<{
+				id: string;
+				sender: string;
+				subject: string;
+				dateSent: string;
+				body: string;
+				attachments: MailAttachment[];
+			}>;
+			return raw.map((m) => ({
+				id: m.id,
+				direction: "in" as const,
 				partyName: parseSenderName(m.sender),
 				dateSent: m.dateSent,
 				body: m.body,
