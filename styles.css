@@ -37,3 +37,25 @@
 .lukit-help-list li {
 	margin-bottom: var(--size-4-1);
 }
+
+.lukit-email-preview-msg {
+	margin-bottom: var(--size-4-3);
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding-bottom: var(--size-4-2);
+}
+
+.lukit-email-preview-header {
+	display: block;
+	font-weight: 600;
+	margin-bottom: var(--size-4-1);
+}
+
+.lukit-email-preview-atts {
+	font-size: var(--font-smaller);
+	color: var(--text-muted);
+	margin: var(--size-4-1) 0 0;
+}
+
+.lukit-email-preview:disabled {
+	opacity: 0.5;
+}

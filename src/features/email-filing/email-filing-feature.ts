@@ -11,18 +11,24 @@ import {
 	filterAttachments,
 	buildMessageUrl,
 	stripSubjectPrefixes,
+	sanitizeSenderSubject,
 	threadKey,
 	type EmailMeta,
 	type MailAttachment,
 	type ThreadSectionMessage,
 } from "./email-format-engine";
+import { formatDate } from "../../shared/date-format";
 import { mergeDetectedAccounts, isAccountIncluded } from "./email-filing-settings";
 import { mineVorgangFilings, minedFilingsToFiledRecords, isCacheStale } from "./email-routing";
 import { addVorgangSection } from "../vorgang/vorgang-engine";
 import { suggestFilingTargets, type FiledRecord } from "../besprechung/besprechung-suggest-engine";
 import { frontmatterTagsInclude } from "../../shared/frontmatter";
 import { SectionNoteSuggestModal } from "../../shared/modals/section-note-suggest";
-import { EmailPreviewModal } from "./email-preview-modal";
+import {
+	EmailPreviewModal,
+	type PreviewMessage,
+	type PreviewMessageResult,
+} from "./email-preview-modal";
 
 const SECTION_NOTE_TAGS: ReadonlySet<string> = new Set([
 	"Vorgang",
@@ -39,12 +45,11 @@ const SUGGEST_MIN_SCORE = 0.01;
 // assembleThread (no archive, no write); committed by commitThread.
 interface AssembledThread {
 	sectionName: string;
-	bodyLines: string[];
+	/** All thread messages, sorted newest-first (matches the written + previewed order). */
+	messages: ThreadSectionMessage[];
 	/** Inbox sibling message ids to archive on commit (empty for single-shot capture). */
 	siblingIds: string[];
 	latestDate: Date;
-	/** Total messages in the section (headline + replies + siblings). */
-	messageCount: number;
 	threadKey: string;
 }
 
@@ -287,12 +292,15 @@ export class EmailFilingFeature implements LuKitFeature {
 					new EmailPreviewModal(
 						this.plugin.app,
 						vorgang.basename,
-						`Betreff: ${meta.subject} · ${assembled.messageCount} Nachricht(en)`,
-						assembled.bodyLines.join("\n"),
-						(edited) => {
-							void this.commitThread(meta, assembled, edited.split("\n"), vorgang).then(() =>
-								this.presentMessage(metas, i + 1),
-							);
+						`Betreff: ${meta.subject} · ${assembled.messages.length} Nachricht(en)`,
+						this.toPreviewMessages(assembled.messages),
+						(results) => {
+							void this.commitThread(
+								meta,
+								assembled,
+								this.applyPreviewResults(assembled.messages, results),
+								vorgang,
+							).then(() => this.presentMessage(metas, i + 1));
 						},
 						// Cancelling the preview returns to the picker for this same
 						// message (re-pick or choose Skip/Don't-file), rather than skipping it.
@@ -328,6 +336,32 @@ export class EmailFilingFeature implements LuKitFeature {
 			dateSent: new Date(meta.dateSent),
 			messageUrl: buildMessageUrl(meta.id),
 		};
+	}
+
+	// Read-only preview rows: header (date · party · direction) and attachment line
+	// are locked; only the body is editable. The message:// link stays in the
+	// underlying message and is re-emitted verbatim on commit.
+	private toPreviewMessages(messages: ThreadSectionMessage[]): PreviewMessage[] {
+		const locale = this.plugin.settings.dateLocale;
+		return messages.map((msg) => ({
+			header: `${formatDate(new Date(msg.dateSent), locale)} — ${sanitizeSenderSubject(msg.partyName)} (${msg.direction === "in" ? "eingegangen" : "gesendet"})`,
+			body: msg.body,
+			attachmentsLine:
+				msg.attachments.length > 0 ? `Anhänge: ${msg.attachments.map((a) => a.name).join(", ")}` : null,
+		}));
+	}
+
+	// Maps per-message preview results back onto the assembled messages: keeps the
+	// included ones (in order) with their edited body, drops the excluded ones.
+	private applyPreviewResults(
+		messages: ThreadSectionMessage[],
+		results: PreviewMessageResult[],
+	): ThreadSectionMessage[] {
+		const out: ThreadSectionMessage[] = [];
+		results.forEach((r, i) => {
+			if (r.included) out.push({ ...messages[i], body: r.body });
+		});
+		return out;
 	}
 
 	// Read-only: gather the whole thread (this message + the user's Sent replies +
@@ -414,21 +448,24 @@ export class EmailFilingFeature implements LuKitFeature {
 			return null;
 		}
 
-		const { sectionName, bodyLines } = formatThreadSection(sectionMsgs, meta.subject, locale);
-		const times = sectionMsgs
+		const sorted = [...sectionMsgs].sort((a, b) => b.dateSent.localeCompare(a.dateSent));
+		const { sectionName } = formatThreadSection(sorted, meta.subject, locale);
+		const times = sorted
 			.map((m) => new Date(m.dateSent).getTime())
 			.filter((t) => !Number.isNaN(t));
 		const latestDate = times.length > 0 ? new Date(Math.max(...times)) : new Date(meta.dateSent);
-		return { sectionName, bodyLines, siblingIds, latestDate, messageCount: sectionMsgs.length, threadKey: k };
+		return { sectionName, messages: sorted, siblingIds, latestDate, threadKey: k };
 	}
 
 	// Commit an assembled thread: archive-first (this message) → verify it left the
-	// inbox → archive the sibling inbox messages → write the (edited) section into
-	// the Vorgang. Any failed step shows a Notice and stops.
+	// inbox → archive the sibling inbox messages → write the section for the
+	// included messages into the Vorgang. Include/exclude only affects the written
+	// content; the whole thread is archived regardless (inbox-zero). Any failed
+	// step shows a Notice and stops.
 	private async commitThread(
 		meta: RawMailMessageMeta,
 		assembled: AssembledThread,
-		editedBodyLines: string[],
+		contentMessages: ThreadSectionMessage[],
 		vorgang: TFile,
 	): Promise<void> {
 		const emailMeta = this.toEmailMeta(meta);
@@ -466,15 +503,23 @@ export class EmailFilingFeature implements LuKitFeature {
 			}
 		}
 
+		this.skippedThreads.add(assembled.threadKey);
+
+		if (contentMessages.length === 0) {
+			new Notice(`Thread archiviert; nichts in „${vorgang.basename}" übernommen (alle abgewählt).`);
+			return;
+		}
+
 		try {
 			const locale = this.plugin.settings.dateLocale;
 			const content = await this.plugin.app.vault.read(vorgang);
+			const { bodyLines } = formatThreadSection(contentMessages, meta.subject, locale);
 			const { newContent } = addVorgangSection(
 				content,
 				assembled.sectionName,
 				locale,
 				assembled.latestDate,
-				editedBodyLines,
+				bodyLines,
 			);
 			await this.plugin.app.vault.modify(vorgang, newContent);
 		} catch (e) {
@@ -483,19 +528,18 @@ export class EmailFilingFeature implements LuKitFeature {
 			return;
 		}
 
-		this.skippedThreads.add(assembled.threadKey);
 		this.walkFiledRecords.push({
 			rawTitle: this.titleFor(meta),
 			target: vorgang.basename,
 			filedAt: Date.now(),
 		});
 		void this.invalidateRoutingCache();
-		const extra = assembled.messageCount - 1;
+		const extra = contentMessages.length - 1;
 		const suffix = extra > 0 ? ` (+${extra} Thread-Nachrichten)` : "";
 		new Notice(`Abgelegt: „${meta.subject}" → „${vorgang.basename}".${suffix}`);
 	}
 
-	// Non-interactive filing (assemble → commit with the unedited section). The
+	// Non-interactive filing (assemble → commit with all messages, unedited). The
 	// interactive walk inserts an editable preview between the two steps.
 	private async fileEmailIntoVorgang(
 		meta: RawMailMessageMeta,
@@ -505,7 +549,7 @@ export class EmailFilingFeature implements LuKitFeature {
 	): Promise<void> {
 		const assembled = await this.assembleThread(meta, body, attachments, vorgang);
 		if (!assembled) return;
-		await this.commitThread(meta, assembled, assembled.bodyLines, vorgang);
+		await this.commitThread(meta, assembled, assembled.messages, vorgang);
 	}
 
 	private async archiveOnly(meta: RawMailMessageMeta): Promise<void> {
@@ -579,12 +623,15 @@ export class EmailFilingFeature implements LuKitFeature {
 					new EmailPreviewModal(
 						this.plugin.app,
 						vorgang.basename,
-						`Betreff: ${m.subject} · ${assembled.messageCount} Nachricht(en)`,
-						assembled.bodyLines.join("\n"),
-						(edited) => {
-							void this.commitSelectedThread(m, assembled, edited.split("\n"), vorgang).then(() =>
-								this.presentSelected(sel, i + 1),
-							);
+						`Betreff: ${m.subject} · ${assembled.messages.length} Nachricht(en)`,
+						this.toPreviewMessages(assembled.messages),
+						(results) => {
+							void this.commitSelectedThread(
+								m,
+								assembled,
+								this.applyPreviewResults(assembled.messages, results),
+								vorgang,
+							).then(() => this.presentSelected(sel, i + 1));
 						},
 						() => {
 							this.presentSelected(sel, i);
@@ -659,31 +706,37 @@ export class EmailFilingFeature implements LuKitFeature {
 			return null;
 		}
 
-		const { sectionName, bodyLines } = formatThreadSection(sectionMsgs, m.subject, locale);
-		const times = sectionMsgs
+		const sorted = [...sectionMsgs].sort((a, b) => b.dateSent.localeCompare(a.dateSent));
+		const { sectionName } = formatThreadSection(sorted, m.subject, locale);
+		const times = sorted
 			.map((x) => new Date(x.dateSent).getTime())
 			.filter((t) => !Number.isNaN(t));
 		const latestDate = times.length > 0 ? new Date(Math.max(...times)) : new Date(m.dateSent);
-		return { sectionName, bodyLines, siblingIds: [], latestDate, messageCount: sectionMsgs.length, threadKey: k };
+		return { sectionName, messages: sorted, siblingIds: [], latestDate, threadKey: k };
 	}
 
-	// Commit a selected-thread assembly: write the (edited) section into the
-	// Vorgang. Capture-only — never archives.
+	// Commit a selected-thread assembly: write the section for the included
+	// messages into the Vorgang. Capture-only — never archives.
 	private async commitSelectedThread(
 		m: SelectedMessage,
 		assembled: AssembledThread,
-		editedBodyLines: string[],
+		contentMessages: ThreadSectionMessage[],
 		vorgang: TFile,
 	): Promise<void> {
+		if (contentMessages.length === 0) {
+			new Notice(`Nichts in „${vorgang.basename}" übernommen (alle abgewählt).`);
+			return;
+		}
 		try {
 			const locale = this.plugin.settings.dateLocale;
 			const content = await this.plugin.app.vault.read(vorgang);
+			const { bodyLines } = formatThreadSection(contentMessages, m.subject, locale);
 			const { newContent } = addVorgangSection(
 				content,
 				assembled.sectionName,
 				locale,
 				assembled.latestDate,
-				editedBodyLines,
+				bodyLines,
 			);
 			await this.plugin.app.vault.modify(vorgang, newContent);
 			this.walkFiledRecords.push({
@@ -699,7 +752,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		}
 	}
 
-	// Non-interactive capture (assemble → commit with the unedited section).
+	// Non-interactive capture (assemble → commit with all messages, unedited).
 	private async captureSelectedThread(
 		m: SelectedMessage,
 		body: string,
@@ -708,7 +761,7 @@ export class EmailFilingFeature implements LuKitFeature {
 	): Promise<void> {
 		const assembled = await this.assembleSelectedThread(m, body, attachments, vorgang);
 		if (!assembled) return;
-		await this.commitSelectedThread(m, assembled, assembled.bodyLines, vorgang);
+		await this.commitSelectedThread(m, assembled, assembled.messages, vorgang);
 	}
 
 	private openMessage(meta: EmailMeta): void {

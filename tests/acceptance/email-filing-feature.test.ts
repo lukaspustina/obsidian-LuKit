@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { EmailFilingFeature } from "../../src/features/email-filing/email-filing-feature";
 import type { MailBridge, RawMailMessageMeta, ThreadMessage, SelectedMessage } from "../../src/features/email-filing/mail-bridge";
-import { threadKey } from "../../src/features/email-filing/email-format-engine";
+import { threadKey, type ThreadSectionMessage } from "../../src/features/email-filing/email-format-engine";
 import {
 	createMockApp,
 	createMockTFile,
@@ -39,10 +39,9 @@ const RAW: RawMailMessageMeta = {
 
 interface AssembledThreadShape {
 	sectionName: string;
-	bodyLines: string[];
+	messages: ThreadSectionMessage[];
 	siblingIds: string[];
 	latestDate: Date;
-	messageCount: number;
 	threadKey: string;
 }
 
@@ -57,7 +56,7 @@ interface FeatureInternals {
 	selectWalkMessages: (m: RawMailMessageMeta[]) => RawMailMessageMeta[];
 	fileEmailIntoVorgang: (m: RawMailMessageMeta, body: string, attachments: unknown[], vorgang: unknown) => Promise<void>;
 	assembleThread: (m: RawMailMessageMeta, body: string, attachments: unknown[], vorgang: unknown) => Promise<AssembledThreadShape | null>;
-	commitThread: (m: RawMailMessageMeta, assembled: AssembledThreadShape, editedBodyLines: string[], vorgang: unknown) => Promise<void>;
+	commitThread: (m: RawMailMessageMeta, assembled: AssembledThreadShape, contentMessages: ThreadSectionMessage[], vorgang: unknown) => Promise<void>;
 	archiveOnly: (m: RawMailMessageMeta) => Promise<void>;
 	openMessage: (meta: { messageUrl: string }) => void;
 	presentMessageAsync: (m: RawMailMessageMeta[], i: number) => Promise<void>;
@@ -339,21 +338,47 @@ describe("EmailFilingFeature.fileEmailIntoVorgang — thread assembly (Phase 1)"
 		);
 		const assembled = await internals.assembleThread(RAW, "Eingehender Text", [], vorgang);
 		expect(assembled).not.toBeNull();
-		expect(assembled?.messageCount).toBe(2);
-		expect(assembled?.bodyLines.join("\n")).toContain("Meine Antwort");
+		expect(assembled?.messages.length).toBe(2);
+		expect(assembled?.messages.some((m) => m.body.includes("Meine Antwort"))).toBe(true);
 		expect(archive).not.toHaveBeenCalled();
 		expect(app.vault.modify).not.toHaveBeenCalled();
 	});
 
-	it("commitThread writes the edited section text, not the assembled original", async () => {
+	it("commitThread writes the edited body, not the assembled original", async () => {
 		const { app, vorgang, internals } = setup(fakeBridge());
 		const assembled = await internals.assembleThread(RAW, "Original Text", [], vorgang);
 		expect(assembled).not.toBeNull();
 		if (!assembled) return;
-		await internals.commitThread(RAW, assembled, ["Ersetzter Text"], vorgang);
+		const edited = assembled.messages.map((m) => ({ ...m, body: "Ersetzter Text" }));
+		await internals.commitThread(RAW, assembled, edited, vorgang);
 		const updated = app.vault.files.get(vorgang.path) ?? "";
 		expect(updated).toContain("Ersetzter Text");
 		expect(updated).not.toContain("Original Text");
+	});
+
+	it("commitThread with an excluded message archives but omits it from the Vorgang", async () => {
+		const archive = vi.fn(async () => undefined);
+		const sibling: ThreadSectionMessage = {
+			direction: "in",
+			partyName: "Carol",
+			dateSent: "2026-06-30T09:00:00Z",
+			body: "Rausgenommen",
+			attachments: [],
+			messageUrl: "message://%3Cm@3%3E",
+		};
+		const { app, vorgang, internals } = setup(fakeBridge({ archive }));
+		const assembled = await internals.assembleThread(RAW, "Bleibt drin", [], vorgang);
+		expect(assembled).not.toBeNull();
+		if (!assembled) return;
+		// Simulate the picked message kept, an extra thread message excluded.
+		assembled.messages.push(sibling);
+		assembled.siblingIds.push("m@3");
+		const kept = assembled.messages.filter((m) => m.body !== "Rausgenommen");
+		await internals.commitThread(RAW, assembled, kept, vorgang);
+		const updated = app.vault.files.get(vorgang.path) ?? "";
+		expect(updated).toContain("Bleibt drin");
+		expect(updated).not.toContain("Rausgenommen");
+		expect(archive).toHaveBeenCalledWith("iCloud", "m@3"); // archived despite exclusion
 	});
 });
 
