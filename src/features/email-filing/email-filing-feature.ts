@@ -3,7 +3,7 @@ import { Notice, Setting, type TFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature, HelpEntry } from "../../types";
-import { createOsascriptBridge, type MailBridge, type RawMailMessageMeta, type RawMailBody } from "./mail-bridge";
+import { createOsascriptBridge, type MailBridge, type RawMailMessageMeta, type RawMailBody, type SelectedMessage } from "./mail-bridge";
 import { parseEmailBody } from "./email-quote-engine";
 import {
 	extractFiledMessageIds,
@@ -74,6 +74,15 @@ export class EmailFilingFeature implements LuKitFeature {
 				this.startWalk();
 			},
 		});
+
+		plugin.addCommand({
+			id: "email-filing-file-selected",
+			name: "E-Mail: File selected Mail message",
+			icon: LUKIT_ICON_ID,
+			callback: () => {
+				this.startSelectedWalk();
+			},
+		});
 	}
 
 	onunload(): void {
@@ -86,7 +95,13 @@ export class EmailFilingFeature implements LuKitFeature {
 				commandId: "email-filing-walk",
 				displayName: "E-Mail: File inbox emails",
 				description:
-					"Walk the Apple Mail inbox; for each message pick a Vorgang/Person/Bestellung/Bewerbung note, edit the extracted body, then archive the message and file the section.",
+					"Walk the Apple Mail inbox; for each message pick a Vorgang/Person/Bestellung/Bewerbung note, edit the extracted body, then archive the message and file the conversation (inbound + your Sent replies).",
+			},
+			{
+				commandId: "email-filing-file-selected",
+				displayName: "E-Mail: File selected Mail message",
+				description:
+					"File the message(s) currently selected in Apple Mail (any mailbox, incl. Sent) and their thread into a Vorgang — capture-only, nothing is archived. Use it for threads you initiated.",
 			},
 		];
 	}
@@ -395,6 +410,179 @@ export class EmailFilingFeature implements LuKitFeature {
 		}
 	}
 
+	// --- Single-shot: file the currently selected Mail message(s), capture-only ---
+
+	private startSelectedWalk(): void {
+		if (this.walkInProgress) {
+			new Notice("Walk läuft bereits.");
+			return;
+		}
+		this.walkInProgress = true;
+		void this.beginSelectedWalk();
+	}
+
+	private async beginSelectedWalk(): Promise<void> {
+		const loading = new Notice("Lade Auswahl…", 0);
+		let sel: SelectedMessage[];
+		try {
+			sel = await this.bridge.getSelection();
+		} catch (e) {
+			loading.hide();
+			this.logBridgeError(e);
+			new Notice(e instanceof Error ? e.message : "Mail-Zugriff fehlgeschlagen.");
+			this.walkInProgress = false;
+			return;
+		}
+		loading.hide();
+		if (sel.length === 0) {
+			new Notice("Keine Nachricht in Mail ausgewählt.");
+			this.walkInProgress = false;
+			return;
+		}
+		const ordered = [...sel].sort((a, b) => a.dateSent.localeCompare(b.dateSent));
+		this.walkFiledRecords = [];
+		this.walkCandidates = this.sectionNoteBasenames();
+		this.presentSelected(ordered, 0);
+	}
+
+	private presentSelected(sel: SelectedMessage[], i: number): void {
+		if (i >= sel.length) {
+			new Notice(`Ausgewählte E-Mails abgelegt (${sel.length}).`);
+			this.walkInProgress = false;
+			return;
+		}
+		const m = sel[i];
+		const body = parseEmailBody(m.body).body;
+		const attachments = filterAttachments(m.attachments);
+		const emailMeta: EmailMeta = {
+			senderName: m.partyName,
+			subject: m.subject,
+			dateSent: new Date(m.dateSent),
+			messageUrl: buildMessageUrl(m.id),
+		};
+		new SectionNoteSuggestModal(this.plugin.app, SECTION_NOTE_TAGS, {
+			placeholder: `[${i + 1}/${sel.length}] „${m.subject}" ablegen unter… (ESC = Stopp)`,
+			previewText: `${m.direction === "in" ? "Von" : "An"}: ${m.partyName}\nBetreff: ${m.subject}\n\n${body || "(kein Textinhalt)"}`,
+			suggestions: this.suggestionsForTitle(`${stripSubjectPrefixes(m.subject)} ${m.partyName}`),
+			dropLabel: "✕ Nicht ablegen",
+			onPick: (vorgang) => {
+				new EmailPreviewModal(
+					this.plugin.app,
+					emailMeta,
+					body,
+					vorgang.basename,
+					(edited) => {
+						void this.captureSelectedThread(m, edited, attachments, vorgang).then(() =>
+							this.presentSelected(sel, i + 1),
+						);
+					},
+					() => {
+						this.presentSelected(sel, i);
+					},
+				).open();
+			},
+			onDrop: () => this.presentSelected(sel, i + 1),
+			onCancel: () => {
+				new Notice("Ablage gestoppt.");
+				this.walkInProgress = false;
+			},
+		}).open();
+	}
+
+	// Capture-only: assembles the selected message's thread and inserts it into
+	// the Vorgang. Never archives (the selected message may live in any mailbox).
+	private async captureSelectedThread(
+		m: SelectedMessage,
+		editedBody: string,
+		editedAttachments: MailAttachment[],
+		vorgang: TFile,
+	): Promise<void> {
+		try {
+			const locale = this.plugin.settings.dateLocale;
+			const content = await this.plugin.app.vault.read(vorgang);
+			const filed = extractFiledMessageIds(content);
+			const k = threadKey(m.subject);
+			const selUrl = buildMessageUrl(m.id);
+
+			let replies: ThreadSectionMessage[] = [];
+			try {
+				const sent = await this.bridge.listSentForThread(
+					m.accountName,
+					m.partyAddress,
+					this.sentMailboxFor(m.accountName),
+				);
+				replies = sent
+					.filter((s) => threadKey(s.subject) === k && !filed.has(s.id))
+					.map((s) => ({
+						direction: "out" as const,
+						partyName: s.partyName,
+						dateSent: s.dateSent,
+						body: parseEmailBody(s.body).body,
+						attachments: filterAttachments(s.attachments),
+						messageUrl: buildMessageUrl(s.id),
+					}));
+			} catch (e) {
+				this.logBridgeError(e);
+				new Notice("Gesendete Nachrichten konnten nicht geladen werden.");
+			}
+
+			const sectionMsgs: ThreadSectionMessage[] = [];
+			if (m.direction === "in" && !filed.has(m.id)) {
+				sectionMsgs.push({
+					direction: "in",
+					partyName: m.partyName,
+					dateSent: m.dateSent,
+					body: editedBody,
+					attachments: editedAttachments,
+					messageUrl: selUrl,
+				});
+			}
+			// Include Sent replies; the selected message's own body uses the edited text.
+			for (const r of replies) {
+				sectionMsgs.push(
+					r.messageUrl === selUrl ? { ...r, body: editedBody, attachments: editedAttachments } : r,
+				);
+			}
+			// If an outbound selection wasn't returned by listSentForThread, add it directly.
+			if (
+				m.direction === "out" &&
+				!filed.has(m.id) &&
+				!sectionMsgs.some((x) => x.messageUrl === selUrl)
+			) {
+				sectionMsgs.push({
+					direction: "out",
+					partyName: m.partyName,
+					dateSent: m.dateSent,
+					body: editedBody,
+					attachments: editedAttachments,
+					messageUrl: selUrl,
+				});
+			}
+
+			if (sectionMsgs.length === 0) {
+				new Notice(`„${m.subject}" ist bereits abgelegt.`);
+				return;
+			}
+
+			const { sectionName, bodyLines } = formatThreadSection(sectionMsgs, m.subject, locale);
+			const times = sectionMsgs
+				.map((x) => new Date(x.dateSent).getTime())
+				.filter((t) => !Number.isNaN(t));
+			const latestDate = times.length > 0 ? new Date(Math.max(...times)) : new Date(m.dateSent);
+			const { newContent } = addVorgangSection(content, sectionName, locale, latestDate, bodyLines);
+			await this.plugin.app.vault.modify(vorgang, newContent);
+			this.walkFiledRecords.push({
+				rawTitle: `${stripSubjectPrefixes(m.subject)} ${m.partyName}`,
+				target: vorgang.basename,
+				filedAt: Date.now(),
+			});
+			new Notice(`Abgelegt: „${m.subject}" → „${vorgang.basename}".`);
+		} catch (e) {
+			this.logBridgeError(e);
+			new Notice(`Nicht in „${vorgang.basename}" abgelegt.`);
+		}
+	}
+
 	private openMessage(meta: EmailMeta): void {
 		this.openUrl(meta.messageUrl);
 	}
@@ -404,8 +592,12 @@ export class EmailFilingFeature implements LuKitFeature {
 	}
 
 	private suggestionsFor(meta: RawMailMessageMeta): string[] {
+		return this.suggestionsForTitle(this.titleFor(meta));
+	}
+
+	private suggestionsForTitle(title: string): string[] {
 		try {
-			return suggestFilingTargets(this.titleFor(meta), this.walkFiledRecords, this.walkCandidates, {
+			return suggestFilingTargets(title, this.walkFiledRecords, this.walkCandidates, {
 				now: Date.now(),
 				minScore: SUGGEST_MIN_SCORE,
 			}).map((s) => s.target);

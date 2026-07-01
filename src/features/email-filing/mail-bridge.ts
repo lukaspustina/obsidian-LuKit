@@ -47,6 +47,9 @@ export interface SelectedMessage {
 	partyAddress: string;
 	/** ISO 8601 string. */
 	dateSent: string;
+	/** Raw body of the selected message; caller strips with parseEmailBody. */
+	body: string;
+	attachments: MailAttachment[];
 }
 
 export interface MailBridge {
@@ -279,7 +282,15 @@ function run() {
     try { const tos = m.toRecipients(); if (tos.length) { try { toName = tos[0].name() || ""; } catch (e) {} try { toAddr = tos[0].address() || ""; } catch (e) {} } } catch (e) {}
     let sent = "";
     try { sent = m.dateSent().toISOString(); } catch (e) {}
-    out.push({ id: m.messageId(), accountName: acct, mailboxName: box, subject: m.subject(), sender: m.sender(), toName: toName, toAddress: toAddr, dateSent: sent });
+    let body = "";
+    try { const c = m.content(); if (c != null) body = String(c); } catch (e) {}
+    const atts = [];
+    let raw = [];
+    try { raw = m.mailAttachments(); } catch (e) { raw = []; }
+    for (let k = 0; k < raw.length; k++) {
+      try { let size = -1; try { size = raw[k].fileSize(); } catch (e) {} atts.push({ name: raw[k].name(), mimeType: raw[k].mimeType(), size: size }); } catch (e) {}
+    }
+    out.push({ id: m.messageId(), accountName: acct, mailboxName: box, subject: m.subject(), sender: m.sender(), toName: toName, toAddress: toAddr, dateSent: sent, body: body, attachments: atts });
   }
   return JSON.stringify(out);
 }
@@ -395,6 +406,8 @@ export function createOsascriptBridge(
 				toName: string;
 				toAddress: string;
 				dateSent: string;
+				body: string;
+				attachments: MailAttachment[];
 			}>;
 			return raw.map((m) => {
 				const configured = sentMailboxes[m.accountName];
@@ -409,6 +422,8 @@ export function createOsascriptBridge(
 					partyName: isOut ? m.toName : parseSenderName(m.sender),
 					partyAddress: isOut ? m.toAddress : parseSenderAddress(m.sender),
 					dateSent: m.dateSent,
+					body: m.body,
+					attachments: m.attachments,
 				};
 			});
 		},

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { EmailFilingFeature } from "../../src/features/email-filing/email-filing-feature";
-import type { MailBridge, RawMailMessageMeta, ThreadMessage } from "../../src/features/email-filing/mail-bridge";
+import type { MailBridge, RawMailMessageMeta, ThreadMessage, SelectedMessage } from "../../src/features/email-filing/mail-bridge";
 import { threadKey } from "../../src/features/email-filing/email-format-engine";
 import {
 	createMockApp,
@@ -51,6 +51,8 @@ interface FeatureInternals {
 	walkCandidates: string[];
 	suggestionsFor: (m: RawMailMessageMeta) => string[];
 	skippedThreads: Set<string>;
+	beginSelectedWalk: () => Promise<void>;
+	captureSelectedThread: (m: SelectedMessage, editedBody: string, editedAttachments: unknown[], vorgang: unknown) => Promise<void>;
 }
 
 function setup(bridge: MailBridge, overrides: Parameters<typeof makeTestSettings>[0] = {}) {
@@ -270,5 +272,50 @@ describe("EmailFilingFeature.fileEmailIntoVorgang — thread assembly (Phase 1)"
 		const { vorgang, internals } = setup(fakeBridge());
 		await internals.fileEmailIntoVorgang(RAW, "Text", [], vorgang);
 		expect(internals.skippedThreads.has(threadKey("Angebot"))).toBe(true);
+	});
+});
+
+describe("EmailFilingFeature — single-shot 'File selected Mail message' (Phase 2)", () => {
+	const SEL_OUT: SelectedMessage = {
+		id: "s@1",
+		accountName: "iCloud",
+		direction: "out",
+		subject: "Angebot",
+		partyName: "Bob",
+		partyAddress: "bob@example.com",
+		dateSent: "2026-07-01T09:00:00Z",
+		body: "Mein Vorschlag",
+		attachments: [],
+	};
+
+	it("notices and stops when nothing is selected", async () => {
+		const { internals } = setup(fakeBridge({ getSelection: vi.fn(async () => []) }));
+		await internals.beginSelectedWalk();
+		expect(lastNotice()).toContain("Keine Nachricht");
+	});
+
+	it("captures an outbound selection into the Vorgang without archiving", async () => {
+		const archive = vi.fn(async () => undefined);
+		const { app, vorgang, internals } = setup(fakeBridge({ archive }));
+		await internals.captureSelectedThread(SEL_OUT, "Mein Vorschlag", [], vorgang);
+		const updated = app.vault.files.get(vorgang.path) ?? "";
+		expect(updated).toContain("Mein Vorschlag");
+		expect(archive).not.toHaveBeenCalled();
+		expect(app.vault.modify).toHaveBeenCalled();
+	});
+
+	it("does not archive an inbound selection either (capture-only)", async () => {
+		const archive = vi.fn(async () => undefined);
+		const { vorgang, internals } = setup(fakeBridge({ archive }));
+		const inboundSel: SelectedMessage = { ...SEL_OUT, id: "s@2", direction: "in", partyName: "Alice", partyAddress: "alice@example.com", body: "Eingehend" };
+		await internals.captureSelectedThread(inboundSel, "Eingehend", [], vorgang);
+		expect(archive).not.toHaveBeenCalled();
+	});
+
+	it("does not duplicate a selection already linked in the Vorgang", async () => {
+		const { app, vorgang, internals } = setup(fakeBridge());
+		app.vault.files.set(vorgang.path, "# Inhalt\n- siehe [x](message://%3Cs@1%3E)\n");
+		await internals.captureSelectedThread(SEL_OUT, "Mein Vorschlag", [], vorgang);
+		expect(lastNotice()).toContain("bereits abgelegt");
 	});
 });
