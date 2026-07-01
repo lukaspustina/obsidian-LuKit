@@ -24,19 +24,17 @@ describe("formatThreadSection", () => {
 		{ direction: "out", dateSent: "2026-06-01T10:00:00Z", partyName: "Lukas", body: "Danke", attachments: [], messageUrl: "message://%3Cm3%3E" },
 	];
 
-	it("renders both directions in date order with the link after each body", () => {
+	it("renders newest-first with the message link in the sub-header (no separate siehe line)", () => {
 		const { sectionName, bodyLines } = formatThreadSection(messages, "Angebot", "de");
 		expect(sectionName).toBe("E-Mail-Thread: Angebot");
 
-		const aliceHeader = bodyLines.indexOf("**01.06.2026 — Alice (eingegangen):**");
-		const lukasHeader = bodyLines.indexOf("**01.06.2026 — Lukas (gesendet):**");
-		expect(aliceHeader).toBeGreaterThanOrEqual(0);
-		expect(lukasHeader).toBeGreaterThan(aliceHeader);
+		const lukasHeader = bodyLines.indexOf("**01.06.2026 — [Lukas](message://%3Cm3%3E) (gesendet):**");
+		const aliceHeader = bodyLines.indexOf("**01.06.2026 — [Alice](message://%3Cm2%3E) (eingegangen):**");
+		expect(lukasHeader).toBeGreaterThanOrEqual(0);
+		expect(aliceHeader).toBeGreaterThan(lukasHeader); // newest (Lukas 10:00) first, then Alice (09:00)
 
-		const m2Link = bodyLines.findIndex((l) => l.includes("message://%3Cm2%3E"));
-		const m3Link = bodyLines.findIndex((l) => l.includes("message://%3Cm3%3E"));
-		expect(m2Link).toBeGreaterThan(aliceHeader); // link after its sub-header/body
-		expect(m3Link).toBeGreaterThan(m2Link); // m2 block before m3 block
-		expect(bodyLines[aliceHeader + 1]).toBe("Hallo"); // body precedes the link
+		// The link lives in the sub-header; there is no separate "- siehe" line.
+		expect(bodyLines.some((l) => l.startsWith("- siehe"))).toBe(false);
+		expect(bodyLines[lukasHeader + 1]).toBe("Danke"); // body follows its sub-header
 	});
 });

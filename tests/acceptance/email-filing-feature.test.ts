@@ -22,6 +22,7 @@ function fakeBridge(overrides: Partial<MailBridge> = {}): MailBridge {
 		isInInbox: vi.fn(async () => false),
 		listSentForThread: vi.fn(async () => []),
 		getSelection: vi.fn(async () => []),
+		detectSentMailboxes: vi.fn(async () => ({})),
 		...overrides,
 	};
 }
@@ -82,7 +83,7 @@ describe("EmailFilingFeature.fileEmailIntoVorgang — archive-first contract", (
 		expect(archive).toHaveBeenCalledWith("iCloud", "m@1");
 		expect(isInInbox).toHaveBeenCalledWith("iCloud", "m@1");
 		const updated = app.vault.files.get(vorgang.path) ?? "";
-		expect(updated).toContain("E-Mail von Alice: Angebot");
+		expect(updated).toContain("E-Mail-Thread: Angebot");
 		expect(updated).toContain("Body text");
 		expect(lastNotice()).toContain("Abgelegt");
 	});
@@ -235,7 +236,7 @@ describe("EmailFilingFeature.fileEmailIntoVorgang — thread assembly (Phase 1)"
 		...overrides,
 	});
 
-	it("assembles inbound + Sent reply in date order", async () => {
+	it("assembles inbound + Sent reply, newest first", async () => {
 		const { app, vorgang, internals } = setup(
 			fakeBridge({ listSentForThread: vi.fn(async () => [reply()]) }),
 		);
@@ -243,7 +244,8 @@ describe("EmailFilingFeature.fileEmailIntoVorgang — thread assembly (Phase 1)"
 		const updated = app.vault.files.get(vorgang.path) ?? "";
 		expect(updated).toContain("Eingehender Text");
 		expect(updated).toContain("Meine Antwort");
-		expect(updated.indexOf("Eingehender Text")).toBeLessThan(updated.indexOf("Meine Antwort"));
+		// Reply (11:00) is newer than the inbound (RAW dateSent 10:00) → appears first.
+		expect(updated.indexOf("Meine Antwort")).toBeLessThan(updated.indexOf("Eingehender Text"));
 	});
 
 	it("files inbound-only and notices when Sent retrieval fails", async () => {

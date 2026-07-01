@@ -125,9 +125,11 @@ export function extractFiledMessageIds(vorgangContent: string): Set<string> {
 	return ids;
 }
 
-// Renders a chronological multi-message conversation as one Vorgang section.
-// Per message (blank-line separated): a sub-header, the body, the `- siehe` link
-// (after the body, unlike formatEmailSection which puts it first), then Anhänge.
+// Renders a conversation as one Vorgang section, newest-first to match the
+// reverse-chronological reading of the Vorgang. Per message (blank-line
+// separated): a sub-header whose party name links to the message, the body,
+// then Anhänge. There is no separate `- siehe` line — the link lives in the
+// sub-header title.
 export function formatThreadSection(
 	messages: ThreadSectionMessage[],
 	subject: string,
@@ -135,7 +137,7 @@ export function formatThreadSection(
 ): { sectionName: string; bodyLines: string[] } {
 	const cleanSubject = sanitizeSenderSubject(stripSubjectPrefixes(subject));
 	const sectionName = `E-Mail-Thread: ${cleanSubject}`;
-	const sorted = [...messages].sort((a, b) => a.dateSent.localeCompare(b.dateSent));
+	const sorted = [...messages].sort((a, b) => b.dateSent.localeCompare(a.dateSent));
 
 	const bodyLines: string[] = [];
 	for (let i = 0; i < sorted.length; i++) {
@@ -143,11 +145,10 @@ export function formatThreadSection(
 		if (i > 0) bodyLines.push("");
 		const dir = msg.direction === "in" ? "eingegangen" : "gesendet";
 		const party = sanitizeSenderSubject(msg.partyName);
-		bodyLines.push(`**${formatDate(new Date(msg.dateSent), locale)} — ${party} (${dir}):**`);
+		bodyLines.push(`**${formatDate(new Date(msg.dateSent), locale)} — [${party}](${msg.messageUrl}) (${dir}):**`);
 		if (msg.body.trim().length > 0) {
 			bodyLines.push(...msg.body.split("\n"));
 		}
-		bodyLines.push(`- siehe [E-Mail von ${party}: ${cleanSubject}](${msg.messageUrl})`);
 		if (msg.attachments.length > 0) {
 			bodyLines.push(`Anhänge: ${msg.attachments.map((a) => a.name).join(", ")}`);
 		}

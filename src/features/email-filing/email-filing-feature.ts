@@ -344,6 +344,7 @@ export class EmailFilingFeature implements LuKitFeature {
 					meta.accountName,
 					meta.senderAddress,
 					this.sentMailboxFor(meta.accountName),
+					stripSubjectPrefixes(meta.subject),
 				);
 				replies = sent
 					.filter((s) => threadKey(s.subject) === k && !alreadyFiled.has(s.id))
@@ -516,6 +517,7 @@ export class EmailFilingFeature implements LuKitFeature {
 					m.accountName,
 					m.partyAddress,
 					this.sentMailboxFor(m.accountName),
+					stripSubjectPrefixes(m.subject),
 				);
 				replies = sent
 					.filter((s) => threadKey(s.subject) === k && !filed.has(s.id))
@@ -757,9 +759,16 @@ export class EmailFilingFeature implements LuKitFeature {
 							accounts,
 							settings.defaultArchiveMailbox,
 						);
-						// Sent mailbox names are auto-detected per provider/locale at
-						// file time (Sent Messages / Sent Items / Gesendet / …), so we do
-						// not pre-fill them here — the per-account field is an override only.
+						// Resolve each account's real Sent mailbox name once, here, so
+						// filing uses the exact name (fast) instead of re-detecting.
+						try {
+							const sentNames = await this.bridge.detectSentMailboxes();
+							for (const [acct, name] of Object.entries(sentNames)) {
+								settings.sentMailboxes[acct] = name;
+							}
+						} catch (e) {
+							this.logBridgeError(e);
+						}
 						for (const account of accounts) {
 							if (!(account in settings.walkAccounts)) {
 								settings.walkAccounts[account] = true;
