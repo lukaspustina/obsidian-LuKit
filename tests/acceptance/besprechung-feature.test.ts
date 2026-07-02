@@ -24,7 +24,7 @@ describe("BesprechungFeature.filePendingCmd", () => {
 
 		plugin.commands.get("besprechung-file-pending")?.callback?.();
 
-		expect(lastNotice()).toContain('No Besprechungen tagged "todo"');
+		expect(lastNotice()).toContain('Keine Besprechungen mit Tag „todo"');
 	});
 
 	it("processes besprechungen in oldest-first order by ctime", () => {
@@ -80,8 +80,8 @@ describe("BesprechungFeature.filePendingCmd", () => {
 
 		const fm = app.fileManager.frontmatter.get(besprechung.path);
 		expect(fm?.tags).toBeUndefined();
-		expect(lastNotice()).toContain("Removed");
-		expect(lastNotice()).toContain("(not filed)");
+		expect(lastNotice()).toContain("entfernt");
+		expect(lastNotice()).toContain("(nicht abgelegt)");
 	});
 
 	it("vorgangAlreadyLinks detects existing wikilink in # Inhalt regardless of date format", () => {
@@ -194,9 +194,9 @@ describe("BesprechungFeature.filePendingCmd", () => {
 			vorgang,
 		);
 
-		expect(lastNotice()).toContain("filed");
-		expect(lastNotice()).toContain("failed to remove tag");
-		expect(lastNotice()).not.toContain("Failed to file");
+		expect(lastNotice()).toContain("abgelegt");
+		expect(lastNotice()).toContain("konnte nicht entfernt werden");
+		expect(lastNotice()).not.toContain("konnte nicht in");
 	});
 });
 

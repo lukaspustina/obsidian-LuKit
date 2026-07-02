@@ -3,11 +3,11 @@ import { validateText, validateTextAndDate } from "../../src/shared/modal-valida
 
 describe("validateText", () => {
 	it("rejects empty input with 'Text required.'", () => {
-		expect(validateText("")).toEqual({ ok: false, error: "Text required." });
+		expect(validateText("")).toEqual({ ok: false, error: "Text erforderlich." });
 	});
 
 	it("rejects whitespace-only input", () => {
-		expect(validateText("   \t  ")).toEqual({ ok: false, error: "Text required." });
+		expect(validateText("   \t  ")).toEqual({ ok: false, error: "Text erforderlich." });
 	});
 
 	it("trims and returns valid input", () => {
@@ -19,28 +19,28 @@ describe("validateTextAndDate", () => {
 	it("rejects empty text with 'Text required.'", () => {
 		expect(validateTextAndDate("", "06.02.2026", "de")).toEqual({
 			ok: false,
-			error: "Text required.",
+			error: "Text erforderlich.",
 		});
 	});
 
 	it("rejects unparseable date with locale-specific hint (de)", () => {
 		expect(validateTextAndDate("hi", "31/02/2026", "de")).toEqual({
 			ok: false,
-			error: "Invalid date — expected DD.MM.YYYY",
+			error: "Ungültiges Datum — erwartet DD.MM.YYYY",
 		});
 	});
 
 	it("rejects unparseable date with locale-specific hint (iso)", () => {
 		expect(validateTextAndDate("hi", "13.02.2026", "iso")).toEqual({
 			ok: false,
-			error: "Invalid date — expected YYYY-MM-DD",
+			error: "Ungültiges Datum — erwartet YYYY-MM-DD",
 		});
 	});
 
 	it("rejects unparseable date with locale-specific hint (en)", () => {
 		expect(validateTextAndDate("hi", "garbage", "en")).toEqual({
 			ok: false,
-			error: "Invalid date — expected MM/DD/YYYY",
+			error: "Ungültiges Datum — erwartet MM/DD/YYYY",
 		});
 	});
 
@@ -57,6 +57,6 @@ describe("validateTextAndDate", () => {
 
 	it("validates text BEFORE date so empty-text error wins over bad-date error", () => {
 		const result = validateTextAndDate("", "garbage", "de");
-		expect(result).toEqual({ ok: false, error: "Text required." });
+		expect(result).toEqual({ ok: false, error: "Text erforderlich." });
 	});
 });

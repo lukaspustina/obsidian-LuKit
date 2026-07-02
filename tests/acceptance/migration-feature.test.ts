@@ -21,6 +21,6 @@ describe("MigrationFeature.migrateCmd", () => {
 		feature.onload(asLuKitPlugin(plugin));
 
 		await (feature as unknown as { migrateCmd: () => Promise<void> }).migrateCmd();
-		expect(lastNotice()).toContain("No active note open");
+		expect(lastNotice()).toContain("Keine aktive Notiz");
 	});
 });

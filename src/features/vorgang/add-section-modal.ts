@@ -24,7 +24,7 @@ export class AddSectionModal extends Modal {
 
 		this.nameInputEl = contentEl.createEl("input", {
 			type: "text",
-			placeholder: "Section name…",
+			placeholder: "Abschnittsname…",
 			cls: "lukit-text-input",
 		});
 
@@ -53,8 +53,8 @@ export class AddSectionModal extends Modal {
 		});
 
 		const buttonRow = contentEl.createEl("div", { cls: "lukit-text-input-buttons" });
-		buttonRow.createEl("button", { text: "Cancel" }).addEventListener("click", () => this.close());
-		const submitBtn = buttonRow.createEl("button", { text: "Submit", cls: "mod-cta" });
+		buttonRow.createEl("button", { text: "Abbrechen" }).addEventListener("click", () => this.close());
+		const submitBtn = buttonRow.createEl("button", { text: "OK", cls: "mod-cta" });
 		submitBtn.addEventListener("click", () => this.submit());
 
 		setTimeout(() => this.nameInputEl.focus(), 10);

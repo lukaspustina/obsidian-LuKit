@@ -22,7 +22,7 @@ describe("WorkDiaryFeature.addCurrentNoteCmd", () => {
 		feature.onload(asLuKitPlugin(plugin));
 
 		await (feature as unknown as { addCurrentNoteCmd: () => Promise<void> }).addCurrentNoteCmd();
-		expect(lastNotice()).toContain("No diary note path configured");
+		expect(lastNotice()).toContain("Kein Tagebuch-Pfad konfiguriert");
 	});
 
 	it("emits 'No active note open' Notice when there is no active file", async () => {
@@ -34,7 +34,7 @@ describe("WorkDiaryFeature.addCurrentNoteCmd", () => {
 		feature.onload(asLuKitPlugin(plugin));
 
 		await (feature as unknown as { addCurrentNoteCmd: () => Promise<void> }).addCurrentNoteCmd();
-		expect(lastNotice()).toContain("No active note open");
+		expect(lastNotice()).toContain("Keine aktive Notiz");
 	});
 
 	it("rejects adding the diary note to itself", async () => {
@@ -47,6 +47,6 @@ describe("WorkDiaryFeature.addCurrentNoteCmd", () => {
 		feature.onload(asLuKitPlugin(plugin));
 
 		await (feature as unknown as { addCurrentNoteCmd: () => Promise<void> }).addCurrentNoteCmd();
-		expect(lastNotice()).toContain("Cannot add the diary note to itself");
+		expect(lastNotice()).toContain("kann sich nicht selbst hinzufügen");
 	});
 });

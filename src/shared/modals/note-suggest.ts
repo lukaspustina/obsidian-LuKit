@@ -6,7 +6,7 @@ export class NoteSuggestModal extends FuzzySuggestModal<TFile> {
 	constructor(app: App, onChoose: (file: TFile) => void) {
 		super(app);
 		this.onChoose = onChoose;
-		this.setPlaceholder("Pick a note…");
+		this.setPlaceholder("Notiz wählen…");
 	}
 
 	onOpen(): void {

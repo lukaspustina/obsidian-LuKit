@@ -1,9 +1,9 @@
-import { App, FuzzySuggestModal, TFile } from "obsidian";
+import { App, FuzzySuggestModal, Notice, TFile } from "obsidian";
 import { frontmatterTagsInclude } from "../frontmatter";
 
-const SKIP_LABEL = "↪ Skip this Besprechung";
-const DROP_LABEL = "✕ Don't file (just remove pending tag)";
-const OPEN_LABEL = "→ Stop and open this Besprechung in a new tab";
+const SKIP_LABEL = "↪ Besprechung überspringen";
+const DROP_LABEL = "✕ Nicht ablegen (nur Tag entfernen)";
+const OPEN_LABEL = "→ Stopp und in neuem Tab öffnen";
 const SKIP_SENTINEL: unique symbol = Symbol("skip");
 const DROP_SENTINEL: unique symbol = Symbol("drop");
 const OPEN_SENTINEL: unique symbol = Symbol("open");
@@ -65,6 +65,17 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 		this.renderPreviewPanel();
 		this.registerActionKeys();
 		this.renderInstructions();
+		// Wegweiser für frische Vaults: ohne getaggte Zielnotizen zeigt der
+		// Picker sonst nur die Sentinel-Zeilen, ohne zu erklären warum.
+		if (!this.hasCandidateNotes()) {
+			new Notice(`Keine Zielnotizen gefunden — Notizen brauchen einen Frontmatter-Tag: ${[...this.sectionTags].join(", ")}.`);
+		}
+	}
+
+	private hasCandidateNotes(): boolean {
+		return this.app.vault
+			.getMarkdownFiles()
+			.some((f) => frontmatterTagsInclude(this.app.metadataCache.getFileCache(f)?.frontmatter?.tags, this.sectionTags));
 	}
 
 	private renderPreviewPanel(): void {
@@ -164,7 +175,7 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 		if (item === SKIP_SENTINEL) return this.options.skipLabel ?? SKIP_LABEL;
 		if (item === DROP_SENTINEL) return this.options.dropLabel ?? DROP_LABEL;
 		if (item === OPEN_SENTINEL) return this.options.openLabel ?? OPEN_LABEL;
-		if (isPinned(item)) return `★ ${item.file.basename} (suggested)`;
+		if (isPinned(item)) return `★ ${item.file.basename} (Vorschlag)`;
 		return item.basename;
 	}
 

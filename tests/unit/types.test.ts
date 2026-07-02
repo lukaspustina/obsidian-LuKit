@@ -45,6 +45,7 @@ describe("mergeSettings", () => {
 	it("performs full round-trip with all fields", () => {
 		const input = {
 			dateLocale: "iso" as const,
+			firstRunNoticeShown: true,
 			workDiary: { diaryNotePath: "Diary.md" },
 			besprechung: {
 				folderPath: "Meetings",

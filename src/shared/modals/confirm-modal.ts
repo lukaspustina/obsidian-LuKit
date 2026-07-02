@@ -17,12 +17,12 @@ export class ConfirmModal extends Modal {
 		const buttonRow = contentEl.createEl("div", {
 			cls: "lukit-text-input-buttons",
 		});
-		buttonRow.createEl("button", { text: "Cancel" }).addEventListener(
+		buttonRow.createEl("button", { text: "Abbrechen" }).addEventListener(
 			"click",
 			() => this.close(),
 		);
 		const confirmBtn = buttonRow.createEl("button", {
-			text: "Confirm",
+			text: "Bestätigen",
 			cls: "mod-cta",
 		});
 		confirmBtn.addEventListener("click", () => {

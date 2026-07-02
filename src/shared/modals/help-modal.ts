@@ -13,7 +13,7 @@ export class HelpModal extends Modal {
 		const { contentEl } = this;
 		contentEl.addClass("lukit-help-modal");
 
-		contentEl.createEl("h2", { text: "LuKit — Commands" });
+		contentEl.createEl("h2", { text: "LuKit — Kommandos" });
 
 		const list = contentEl.createEl("ul", { cls: "lukit-help-list" });
 		const entries = this.plugin.features.flatMap((f) => f.helpEntries?.() ?? []);

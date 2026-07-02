@@ -14,13 +14,13 @@ export class LuKitSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.createEl("h2", { text: "LuKit Settings" });
+		containerEl.createEl("h2", { text: "LuKit-Einstellungen" });
 
-		containerEl.createEl("h3", { text: "General" });
+		containerEl.createEl("h3", { text: "Allgemein" });
 
 		new Setting(containerEl)
-			.setName("Date format")
-			.setDesc("Affects diary headers, Vorgang sections, and reminders.")
+			.setName("Datumsformat")
+			.setDesc("Gilt für Tagebuch-Überschriften, Vorgang-Abschnitte und Erinnerungen.")
 			.addDropdown((dropdown) => {
 				for (const [value, label] of Object.entries(DATE_LOCALE_LABELS)) {
 					dropdown.addOption(value, label);

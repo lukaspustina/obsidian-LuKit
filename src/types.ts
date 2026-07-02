@@ -34,6 +34,8 @@ export interface LuKitFeature {
 
 export interface LuKitSettings {
 	dateLocale: DateLocale;
+	// Einmalige Willkommens-Notice nach der Installation (Erstlauf-Hinweis).
+	firstRunNoticeShown: boolean;
 	workDiary: WorkDiarySettings;
 	besprechung: BesprechungSettings;
 	emailFiling: EmailFilingSettings;
@@ -43,6 +45,7 @@ export const LUKIT_ICON_ID = "lukit-logo";
 
 export const DEFAULT_SETTINGS: LuKitSettings = {
 	dateLocale: "de",
+	firstRunNoticeShown: false,
 	workDiary: {
 		diaryNotePath: "",
 	},

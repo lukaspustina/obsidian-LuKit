@@ -24,7 +24,7 @@ describe("VorgangFeature.addVorgangSectionCmd", () => {
 
 		(feature as unknown as { addVorgangSectionCmd: () => void }).addVorgangSectionCmd();
 
-		expect(lastNotice()).toContain("No active note open");
+		expect(lastNotice()).toContain("Keine aktive Notiz");
 	});
 });
 
@@ -43,7 +43,7 @@ describe("VorgangFeature.addDiaryEntryForSection", () => {
 		}).addDiaryEntryForSection(vorgang, "Section", new Date(2026, 1, 6));
 
 		const notices = noticeMessages();
-		expect(notices.some((n) => n.includes("Diary entry skipped"))).toBe(true);
-		expect(notices.some((n) => n.includes("Diary note path"))).toBe(true);
+		expect(notices.some((n) => n.includes("Tagebucheintrag übersprungen"))).toBe(true);
+		expect(notices.some((n) => n.includes("Tagebuch-Pfad"))).toBe(true);
 	});
 });

@@ -82,22 +82,22 @@ export class BesprechungFeature implements LuKitFeature {
 			{
 				commandId: "besprechung-add-summary",
 				displayName: "Besprechung: Zusammenfassung einfügen",
-				description: "Pick a meeting note, extract key sections, insert at cursor (or as a linked section in Vorgang/Person/Bestellung/Bewerbung notes).",
+				description: "Besprechungs-Notiz wählen, Kernabschnitte extrahieren, an der Cursor-Position einfügen (in Vorgang/Person/Bestellung/Bewerbung-Notizen als verlinkter Abschnitt).",
 			},
 			{
 				commandId: "besprechung-add-multiple-summaries",
 				displayName: "Besprechung: Mehrere Zusammenfassungen einfügen",
-				description: "Picker re-opens after each insertion (already-picked files hidden) until ESC; persists the search query across iterations.",
+				description: "Picker öffnet sich nach jeder Einfügung erneut (bereits gewählte Notizen ausgeblendet), bis Esc; der Suchbegriff bleibt erhalten.",
 			},
 			{
 				commandId: "besprechung-file-pending",
 				displayName: "Besprechungen: Alle offenen ablegen",
-				description: "Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary, removes the tag, stamps filed_into/filed_at.",
+				description: "Geht alle Besprechungen mit Offen-Tag durch; pro Besprechung Zielnotiz wählen — legt die Zusammenfassung ab, entfernt das Tag, stempelt filed_into/filed_at.",
 			},
 			{
 				commandId: "besprechung-file-this",
 				displayName: "Besprechung: Aktuelle Notiz ablegen",
-				description: "File the active Besprechung note into a target section note (Vorgang/Person/Bestellung/Bewerbung). Same insertion + stamp behaviour as 'Alle offenen ablegen', but on the open note.",
+				description: "Legt die aktive Besprechung in eine Zielnotiz ab (Vorgang/Person/Bestellung/Bewerbung). Gleiche Einfügung + Stempel wie ‚Alle offenen ablegen‘, nur für die geöffnete Notiz.",
 			},
 		];
 	}
@@ -105,13 +105,13 @@ export class BesprechungFeature implements LuKitFeature {
 	private addBesprechungSummaryCmd(): void {
 		const folderPath = this.plugin.settings.besprechung.folderPath;
 		if (!folderPath) {
-			new Notice("LuKit: No Besprechung folder configured. Set it in Settings → LuKit.");
+			new Notice("Kein Besprechungs-Ordner konfiguriert — setze ihn unter Einstellungen → LuKit.");
 			return;
 		}
 
-		new FolderNoteSuggestModal(this.plugin.app, folderPath, "Pick a Besprechung…", (besprechungFile) => {
+		new FolderNoteSuggestModal(this.plugin.app, folderPath, "Besprechung wählen…", (besprechungFile) => {
 			this.insertBesprechungSummary(besprechungFile).catch((err: unknown) => {
-				new Notice(`LuKit: ${err instanceof Error ? err.message : String(err)}`);
+				new Notice(`Zusammenfassung konnte nicht eingefügt werden: ${err instanceof Error ? err.message : String(err)}`);
 			});
 		}).open();
 	}
@@ -119,7 +119,7 @@ export class BesprechungFeature implements LuKitFeature {
 	private addBesprechungSummariesCmd(): void {
 		const folderPath = this.plugin.settings.besprechung.folderPath;
 		if (!folderPath) {
-			new Notice("LuKit: No Besprechung folder configured. Set it in Settings → LuKit.");
+			new Notice("Kein Besprechungs-Ordner konfiguriert — setze ihn unter Einstellungen → LuKit.");
 			return;
 		}
 
@@ -129,14 +129,14 @@ export class BesprechungFeature implements LuKitFeature {
 			modal = new FolderNoteSuggestModal(
 				this.plugin.app,
 				folderPath,
-				"Pick a Besprechung… (ESC to finish)",
+				"Besprechung wählen… (Esc = fertig)",
 				async (besprechungFile) => {
 					const lastQuery = modal.inputEl.value;
 					picked.add(besprechungFile.path);
 					try {
 						await this.insertBesprechungSummary(besprechungFile);
 					} catch (err: unknown) {
-						new Notice(`LuKit: ${err instanceof Error ? err.message : String(err)}`);
+						new Notice(`Zusammenfassung konnte nicht eingefügt werden: ${err instanceof Error ? err.message : String(err)}`);
 					}
 					openPicker(lastQuery);
 				},
@@ -155,7 +155,7 @@ export class BesprechungFeature implements LuKitFeature {
 		try {
 			besprechungContent = await this.plugin.app.vault.read(besprechungFile);
 		} catch (e) {
-			new Notice("LuKit: Could not read besprechung file: " + (e instanceof Error ? e.message : String(e)));
+			new Notice("Besprechung konnte nicht gelesen werden: " + (e instanceof Error ? e.message : String(e)));
 			return;
 		}
 		const summary = composeBesprechungInsertion(
@@ -165,7 +165,7 @@ export class BesprechungFeature implements LuKitFeature {
 
 		const activeEditor = this.plugin.app.workspace.activeEditor?.editor;
 		if (!activeEditor) {
-			new Notice("LuKit: No active editor.");
+			new Notice("Kein aktiver Editor.");
 			return;
 		}
 
@@ -177,7 +177,7 @@ export class BesprechungFeature implements LuKitFeature {
 				?? new Date();
 			const vorgangContent = activeEditor.getValue();
 			if (this.vorgangAlreadyLinks(vorgangContent, besprechungFile.basename)) {
-				new Notice(`LuKit: "${besprechungFile.basename}" already linked in "${activeFile.basename}"`);
+				new Notice(`„${besprechungFile.basename}" ist in „${activeFile.basename}" bereits verlinkt.`);
 				return;
 			}
 			const { newContent, cursorLineIndex } = addVorgangSectionLinked(
@@ -239,18 +239,18 @@ export class BesprechungFeature implements LuKitFeature {
 		}
 		const folderPath = this.plugin.settings.besprechung.folderPath;
 		if (!folderPath) {
-			new Notice("LuKit: No Besprechung folder configured. Set it in Settings → LuKit.");
+			new Notice("Kein Besprechungs-Ordner konfiguriert — setze ihn unter Einstellungen → LuKit.");
 			return;
 		}
 		const pendingTag = this.plugin.settings.besprechung.pendingTag;
 		if (!pendingTag) {
-			new Notice("LuKit: No pending tag configured. Set it in Settings → LuKit.");
+			new Notice("Kein Offen-Tag konfiguriert — setze ihn unter Einstellungen → LuKit.");
 			return;
 		}
 
 		const pending = this.findPendingBesprechungen();
 		if (pending.length === 0) {
-			new Notice(`LuKit: No Besprechungen tagged "${pendingTag}".`);
+			new Notice(`Keine Besprechungen mit Tag „${pendingTag}".`);
 			return;
 		}
 
@@ -265,7 +265,7 @@ export class BesprechungFeature implements LuKitFeature {
 				return;
 			}
 			const besprechung = pending[i];
-			const placeholder = `[${i + 1}/${pending.length}] File "${besprechung.basename}" under… (Esc = Überspringen)`;
+			const placeholder = `[${i + 1}/${pending.length}] „${besprechung.basename}" ablegen unter… (Esc = Überspringen)`;
 			new SectionNoteSuggestModal(
 				this.plugin.app,
 				BesprechungFeature.SECTION_NOTE_TAGS,
@@ -306,12 +306,12 @@ export class BesprechungFeature implements LuKitFeature {
 	private fileActiveBesprechungCmd(): void {
 		const active = this.plugin.app.workspace.getActiveFile();
 		if (!active) {
-			new Notice("LuKit: No active note open.");
+			new Notice("Keine aktive Notiz geöffnet.");
 			return;
 		}
 		const tags = this.plugin.app.metadataCache.getFileCache(active)?.frontmatter?.tags;
 		if (!frontmatterTagsInclude(tags, "Besprechung")) {
-			new Notice(`LuKit: "${active.basename}" is not a Besprechung (missing "Besprechung" tag).`);
+			new Notice(`„${active.basename}" ist keine Besprechung (Tag „Besprechung" fehlt).`);
 			return;
 		}
 
@@ -319,7 +319,7 @@ export class BesprechungFeature implements LuKitFeature {
 			this.plugin.app,
 			BesprechungFeature.SECTION_NOTE_TAGS,
 			{
-				placeholder: `File "${active.basename}" under…`,
+				placeholder: `„${active.basename}" ablegen unter…`,
 				suggestions: this.suggestionsFor(active),
 				onPick: (vorgang) => {
 					void this.fileBesprechungIntoVorgang(active, vorgang);
@@ -403,7 +403,7 @@ export class BesprechungFeature implements LuKitFeature {
 		try {
 			besprechungContent = await this.plugin.app.vault.read(besprechung);
 		} catch (e) {
-			new Notice("LuKit: Could not read besprechung: " + (e instanceof Error ? e.message : String(e)));
+			new Notice("Besprechung konnte nicht gelesen werden: " + (e instanceof Error ? e.message : String(e)));
 			return;
 		}
 		const summary = composeBesprechungInsertion(
@@ -415,7 +415,7 @@ export class BesprechungFeature implements LuKitFeature {
 		try {
 			vorgangContent = await this.plugin.app.vault.read(vorgang);
 		} catch (e) {
-			new Notice("LuKit: Could not read Vorgang: " + (e instanceof Error ? e.message : String(e)));
+			new Notice("Vorgang konnte nicht gelesen werden: " + (e instanceof Error ? e.message : String(e)));
 			return;
 		}
 
@@ -443,7 +443,7 @@ export class BesprechungFeature implements LuKitFeature {
 			});
 		} catch (e) {
 			// Pending tag stays; user can retry.
-			new Notice(`LuKit: Failed to file "${besprechung.basename}" into "${vorgang.basename}": ` + (e instanceof Error ? e.message : String(e)));
+			new Notice(`„${besprechung.basename}" konnte nicht in „${vorgang.basename}" abgelegt werden: ` + (e instanceof Error ? e.message : String(e)));
 			return;
 		}
 
@@ -453,14 +453,14 @@ export class BesprechungFeature implements LuKitFeature {
 		try {
 			await this.removePendingTag(besprechung, pendingTag);
 		} catch (e) {
-			new Notice(`LuKit: filed "${besprechung.basename}" but failed to remove tag "${pendingTag}": ` + (e instanceof Error ? e.message : String(e)));
+			new Notice(`„${besprechung.basename}" abgelegt, aber Tag „${pendingTag}" konnte nicht entfernt werden: ` + (e instanceof Error ? e.message : String(e)));
 			return;
 		}
 
 		if (alreadyLinked) {
-			new Notice(`LuKit: "${besprechung.basename}" already linked in "${vorgang.basename}"`);
+			new Notice(`„${besprechung.basename}" ist in „${vorgang.basename}" bereits verlinkt.`);
 		} else {
-			new Notice(`LuKit: Filed "${besprechung.basename}" under "${vorgang.basename}".`);
+			new Notice(`Abgelegt: „${besprechung.basename}" → „${vorgang.basename}".`);
 		}
 	}
 
@@ -474,9 +474,9 @@ export class BesprechungFeature implements LuKitFeature {
 		const pendingTag = this.plugin.settings.besprechung.pendingTag;
 		try {
 			await this.removePendingTag(besprechung, pendingTag);
-			new Notice(`LuKit: Removed "${pendingTag}" from "${besprechung.basename}" (not filed).`);
+			new Notice(`Tag „${pendingTag}" von „${besprechung.basename}" entfernt (nicht abgelegt).`);
 		} catch (e) {
-			new Notice(`LuKit: Failed to remove "${pendingTag}" from "${besprechung.basename}": ` + (e instanceof Error ? e.message : String(e)));
+			new Notice(`Tag „${pendingTag}" konnte nicht von „${besprechung.basename}" entfernt werden: ` + (e instanceof Error ? e.message : String(e)));
 		}
 	}
 
@@ -486,7 +486,7 @@ export class BesprechungFeature implements LuKitFeature {
 
 		const diaryAbstract = this.plugin.app.vault.getAbstractFileByPath(diaryPath);
 		if (!(diaryAbstract instanceof TFile)) {
-			new Notice("LuKit: Diary note not found; diary entry skipped.");
+			new Notice("Tagebuch-Notiz nicht gefunden — Tagebucheintrag übersprungen.");
 			return;
 		}
 
@@ -503,7 +503,7 @@ export class BesprechungFeature implements LuKitFeature {
 				return newContent;
 			});
 		} catch (e) {
-			new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+			new Notice("Tagebuch konnte nicht geschrieben werden: " + (e instanceof Error ? e.message : String(e)));
 		}
 	}
 }

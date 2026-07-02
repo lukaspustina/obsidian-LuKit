@@ -34,7 +34,7 @@ export class MigrationFeature implements LuKitFeature {
 			{
 				commandId: "migration-convert-bold",
 				displayName: "Konvertierung: Altes Format migrieren",
-				description: "Auto-detects the note type and converts old format to current. Shows a confirmation dialog with line-diff count first.",
+				description: "Erkennt den Notiztyp automatisch und konvertiert das Altformat ins aktuelle. Zeigt vorher einen Bestätigungsdialog mit Änderungsumfang.",
 			},
 		];
 	}
@@ -42,7 +42,7 @@ export class MigrationFeature implements LuKitFeature {
 	private async migrateCmd(): Promise<void> {
 		const file = this.plugin.app.workspace.getActiveFile();
 		if (!file) {
-			new Notice("LuKit: No active note open.");
+			new Notice("Keine aktive Notiz geöffnet.");
 			return;
 		}
 
@@ -50,7 +50,7 @@ export class MigrationFeature implements LuKitFeature {
 		try {
 			content = await this.plugin.app.vault.read(file);
 		} catch (e) {
-			new Notice("LuKit: Could not read note for migration: " + (e instanceof Error ? e.message : String(e)));
+			new Notice("Notiz konnte nicht gelesen werden: " + (e instanceof Error ? e.message : String(e)));
 			return;
 		}
 		const noteType = detectNoteType(content);
@@ -65,31 +65,31 @@ export class MigrationFeature implements LuKitFeature {
 	private migrateVorgang(file: TFile): void {
 		new TextInputModal(
 			this.plugin.app,
-			"Frontmatter tag",
+			"Frontmatter-Tag",
 			async (tag) => {
 				let preview;
 				try {
 					const content = await this.plugin.app.vault.read(file);
 					preview = migrateVorgangNote(content, { addTag: tag });
 				} catch (e) {
-					new Notice("LuKit: Could not read note for migration: " + (e instanceof Error ? e.message : String(e)));
+					new Notice("Notiz konnte nicht gelesen werden: " + (e instanceof Error ? e.message : String(e)));
 					return;
 				}
 				const diff = countChangedLines(await this.plugin.app.vault.read(file), preview.newContent);
 				new ConfirmModal(
 					this.plugin.app,
-					`${diff} line(s) will change. Migrate "${file.basename}" to current Vorgang format?`,
+					`${diff} Zeilen ändern sich. „${file.basename}" ins aktuelle Vorgang-Format migrieren?`,
 					async () => {
 						try {
 							await this.plugin.app.vault.process(file, () => preview.newContent);
 						} catch (e) {
-							new Notice("LuKit: Migration failed: " + (e instanceof Error ? e.message : String(e)));
+							new Notice("Migration fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)));
 							return;
 						}
 						if (preview.changeCount === 0) {
-							new Notice("LuKit: Nothing to migrate.");
+							new Notice("Nichts zu migrieren.");
 						} else {
-							new Notice(`LuKit: Migrated ${preview.changeCount} entries.`);
+							new Notice(`Migration abgeschlossen: ${preview.changeCount} Änderungen.`);
 						}
 					},
 				).open();
@@ -105,24 +105,24 @@ export class MigrationFeature implements LuKitFeature {
 			original = await this.plugin.app.vault.read(file);
 			preview = migrateDiaryNote(original);
 		} catch (e) {
-			new Notice("LuKit: Could not read note for migration: " + (e instanceof Error ? e.message : String(e)));
+			new Notice("Notiz konnte nicht gelesen werden: " + (e instanceof Error ? e.message : String(e)));
 			return;
 		}
 		const diff = countChangedLines(original, preview.newContent);
 		new ConfirmModal(
 			this.plugin.app,
-			`${diff} line(s) will change. Migrate "${file.basename}" to current Diary format?`,
+			`${diff} Zeilen ändern sich. „${file.basename}" ins aktuelle Tagebuch-Format migrieren?`,
 			async () => {
 				try {
 					await this.plugin.app.vault.process(file, () => preview.newContent);
 				} catch (e) {
-					new Notice("LuKit: Migration failed: " + (e instanceof Error ? e.message : String(e)));
+					new Notice("Migration fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)));
 					return;
 				}
 				if (preview.changeCount === 0) {
-					new Notice("LuKit: Nothing to migrate.");
+					new Notice("Nichts zu migrieren.");
 				} else {
-					new Notice(`LuKit: Migrated ${preview.changeCount} entries.`);
+					new Notice(`Migration abgeschlossen: ${preview.changeCount} Änderungen.`);
 				}
 			},
 		).open();

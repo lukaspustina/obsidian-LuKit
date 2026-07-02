@@ -31,7 +31,7 @@ describe("SectionNoteSuggestModal pinned suggestions", () => {
 			onPick: () => undefined,
 			suggestions: ["Vorgang - A"],
 		});
-		expect(texts(modal)[0]).toBe("★ Vorgang - A (suggested)");
+		expect(texts(modal)[0]).toBe("★ Vorgang - A (Vorschlag)");
 	});
 
 	it("does not repeat a pinned file in the lower list (appears exactly once)", () => {
@@ -42,7 +42,7 @@ describe("SectionNoteSuggestModal pinned suggestions", () => {
 			suggestions: ["Vorgang - A"],
 		});
 		const all = texts(modal);
-		expect(all).toEqual(["★ Vorgang - A (suggested)", "Vorgang - B", "Vorgang - C"]);
+		expect(all).toEqual(["★ Vorgang - A (Vorschlag)", "Vorgang - B", "Vorgang - C"]);
 		expect(all.filter((t) => t === "Vorgang - A")).toHaveLength(0);
 	});
 
@@ -68,10 +68,10 @@ describe("SectionNoteSuggestModal pinned suggestions", () => {
 			suggestions: ["Vorgang - A", "Vorgang - B"],
 		});
 		const all = texts(modal);
-		expect(all[0]).toBe("★ Vorgang - A (suggested)");
-		expect(all[1]).toBe("★ Vorgang - B (suggested)");
+		expect(all[0]).toBe("★ Vorgang - A (Vorschlag)");
+		expect(all[1]).toBe("★ Vorgang - B (Vorschlag)");
 		// the Skip sentinel follows the pinned rows
-		expect(all[2]).toContain("Skip");
+		expect(all[2]).toContain("überspringen");
 	});
 
 	it("produces no pinned row for a suggestion that resolves to no candidate file", () => {
@@ -94,7 +94,7 @@ describe("SectionNoteSuggestModal pinned suggestions", () => {
 			onSkip: () => undefined,
 		});
 		const all = texts(modal);
-		expect(all[0]).toContain("Skip");
+		expect(all[0]).toContain("überspringen");
 		expect(all.slice(1)).toEqual(["Vorgang - A", "Vorgang - B", "Vorgang - C"]);
 	});
 

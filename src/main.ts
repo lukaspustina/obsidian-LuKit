@@ -29,7 +29,7 @@ export default class LuKitPlugin extends Plugin {
 
 		loadFeatures(this.features, this, (id, e) => {
 			console.error(`LuKit: Failed to load feature ${id}:`, e);
-			new Notice(`LuKit: failed to load feature ${id} — see console`);
+			new Notice(`LuKit: Feature ${id} konnte nicht geladen werden — siehe Konsole`);
 		});
 
 		this.addCommand({
@@ -40,6 +40,15 @@ export default class LuKitPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new LuKitSettingTab(this.app, this));
+
+		if (!this.settings.firstRunNoticeShown) {
+			new Notice(
+				'Willkommen bei LuKit! Alle Kommandos stehen in der Befehlspalette unter „LuKit:", den Überblick gibt „LuKit: Hilfe", die Einstellungen findest du unter Einstellungen → LuKit.',
+				15000,
+			);
+			this.settings.firstRunNoticeShown = true;
+			await this.saveSettings();
+		}
 	}
 
 	async onunload(): Promise<void> {

@@ -12,7 +12,7 @@ export type TextDateResult =
 export function validateText(text: string): TextResult {
 	const trimmed = text.trim();
 	if (trimmed.length === 0) {
-		return { ok: false, error: "Text required." };
+		return { ok: false, error: "Text erforderlich." };
 	}
 	return { ok: true, text: trimmed };
 }
@@ -24,11 +24,11 @@ export function validateTextAndDate(
 ): TextDateResult {
 	const trimmed = text.trim();
 	if (trimmed.length === 0) {
-		return { ok: false, error: "Text required." };
+		return { ok: false, error: "Text erforderlich." };
 	}
 	const date = parseDateString(dateText.trim(), locale);
 	if (date === null) {
-		return { ok: false, error: `Invalid date — expected ${dateFormatHint(locale)}` };
+		return { ok: false, error: `Ungültiges Datum — erwartet ${dateFormatHint(locale)}` };
 	}
 	return { ok: true, text: trimmed, date };
 }

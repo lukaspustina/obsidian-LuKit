@@ -4,57 +4,57 @@ exports[`LuKitFeature.helpEntries() registry > matches the snapshot 1`] = `
 [
   {
     "commandId": "diary-ensure-today",
-    "description": "Creates today's date header if missing, opens the diary note and positions the cursor below it.",
+    "description": "Legt die heutige Datums-Überschrift an (falls sie fehlt), öffnet die Tagebuch-Notiz und setzt den Cursor darunter.",
     "displayName": "Tagebuch: Heutiges Datum hinzufügen",
   },
   {
     "commandId": "diary-add-entry",
-    "description": "Pick a note and heading via fuzzy search, inserts a linked entry under today's header.",
+    "description": "Notiz und Überschrift per Fuzzy-Suche wählen; fügt einen verlinkten Eintrag unter der heutigen Überschrift ein.",
     "displayName": "Tagebuch: Notiz per Suche hinzufügen",
   },
   {
     "commandId": "diary-add-text",
-    "description": "Type free text and pick a date, inserts as a bullet under that date's header.",
+    "description": "Freitext eingeben und Datum wählen; wird als Bullet unter der Überschrift dieses Datums eingefügt.",
     "displayName": "Tagebuch: Texteintrag hinzufügen",
   },
   {
     "commandId": "diary-add-reminder",
-    "description": "Type a reminder and pick a due date, inserts under # Erinnerungen tagged with that date.",
+    "description": "Erinnerung eingeben und Fälligkeitsdatum wählen; wird unter # Erinnerungen mit Datum abgelegt.",
     "displayName": "Tagebuch: Erinnerung hinzufügen",
   },
   {
     "commandId": "diary-add-current-note",
-    "description": "Adds the active note (with the heading at cursor) as a linked diary entry — no modals.",
+    "description": "Fügt die aktive Notiz (mit der Überschrift an der Cursor-Position) als verlinkten Tagebucheintrag hinzu — ohne Dialoge.",
     "displayName": "Tagebuch: Aktuelle Notiz hinzufügen",
   },
   {
     "commandId": "vorgang-add-section",
-    "description": "Prompts for a name and a date, inserts TOC entry + h5 header section. Also creates a linked diary entry if a diary path is configured.",
+    "description": "Fragt Name und Datum ab, fügt TOC-Eintrag + h5-Abschnitt ein. Legt zusätzlich einen verlinkten Tagebucheintrag an, wenn ein Tagebuch-Pfad konfiguriert ist.",
     "displayName": "Vorgang: Abschnitt hinzufügen",
   },
   {
     "commandId": "besprechung-add-summary",
-    "description": "Pick a meeting note, extract key sections, insert at cursor (or as a linked section in Vorgang/Person/Bestellung/Bewerbung notes).",
+    "description": "Besprechungs-Notiz wählen, Kernabschnitte extrahieren, an der Cursor-Position einfügen (in Vorgang/Person/Bestellung/Bewerbung-Notizen als verlinkter Abschnitt).",
     "displayName": "Besprechung: Zusammenfassung einfügen",
   },
   {
     "commandId": "besprechung-add-multiple-summaries",
-    "description": "Picker re-opens after each insertion (already-picked files hidden) until ESC; persists the search query across iterations.",
+    "description": "Picker öffnet sich nach jeder Einfügung erneut (bereits gewählte Notizen ausgeblendet), bis Esc; der Suchbegriff bleibt erhalten.",
     "displayName": "Besprechung: Mehrere Zusammenfassungen einfügen",
   },
   {
     "commandId": "besprechung-file-pending",
-    "description": "Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary, removes the tag, stamps filed_into/filed_at.",
+    "description": "Geht alle Besprechungen mit Offen-Tag durch; pro Besprechung Zielnotiz wählen — legt die Zusammenfassung ab, entfernt das Tag, stempelt filed_into/filed_at.",
     "displayName": "Besprechungen: Alle offenen ablegen",
   },
   {
     "commandId": "besprechung-file-this",
-    "description": "File the active Besprechung note into a target section note (Vorgang/Person/Bestellung/Bewerbung). Same insertion + stamp behaviour as 'Alle offenen ablegen', but on the open note.",
+    "description": "Legt die aktive Besprechung in eine Zielnotiz ab (Vorgang/Person/Bestellung/Bewerbung). Gleiche Einfügung + Stempel wie ‚Alle offenen ablegen‘, nur für die geöffnete Notiz.",
     "displayName": "Besprechung: Aktuelle Notiz ablegen",
   },
   {
     "commandId": "migration-convert-bold",
-    "description": "Auto-detects the note type and converts old format to current. Shows a confirmation dialog with line-diff count first.",
+    "description": "Erkennt den Notiztyp automatisch und konvertiert das Altformat ins aktuelle. Zeigt vorher einen Bestätigungsdialog mit Änderungsumfang.",
     "displayName": "Konvertierung: Altes Format migrieren",
   },
 ]

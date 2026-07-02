@@ -7,14 +7,14 @@ export function renderWorkDiarySettings(
 	containerEl: HTMLElement,
 	plugin: LuKitPlugin
 ): void {
-	containerEl.createEl("h3", { text: "Work Diary" });
+	containerEl.createEl("h3", { text: "Arbeitstagebuch" });
 
 	new Setting(containerEl)
-		.setName("Diary note path")
-		.setDesc("Path to the work diary note (e.g. Work/Diary.md)")
+		.setName("Pfad zur Tagebuch-Notiz")
+		.setDesc("Pfad zur Arbeitstagebuch-Notiz (z. B. Arbeit/Tagebuch.md)")
 		.addText((text) =>
 			text
-				.setPlaceholder("path/to/diary.md")
+				.setPlaceholder("Pfad/zur/Tagebuch.md")
 				.setValue(plugin.settings.workDiary.diaryNotePath)
 				.onChange(async (value) => {
 					plugin.settings.workDiary.diaryNotePath = value.trim();

@@ -11,11 +11,11 @@ export function renderBesprechungSettings(
 	containerEl.createEl("h3", { text: "Besprechung" });
 
 	new Setting(containerEl)
-		.setName("Besprechung folder path")
-		.setDesc("Folder containing Besprechung notes (e.g. Meetings/Besprechungen)")
+		.setName("Besprechungs-Ordner")
+		.setDesc("Ordner mit Besprechungs-Notizen (z. B. Meetings/Besprechungen)")
 		.addText((text) =>
 			text
-				.setPlaceholder("path/to/besprechungen")
+				.setPlaceholder("Pfad/zu/Besprechungen")
 				.setValue(plugin.settings.besprechung.folderPath)
 				.onChange(async (value) => {
 					plugin.settings.besprechung.folderPath = value.trim();
@@ -24,8 +24,8 @@ export function renderBesprechungSettings(
 		);
 
 	new Setting(containerEl)
-		.setName("Section headings")
-		.setDesc("Comma-separated h3 headings to extract (e.g. Nächste Schritte, Zusammenfassung)")
+		.setName("Abschnitts-Überschriften")
+		.setDesc("Kommagetrennte Überschriften (h1–h6), die extrahiert werden (z. B. Nächste Schritte, Zusammenfassung)")
 		.addText((text) =>
 			text
 				.setPlaceholder("Nächste Schritte, Zusammenfassung")
@@ -40,8 +40,8 @@ export function renderBesprechungSettings(
 		);
 
 	new Setting(containerEl)
-		.setName("Pending tag")
-		.setDesc("Frontmatter tag marking unfiled Besprechungen (used by 'Alle offenen ablegen')")
+		.setName("Offen-Tag")
+		.setDesc('Frontmatter-Tag für noch nicht abgelegte Besprechungen (genutzt von „Alle offenen ablegen")')
 		.addText((text) =>
 			text
 				.setPlaceholder("todo")
@@ -53,9 +53,9 @@ export function renderBesprechungSettings(
 		);
 
 	new Setting(containerEl)
-		.setName("Self-name stopwords")
+		.setName("Eigene Namen ignorieren")
 		.setDesc(
-			"Comma-separated names to ignore when matching filing suggestions (e.g. your own name, since you attend every meeting)"
+			"Kommagetrennte Namen, die beim Ranking der Ablage-Vorschläge ignoriert werden (z. B. der eigene Name — du bist in jeder Besprechung)"
 		)
 		.addText((text) =>
 			text
@@ -71,12 +71,12 @@ export function renderBesprechungSettings(
 		);
 
 	new Setting(containerEl)
-		.setName("Pending order")
-		.setDesc("Order in which 'Alle offenen ablegen' walks the backlog")
+		.setName("Reihenfolge")
+		.setDesc('Reihenfolge, in der „Alle offenen ablegen" den Rückstand abarbeitet')
 		.addDropdown((dropdown) =>
 			dropdown
-				.addOption("oldest", "Oldest first")
-				.addOption("newest", "Newest first")
+				.addOption("oldest", "Älteste zuerst")
+				.addOption("newest", "Neueste zuerst")
 				.setValue(plugin.settings.besprechung.pendingOrder)
 				.onChange(async (value) => {
 					plugin.settings.besprechung.pendingOrder = value as PendingOrder;

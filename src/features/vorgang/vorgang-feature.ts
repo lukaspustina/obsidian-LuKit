@@ -32,7 +32,7 @@ export class VorgangFeature implements LuKitFeature {
 			{
 				commandId: "vorgang-add-section",
 				displayName: "Vorgang: Abschnitt hinzufügen",
-				description: "Prompts for a name and a date, inserts TOC entry + h5 header section. Also creates a linked diary entry if a diary path is configured.",
+				description: "Fragt Name und Datum ab, fügt TOC-Eintrag + h5-Abschnitt ein. Legt zusätzlich einen verlinkten Tagebucheintrag an, wenn ein Tagebuch-Pfad konfiguriert ist.",
 			},
 		];
 	}
@@ -40,7 +40,7 @@ export class VorgangFeature implements LuKitFeature {
 	private addVorgangSectionCmd(): void {
 		const file = this.plugin.app.workspace.getActiveFile();
 		if (!file) {
-			new Notice("LuKit: No active note open.");
+			new Notice("Keine aktive Notiz geöffnet.");
 			return;
 		}
 
@@ -54,7 +54,7 @@ export class VorgangFeature implements LuKitFeature {
 	private async insertVorgangSection(activeFile: TFile, name: string, date: Date): Promise<void> {
 		const editor = this.plugin.app.workspace.activeEditor?.editor;
 		if (!editor) {
-			new Notice("LuKit: No active editor.");
+			new Notice("Kein aktiver Editor.");
 			return;
 		}
 
@@ -67,7 +67,7 @@ export class VorgangFeature implements LuKitFeature {
 			({ newContent, cursorLineIndex } = addVorgangSection(content, name, locale, date));
 			editor.setValue(newContent);
 		} catch (e) {
-			new Notice("LuKit: Failed to insert section: " + (e instanceof Error ? e.message : String(e)));
+			new Notice("Abschnitt konnte nicht eingefügt werden: " + (e instanceof Error ? e.message : String(e)));
 			return;
 		}
 		const pos = { line: cursorLineIndex, ch: 0 };
@@ -80,13 +80,13 @@ export class VorgangFeature implements LuKitFeature {
 	private async addDiaryEntryForSection(activeFile: TFile, sectionName: string, date: Date): Promise<void> {
 		const diaryPath = getDiaryNotePath(this.plugin);
 		if (!diaryPath) {
-			new Notice("Diary entry skipped — set Diary note path in LuKit settings");
+			new Notice("Tagebucheintrag übersprungen — setze den Tagebuch-Pfad unter Einstellungen → LuKit.");
 			return;
 		}
 
 		const diaryAbstract = this.plugin.app.vault.getAbstractFileByPath(diaryPath);
 		if (!(diaryAbstract instanceof TFile)) {
-			new Notice("LuKit: Diary note not found; diary entry skipped.");
+			new Notice("Tagebuch-Notiz nicht gefunden — Tagebucheintrag übersprungen.");
 			return;
 		}
 
@@ -100,7 +100,7 @@ export class VorgangFeature implements LuKitFeature {
 				return newContent;
 			});
 		} catch (e) {
-			new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+			new Notice("Tagebuch konnte nicht geschrieben werden: " + (e instanceof Error ? e.message : String(e)));
 		}
 	}
 }

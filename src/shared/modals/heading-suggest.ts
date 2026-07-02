@@ -9,7 +9,7 @@ export class HeadingSuggestModal extends FuzzySuggestModal<string> {
 	constructor(app: App, file: TFile, onChoose: (heading: string | null) => void) {
 		super(app);
 		this.onChoose = onChoose;
-		this.setPlaceholder("Pick a heading…");
+		this.setPlaceholder("Überschrift wählen…");
 
 		const cache = this.app.metadataCache.getFileCache(file);
 		const fileHeadings = cache?.headings?.map((h) => h.heading) ?? [];

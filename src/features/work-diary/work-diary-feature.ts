@@ -18,6 +18,11 @@ import { renderWorkDiarySettings } from "./work-diary-settings";
 import { NoteSuggestModal } from "../../shared/modals/note-suggest";
 import { HeadingSuggestModal } from "../../shared/modals/heading-suggest";
 import { TextDateModal } from "../../shared/modals/text-date-modal";
+import { ConfirmModal } from "../../shared/modals/confirm-modal";
+
+// Grundgerüst einer neuen Tagebuch-Notiz: Frontmatter, # Erinnerungen,
+// dritter „---"-Trenner (darunter kommen die Datums-Einträge).
+const DIARY_SKELETON = "---\n---\n\n# Erinnerungen\n\n---\n";
 
 export class WorkDiaryFeature implements LuKitFeature {
 	id = "work-diary";
@@ -75,27 +80,27 @@ export class WorkDiaryFeature implements LuKitFeature {
 			{
 				commandId: "diary-ensure-today",
 				displayName: "Tagebuch: Heutiges Datum hinzufügen",
-				description: "Creates today's date header if missing, opens the diary note and positions the cursor below it.",
+				description: "Legt die heutige Datums-Überschrift an (falls sie fehlt), öffnet die Tagebuch-Notiz und setzt den Cursor darunter.",
 			},
 			{
 				commandId: "diary-add-entry",
 				displayName: "Tagebuch: Notiz per Suche hinzufügen",
-				description: "Pick a note and heading via fuzzy search, inserts a linked entry under today's header.",
+				description: "Notiz und Überschrift per Fuzzy-Suche wählen; fügt einen verlinkten Eintrag unter der heutigen Überschrift ein.",
 			},
 			{
 				commandId: "diary-add-text",
 				displayName: "Tagebuch: Texteintrag hinzufügen",
-				description: "Type free text and pick a date, inserts as a bullet under that date's header.",
+				description: "Freitext eingeben und Datum wählen; wird als Bullet unter der Überschrift dieses Datums eingefügt.",
 			},
 			{
 				commandId: "diary-add-reminder",
 				displayName: "Tagebuch: Erinnerung hinzufügen",
-				description: "Type a reminder and pick a due date, inserts under # Erinnerungen tagged with that date.",
+				description: "Erinnerung eingeben und Fälligkeitsdatum wählen; wird unter # Erinnerungen mit Datum abgelegt.",
 			},
 			{
 				commandId: "diary-add-current-note",
 				displayName: "Tagebuch: Aktuelle Notiz hinzufügen",
-				description: "Adds the active note (with the heading at cursor) as a linked diary entry — no modals.",
+				description: "Fügt die aktive Notiz (mit der Überschrift an der Cursor-Position) als verlinkten Tagebucheintrag hinzu — ohne Dialoge.",
 			},
 		];
 	}
@@ -103,12 +108,21 @@ export class WorkDiaryFeature implements LuKitFeature {
 	private getDiaryFile(): TFile | null {
 		const path = this.plugin.settings.workDiary.diaryNotePath;
 		if (!path) {
-			new Notice("LuKit: No diary note path configured. Set it in Settings → LuKit.");
+			new Notice("Kein Tagebuch-Pfad konfiguriert — setze ihn unter Einstellungen → LuKit.");
 			return null;
 		}
 		const file = this.plugin.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) {
-			new Notice(`LuKit: Diary note not found at "${path}".`);
+			new ConfirmModal(
+				this.plugin.app,
+				`Tagebuch-Notiz „${path}" existiert nicht. Jetzt mit Grundgerüst anlegen (Frontmatter, „# Erinnerungen", „---"-Trenner)?`,
+				() => {
+					void this.plugin.app.vault
+						.create(path, DIARY_SKELETON)
+						.then(() => new Notice("Tagebuch-Notiz angelegt — führe das Kommando erneut aus."))
+						.catch((e) => new Notice("Tagebuch-Notiz konnte nicht angelegt werden: " + (e instanceof Error ? e.message : String(e))));
+				},
+			).open();
 			return null;
 		}
 		return file;
@@ -140,12 +154,12 @@ export class WorkDiaryFeature implements LuKitFeature {
 				return result.newContent;
 			});
 		} catch (e) {
-			new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+			new Notice("Tagebuch konnte nicht geschrieben werden: " + (e instanceof Error ? e.message : String(e)));
 			return;
 		}
 
 		if (fallback) {
-			new Notice("LuKit: Diary note is missing the third separator (---). Header was appended at end.");
+			new Notice('Der Tagebuch-Notiz fehlt der dritte „---"-Trenner — Überschrift wurde am Ende angefügt.');
 		}
 
 		await this.openDiaryNote(file, headerLineIndex);
@@ -167,10 +181,10 @@ export class WorkDiaryFeature implements LuKitFeature {
 						return newContent;
 					});
 				} catch (e) {
-					new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+					new Notice("Tagebuch konnte nicht geschrieben werden: " + (e instanceof Error ? e.message : String(e)));
 					return;
 				}
-				new Notice("Diary entry added.");
+				new Notice("Tagebucheintrag hinzugefügt.");
 			}).open();
 		}).open();
 	}
@@ -180,7 +194,7 @@ export class WorkDiaryFeature implements LuKitFeature {
 		if (!file) return;
 
 		const locale = this.plugin.settings.dateLocale;
-		new TextDateModal(this.plugin.app, "Diary entry…", locale, async (text, date) => {
+		new TextDateModal(this.plugin.app, "Tagebucheintrag…", locale, async (text, date) => {
 			const entry = formatTextEntry(text);
 			try {
 				await this.plugin.app.vault.process(file, (content) => {
@@ -188,10 +202,10 @@ export class WorkDiaryFeature implements LuKitFeature {
 					return newContent;
 				});
 			} catch (e) {
-				new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+				new Notice("Tagebuch konnte nicht geschrieben werden: " + (e instanceof Error ? e.message : String(e)));
 				return;
 			}
-			new Notice("Text entry added.");
+			new Notice("Texteintrag hinzugefügt.");
 		}).open();
 	}
 
@@ -200,7 +214,7 @@ export class WorkDiaryFeature implements LuKitFeature {
 		if (!file) return;
 
 		const locale = this.plugin.settings.dateLocale;
-		new TextDateModal(this.plugin.app, "Reminder…", locale, async (text, date) => {
+		new TextDateModal(this.plugin.app, "Erinnerung…", locale, async (text, date) => {
 			const entry = formatReminderEntry(text, locale, date);
 			let success = false;
 			try {
@@ -213,14 +227,14 @@ export class WorkDiaryFeature implements LuKitFeature {
 					return result.newContent;
 				});
 			} catch (e) {
-				new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+				new Notice("Tagebuch konnte nicht geschrieben werden: " + (e instanceof Error ? e.message : String(e)));
 				return;
 			}
 			if (!success) {
-				new Notice("LuKit: Diary note is missing the third separator (---). Cannot add reminder.");
+				new Notice('Der Tagebuch-Notiz fehlt der dritte „---"-Trenner — Erinnerung kann nicht eingefügt werden (Struktur: Frontmatter, optional „# Erinnerungen", dann „---").');
 				return;
 			}
-			new Notice("Reminder added.");
+			new Notice("Erinnerung hinzugefügt.");
 		}).open();
 	}
 
@@ -230,12 +244,12 @@ export class WorkDiaryFeature implements LuKitFeature {
 
 		const activeFile = this.plugin.app.workspace.getActiveFile();
 		if (!activeFile) {
-			new Notice("LuKit: No active note open.");
+			new Notice("Keine aktive Notiz geöffnet.");
 			return;
 		}
 
 		if (activeFile.path === diaryFile.path) {
-			new Notice("LuKit: Cannot add the diary note to itself.");
+			new Notice("Die Tagebuch-Notiz kann sich nicht selbst hinzufügen.");
 			return;
 		}
 
@@ -256,16 +270,16 @@ export class WorkDiaryFeature implements LuKitFeature {
 				return newContent;
 			});
 		} catch (e) {
-			new Notice("LuKit: Failed to write diary note: " + (e instanceof Error ? e.message : String(e)));
+			new Notice("Tagebuch konnte nicht geschrieben werden: " + (e instanceof Error ? e.message : String(e)));
 			return;
 		}
 
 		if (alreadyExists) {
-			new Notice(`LuKit: Already in diary for ${formatDate(date, locale)}`);
+			new Notice(`Bereits im Tagebuch unter ${formatDate(date, locale)}.`);
 			return;
 		}
 
-		new Notice("Diary entry added.");
+		new Notice("Tagebucheintrag hinzugefügt.");
 	}
 
 	private getHeadingAtCursor(file: TFile): string | null {

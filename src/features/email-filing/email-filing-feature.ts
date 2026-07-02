@@ -120,13 +120,13 @@ export class EmailFilingFeature implements LuKitFeature {
 				commandId: "email-filing-walk",
 				displayName: "E-Mails: Posteingang ablegen",
 				description:
-					"Walk the Apple Mail inbox; for each message pick a Vorgang/Person/Bestellung/Bewerbung note, edit the extracted body, then archive the message and file the conversation (inbound + your Sent replies).",
+					"Geht den Apple-Mail-Posteingang durch; pro Nachricht Zielnotiz wählen, extrahierten Text prüfen/bearbeiten — die Konversation (eingehend + eigene Antworten) wird abgelegt und archiviert.",
 			},
 			{
 				commandId: "email-filing-file-selected",
 				displayName: "E-Mail: In Mail ausgewählte Nachricht ablegen",
 				description:
-					"File the message(s) currently selected in Apple Mail (any mailbox, incl. Sent) and their thread into a Vorgang — capture-only, nothing is archived. Use it for threads you initiated.",
+					"Legt die in Apple Mail ausgewählte(n) Nachricht(en) samt Thread in einen Vorgang ab (beliebiges Postfach, inkl. Gesendet) — nur Erfassung, nichts wird archiviert. Für selbst gestartete Threads.",
 			},
 		];
 	}
@@ -150,7 +150,7 @@ export class EmailFilingFeature implements LuKitFeature {
 	// invocation in the same tick is rejected.
 	startWalk(): void {
 		if (this.walkInProgress) {
-			new Notice("Walk läuft bereits.");
+			new Notice("Ablage läuft bereits.");
 			return;
 		}
 		this.walkInProgress = true;
@@ -580,7 +580,7 @@ export class EmailFilingFeature implements LuKitFeature {
 
 	private startSelectedWalk(): void {
 		if (this.walkInProgress) {
-			new Notice("Walk läuft bereits.");
+			new Notice("Ablage läuft bereits.");
 			return;
 		}
 		this.walkInProgress = true;
@@ -868,7 +868,7 @@ export class EmailFilingFeature implements LuKitFeature {
 	}
 
 	renderSettings(containerEl: HTMLElement, plugin: LuKitPlugin): void {
-		// Own section div so "Detect accounts" can re-render only this feature's
+		// Own section div so "Konten erkennen" can re-render only this feature's
 		// block instead of wiping the whole settings tab.
 		this.renderEmailSettings(containerEl.createDiv(), plugin);
 	}
@@ -878,12 +878,12 @@ export class EmailFilingFeature implements LuKitFeature {
 		containerEl.createEl("h3", { text: "E-Mail-Ablage" });
 
 		new Setting(containerEl)
-			.setName("Walk order")
-			.setDesc("Order in which the inbox walk presents messages")
+			.setName("Reihenfolge")
+			.setDesc("Reihenfolge, in der der Posteingang abgearbeitet wird")
 			.addDropdown((dropdown) =>
 				dropdown
-					.addOption("oldest", "Oldest first")
-					.addOption("newest", "Newest first")
+					.addOption("oldest", "Älteste zuerst")
+					.addOption("newest", "Neueste zuerst")
 					.setValue(settings.order)
 					.onChange(async (value) => {
 						settings.order = value === "newest" ? "newest" : "oldest";
@@ -892,8 +892,8 @@ export class EmailFilingFeature implements LuKitFeature {
 			);
 
 		new Setting(containerEl)
-			.setName("Default archive mailbox")
-			.setDesc("Mailbox an email is moved to when its account has no specific entry below")
+			.setName("Standard-Archiv-Postfach")
+			.setDesc("Postfach, in das E-Mails verschoben werden, wenn das Konto unten keinen eigenen Eintrag hat")
 			.addText((text) =>
 				text
 					.setPlaceholder("Archive")
@@ -906,8 +906,8 @@ export class EmailFilingFeature implements LuKitFeature {
 			);
 
 		new Setting(containerEl)
-			.setName("Default Sent mailbox")
-			.setDesc("Sent mailbox used to find your replies when an account has no specific entry below")
+			.setName("Standard-Gesendet-Postfach")
+			.setDesc("Gesendet-Postfach für die Suche nach eigenen Antworten, wenn das Konto unten keinen eigenen Eintrag hat")
 			.addText((text) =>
 				text
 					.setPlaceholder("Sent")
@@ -922,7 +922,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		for (const account of Object.keys(settings.archiveMailboxes)) {
 			new Setting(containerEl)
 				.setName(account)
-				.setDesc("Toggle = include in walk; first field = archive mailbox; second field = Sent mailbox")
+				.setDesc("Schalter = in der Ablage berücksichtigen; erstes Feld = Archiv-Postfach; zweites Feld = Gesendet-Postfach")
 				.addToggle((toggle) =>
 					toggle
 						.setValue(isAccountIncluded(settings.walkAccounts, account))
@@ -933,7 +933,7 @@ export class EmailFilingFeature implements LuKitFeature {
 				)
 				.addText((text) =>
 					text
-						.setPlaceholder("Archive mailbox")
+						.setPlaceholder("Archiv-Postfach")
 						.setValue(settings.archiveMailboxes[account])
 						.onChange(async (value) => {
 							settings.archiveMailboxes[account] = value.trim();
@@ -943,7 +943,7 @@ export class EmailFilingFeature implements LuKitFeature {
 				)
 				.addText((text) =>
 					text
-						.setPlaceholder("Sent mailbox (auto)")
+						.setPlaceholder("Gesendet-Postfach (auto)")
 						.setValue(settings.sentMailboxes[account] ?? "")
 						.onChange(async (value) => {
 							settings.sentMailboxes[account] = value.trim();
@@ -954,10 +954,10 @@ export class EmailFilingFeature implements LuKitFeature {
 		}
 
 		new Setting(containerEl)
-			.setName("Detect accounts")
-			.setDesc("Populate the per-account list from Apple Mail")
+			.setName("Konten erkennen")
+			.setDesc("Konto-Liste aus Apple Mail befüllen")
 			.addButton((button) =>
-				button.setButtonText("Detect accounts").onClick(async () => {
+				button.setButtonText("Konten erkennen").onClick(async () => {
 					try {
 						const accounts = await this.bridge.listAccounts();
 						settings.archiveMailboxes = mergeDetectedAccounts(

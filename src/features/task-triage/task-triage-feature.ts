@@ -51,7 +51,7 @@ export class TaskTriageFeature implements LuKitFeature {
 				commandId: "task-triage-walk",
 				displayName: "Vorgänge: Fällige Tasks durchgehen",
 				description:
-					"Walk every TaskNotes task due or scheduled by today; per task: complete, snooze, skip today's recurring instance, open & stop, or skip. Requires the TaskNotes plugin.",
+					"Geht alle TaskNotes-Tasks durch, die bis heute fällig oder geplant sind; pro Task: erledigen, verschieben, heutige Instanz auslassen, öffnen & stoppen oder überspringen. Benötigt das TaskNotes-Plugin (≥ 4.10.0).",
 			},
 		];
 	}
@@ -105,11 +105,11 @@ export class TaskTriageFeature implements LuKitFeature {
 	private availabilityMessage(a: Extract<BridgeAvailability, { ok: false }>): string {
 		switch (a.reason) {
 			case "plugin-missing":
-				return "TaskNotes-Plugin nicht gefunden.";
+				return "TaskNotes-Plugin nicht gefunden — Task-Triage benötigt TaskNotes ≥ 4.10.0.";
 			case "api-missing":
-				return "TaskNotes-API nicht verfügbar.";
+				return "TaskNotes-API nicht verfügbar — bitte TaskNotes auf ≥ 4.10.0 aktualisieren.";
 			case "api-version-mismatch":
-				return "TaskNotes-API-Version nicht unterstützt.";
+				return "TaskNotes-API-Version nicht unterstützt — LuKit benötigt apiVersion 1 (TaskNotes ≥ 4.10.0).";
 			case "capability-missing":
 				return `TaskNotes-Funktion fehlt: ${a.capability}`;
 		}
