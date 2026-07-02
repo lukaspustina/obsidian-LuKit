@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-07-02
+
+### Added
+- **Task Triage (requires TaskNotes ≥ 4.10.0)** — new command **Vorgang: Triage due tasks**: walks every TaskNotes task due or scheduled until today (the "Until today" condition) and forces one quick decision per stop — **⌘D** complete (recurring tasks: check off today's instance), **⌘1/⌘2/⌘3** snooze to tomorrow / +1 week / next Monday, **⌘T** snooze via native date picker, **⌘X** skip today's recurring instance, **Enter** open & stop, **Esc** skip, **⌘.** stop. Each stop shows a compact metadata line (position, overdue indicator, dates, priority, contexts, projects) and a large Markdown-rendered preview (Vorgang notes trimmed to `# Fakten und Pointer` plus the newest three sections). All task access goes through the TaskNotes runtime API (versioned, capability-gated) — user-remapped fields, custom statuses, and recurring semantics stay correct; a summary Notice reports completed / snoozed / skipped / remaining on every exit path (ab8f672, 0cf6c20, f55a051, db11b6b).
+
+### Changed
+- Task Triage startup is instant on large vaults: task listing uses TaskNotes' internal path index (with fallback to the official `list()`, which scans the whole vault), and the walk modal opens before the first preview finishes loading (f55a051, 123bb6d).
+
 ## [1.14.1] - 2026-07-01
 
 ### Fixed
