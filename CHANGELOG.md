@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-07-02
+
+### Added
+- **Erinnerungen-Triage** — the triage walk now presents due diary reminders (from the diary note's `# Erinnerungen` section) as stops before the TaskNotes tasks; dateless reminders count as always due. **⌘D deletes the reminder line**, ⌘1/⌘2/⌘3/⌘T rewrite its date suffix (dateless lines get one), **Enter opens the diary at the line**; reminder previews show the whole Erinnerungen section and are always read fresh. Without TaskNotes the walk now runs reminders-only instead of aborting. Command renamed to **Vorgänge: Fällige Aufgaben durchgehen** (ID unchanged — hotkeys survive) (8bf7bed, d979701, 105970a).
+- **Abgeschlossen-Tag** — new global setting (default `Done`): notes carrying the tag disappear from all filing pickers, suggestion candidates, and routing-corpus mining, so closed Vorgänge stop diluting suggestions (4b995c9).
+- Filing suggestions now share their routing knowledge across features: Besprechung suggestions include the email routing corpus and vice versa; inserting a summary into a section note stamps `filed_into`/`filed_at` like the filing flow, so manual insertions feed the corpus too (4b995c9).
+- Onboarding guidance: a missing diary note offers to create itself with the required skeleton, an empty filing picker explains the Vorgang/Person/Bestellung/Bewerbung tag taxonomy, TaskNotes gate messages name the required version, and a one-time welcome Notice appears after installation (858c758).
+
+### Changed
+- **The plugin UI is now German throughout** — Notices, settings tab, help modal, modal buttons, picker rows, and validation errors; raw exception Notices were replaced with German messages naming the failed action. The CLI stays English (858c758).
+- Filing walks: **⌘N replaces ⌘D for „Nicht ablegen"** — ⌘D now unambiguously means Erledigt (task triage). Picker placeholders no longer claim Esc stops when it skips, the hint bar shows the caller's real ⌘N action, and the Besprechung pending walk gained a concurrent-walk guard plus a bucketed German summary (9c5ab0d).
+
+### Fixed
+- Email filing: osascript failures no longer dump the full command line (including the embedded JXA script) into a Notice; walks can no longer wedge permanently on an assemble/commit rejection; „Konten erkennen" re-renders only its own settings section instead of wiping the whole tab (00c490a).
+- Besprechung: re-filing a besprechung no longer duplicates its section — the already-linked guard now recognizes the date-suffixed bullets the plugin itself writes (00c490a).
+- Manifest: `isDesktopOnly` is now true — the email feature's `child_process` import made the plugin fail to load on mobile despite the manifest claiming support (00c490a).
+
+### Removed
+- **Besprechung: Mehrere Zusammenfassungen einfügen** — unused loop wrapper around the single-summary command (4b995c9).
+
 ## [1.16.0] - 2026-07-02
 
 ### Changed
