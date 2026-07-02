@@ -38,15 +38,15 @@ Reviewer: PASS, 0 Blocker/Amendments/Nits. Reuse verifiziert (findSecondSeparato
 | 2 | ⌘D löscht Zeile via vault.process, counts.completed | p2_c2 | passing |
 | 3 | ⌘1 schreibt Datum auf walkToday+1 um, counts.snoozed | p2_c3 | passing |
 | 4 | Esc → counts.skipped, Notiz unverändert | p2_c4 | passing |
-| 5 | Enter öffnet Tagebuch an lineIndex, Walk stoppt | p2_c5 | passing |
+| 5 | Enter öffnet Tagebuch an lineIndex (Cursor-Assert), Walk stoppt | p2_c5 | passing |
 | 6 | Externe Löschung → Notice, Walk bleibt stehen | p2_c6 | passing |
 | 7 | TaskNotes-Degradation (nur Erinnerungen + Notice) | p2_c7 | passing |
 | 8 | Kein Tagebuch-Pfad → nur Tasks, keine Meldung | p2_c8 | passing |
 | 9 | Beide Quellen leer → „Keine fälligen Tasks oder Erinnerungen" | p2_c9 | passing |
-| 10 | availableActions: Erinnerung {snooze: true, skipInstance: false} | p2_c10 | passing |
+| 10 | availableActions + gerenderte Meta-Zeile (Datum/ohne Datum/überfällig) | p2_c10 | passing |
 | 11 | Erinnerungs-Previews immer frisch (nie Cache) | p2_c11 | passing |
 
-Reviewer: zunächst BLOCKED (R16: zwei kompakt formatierte `FeatureInternals`-Interfaces in `p2_c6`/`p2_c12` waren halb migriert) — behoben vor dem Commit; danach PASS. Verbleibende Nits (bewusst akzeptiert): die Meta-Zeile des Erinnerungs-Headers ist headless nicht getestet (Modal-Rendering liegt außerhalb der Testkonvention); `sourcePath`-Fallback `""` ist nur im degenerierten Fall erreichbar.
+Reviewer: zunächst BLOCKED (R16: zwei kompakt formatierte `FeatureInternals`-Interfaces in `p2_c6`/`p2_c12` waren halb migriert) — behoben vor dem Commit; danach PASS. Nachtrag: Die beiden /sdd-verify-PARTIALs (Cursor-Assert in c5, Meta-Zeilen-Rendering in c10) wurden nachträglich geschlossen — c10 rendert den Header jetzt headless über einen Recording-Element-Stub. Verbleibender Nit: `sourcePath`-Fallback `""` nur im degenerierten Fall erreichbar.
 
 **R16-Umfang real**: alle 13 `p2_*`-Dateien + `task-triage-walk-guards.test.ts` migriert (`stops: TriageStop[]`, `availableActions(stop)`); Task-Zuweisungen als `{ kind: "task", task }` gewrappt. Der Re-Entry-Test brauchte zwei Microtask-Hops, weil `beginWalk` jetzt zuerst die Erinnerungen lädt.
 
