@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-07-02
+
+### Changed
+- **All command names are now German**, with a consistent verb convention — *einfügen* = insert at cursor, *hinzufügen* = append to a structure, *ablegen* = file away — and plural prefixes for backlog walks (`Vorgänge: Fällige Tasks durchgehen`, `Besprechungen: Alle offenen ablegen`, `E-Mails: Posteingang ablegen`) vs. singular for single-note commands (`Vorgang: Abschnitt hinzufügen`, `Besprechung: Aktuelle Notiz ablegen`, `Tagebuch: Aktuelle Notiz hinzufügen`, …). This also fixes the task-triage command's misleading prefix and drops developer jargon like "Ensure". Command IDs are unchanged — existing hotkey assignments keep working (4fe86b4).
+
 ## [1.15.1] - 2026-07-02
 
 ### Fixed
