@@ -61,11 +61,13 @@ export class TaskTriageFeature implements LuKitFeature {
 			return;
 		}
 
+		const started = Date.now();
 		const availability = this.bridge.availability();
 		if (!availability.ok) {
 			new Notice(this.availabilityMessage(availability));
 			return;
 		}
+		console.log(`LuKit task-triage: availability ms=${Date.now() - started}`);
 
 		const today = this.todayIso();
 		const loading = new Notice("Sammle fällige Tasks…", 0);
@@ -103,11 +105,9 @@ export class TaskTriageFeature implements LuKitFeature {
 
 	private async presentStop(): Promise<void> {
 		const task = this.tasks[this.index];
-		const preview = await this.loadPreview(task);
 		const actions = this.availableActions(task);
-		new TaskTriageModal(this.plugin.app, {
+		const modal = new TaskTriageModal(this.plugin.app, {
 			task,
-			preview,
 			actions,
 			locale: this.plugin.settings.dateLocale,
 			today: this.todayIso(),
@@ -133,7 +133,13 @@ export class TaskTriageFeature implements LuKitFeature {
 			onStop: () => {
 				this.handleStop();
 			},
-		}).open();
+		});
+		modal.open();
+		const previewStarted = Date.now();
+		void this.loadPreview(task).then((preview) => {
+			console.log(`LuKit task-triage: preview ms=${Date.now() - previewStarted}`);
+			modal.setPreview(preview);
+		});
 	}
 
 	private promptCustomDate(): void {

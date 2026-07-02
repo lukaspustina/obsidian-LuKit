@@ -6,7 +6,6 @@ import type { TriageTask, SnoozeKind } from "./task-triage-engine";
 
 export interface TaskTriageModalOptions {
 	task: TriageTask;
-	preview: string;
 	actions: { snooze: boolean; skipInstance: boolean };
 	locale: DateLocale;
 	today: string;
@@ -29,10 +28,19 @@ export class TaskTriageModal extends Modal {
 	private options: TaskTriageModalOptions;
 	private chosen = false;
 	private previewComponent = new Component();
+	private previewEl?: HTMLElement;
 
 	constructor(app: App, options: TaskTriageModalOptions) {
 		super(app);
 		this.options = options;
+	}
+
+	// Called by the feature once the (async) preview is loaded — the modal
+	// opens immediately with a placeholder so the walk never waits on I/O.
+	setPreview(markdown: string): void {
+		if (this.previewEl === undefined) return;
+		this.previewEl.empty();
+		void MarkdownRenderer.render(this.app, markdown, this.previewEl, this.options.task.path, this.previewComponent);
 	}
 
 	onOpen(): void {
@@ -84,14 +92,8 @@ export class TaskTriageModal extends Modal {
 	}
 
 	private renderPreview(): void {
-		const preview = this.contentEl.createDiv({ cls: "lukit-triage-preview" });
-		void MarkdownRenderer.render(
-			this.app,
-			this.options.preview,
-			preview,
-			this.options.task.path,
-			this.previewComponent,
-		);
+		this.previewEl = this.contentEl.createDiv({ cls: "lukit-triage-preview" });
+		this.previewEl.setText("Lade Vorschau…");
 	}
 
 	private registerActionKeys(): void {
@@ -174,6 +176,7 @@ export class TaskTriageModal extends Modal {
 
 	onClose(): void {
 		this.previewComponent.unload();
+		this.previewEl = undefined;
 		this.contentEl.empty();
 		setTimeout(() => {
 			if (this.chosen) return;

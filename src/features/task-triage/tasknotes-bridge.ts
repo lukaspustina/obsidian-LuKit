@@ -118,12 +118,17 @@ export function createTaskNotesBridge(app: App): TaskNotesBridge {
 	}
 
 	async function fetchTaskInfos(api: TaskNotesApi): Promise<TaskInfo[]> {
+		const started = Date.now();
 		const paths = internalTaskPaths();
 		if (paths === null) {
-			return api.tasks.list();
+			const infos = await api.tasks.list();
+			console.log(`LuKit task-triage: listTasks fallback list() tasks=${infos.length} ms=${Date.now() - started}`);
+			return infos;
 		}
 		const infos = await Promise.all(paths.map((p) => api.tasks.get(p)));
-		return infos.filter((info): info is TaskInfo => info !== null);
+		const found = infos.filter((info): info is TaskInfo => info !== null);
+		console.log(`LuKit task-triage: listTasks fast-path paths=${paths.length} tasks=${found.length} ms=${Date.now() - started}`);
+		return found;
 	}
 
 	return {
