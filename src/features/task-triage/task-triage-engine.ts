@@ -1,6 +1,7 @@
 import { formatDate, parseDateString } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
 import { extractSection } from "../besprechung/besprechung-engine";
+import type { ReminderItem } from "../work-diary/work-diary-engine";
 
 export interface TriageTask {
 	path: string;
@@ -17,6 +18,11 @@ export interface TriageTask {
 }
 
 export type SnoozeKind = "tomorrow" | "week" | "nextMonday";
+
+// Ein Stop des Triage-Walks: TaskNotes-Task oder Tagebuch-Erinnerung.
+export type TriageStop =
+	| { kind: "task"; task: TriageTask }
+	| { kind: "reminder"; reminder: ReminderItem };
 
 export interface TriageSummary {
 	completed: number;
@@ -72,6 +78,29 @@ export function selectTriageTasks(tasks: TriageTask[], today: string): TriageTas
 		.filter((task) => isTriageCandidate(task, today))
 		.slice()
 		.sort((x, y) => cmpDate(x.scheduled, y.scheduled) || cmpDate(x.due, y.due));
+}
+
+// Fällige Erinnerungen: Datum ≤ heute oder datumslos (sofort fällig).
+// Sortierung: Datum aufsteigend, datumslose zuletzt, Ties in Dokumentreihenfolge.
+export function selectDueReminders(items: ReminderItem[], todayIso: string): ReminderItem[] {
+	return items
+		.filter((r) => r.date === null || formatDate(r.date, "iso") <= todayIso)
+		.sort((a, b) => {
+			if (a.date === null && b.date === null) return a.lineIndex - b.lineIndex;
+			if (a.date === null) return 1;
+			if (b.date === null) return -1;
+			return a.date.getTime() - b.date.getTime() || a.lineIndex - b.lineIndex;
+		});
+}
+
+// Überfällig-Label für ein einzelnes Erinnerungs-Datum (überladungsfrei neben
+// overdueLabel, dessen Signatur TriageTask-gebunden ist). Leer bei datumslos
+// oder Fälligkeit heute/zukünftig.
+export function reminderOverdueLabel(date: Date | null, todayIso: string, locale: DateLocale): string {
+	if (date === null) return "";
+	const n = daysBetween(formatDate(date, "iso"), todayIso);
+	if (n <= 0) return "";
+	return locale === "de" ? `${n}d überfällig` : `${n}d overdue`;
 }
 
 export function snoozeDate(kind: SnoozeKind, today: string): string {
