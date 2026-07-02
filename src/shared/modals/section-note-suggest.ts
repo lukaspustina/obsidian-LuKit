@@ -42,6 +42,9 @@ export interface SectionNoteSuggestOptions {
 	// Short hint-bar label for the ⌘N action — must describe what onDrop
 	// actually does for this caller (e.g. "Nur archivieren" vs "Tag entfernen").
 	dropHint?: string;
+	// Notes carrying this frontmatter tag are hidden from the list (closed
+	// Vorgänge). Empty/absent disables the filter.
+	excludeTag?: string;
 	// When set, a read-only scrollable panel with this text is shown above the
 	// search field (e.g. an email preview to read before picking a target).
 	previewText?: string;
@@ -72,10 +75,15 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 		}
 	}
 
+	private isCandidate(file: TFile): boolean {
+		const tags = this.app.metadataCache.getFileCache(file)?.frontmatter?.tags;
+		if (!frontmatterTagsInclude(tags, this.sectionTags)) return false;
+		const done = this.options.excludeTag;
+		return !done || !frontmatterTagsInclude(tags, done);
+	}
+
 	private hasCandidateNotes(): boolean {
-		return this.app.vault
-			.getMarkdownFiles()
-			.some((f) => frontmatterTagsInclude(this.app.metadataCache.getFileCache(f)?.frontmatter?.tags, this.sectionTags));
+		return this.app.vault.getMarkdownFiles().some((f) => this.isCandidate(f));
 	}
 
 	private renderPreviewPanel(): void {
@@ -146,10 +154,7 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 	getItems(): Item[] {
 		const matches = this.app.vault
 			.getMarkdownFiles()
-			.filter((f) => {
-				const tags = this.app.metadataCache.getFileCache(f)?.frontmatter?.tags;
-				return frontmatterTagsInclude(tags, this.sectionTags);
-			})
+			.filter((f) => this.isCandidate(f))
 			.sort((a, b) => b.stat.mtime - a.stat.mtime);
 
 		const pinnedFiles: TFile[] = [];

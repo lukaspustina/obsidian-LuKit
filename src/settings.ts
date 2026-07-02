@@ -32,6 +32,19 @@ export class LuKitSettingTab extends PluginSettingTab {
 				});
 			});
 
+		new Setting(containerEl)
+			.setName("Abgeschlossen-Tag")
+			.setDesc("Notizen mit diesem Frontmatter-Tag erscheinen nicht mehr in Ablage-Pickern und Vorschlägen (leer = deaktiviert)")
+			.addText((text) =>
+				text
+					.setPlaceholder("Done")
+					.setValue(this.plugin.settings.doneTag)
+					.onChange(async (value) => {
+						this.plugin.settings.doneTag = value.trim();
+						await this.plugin.saveSettings();
+					}),
+			);
+
 		for (const feature of this.plugin.features) {
 			if (feature.renderSettings) {
 				feature.renderSettings(containerEl, this.plugin);

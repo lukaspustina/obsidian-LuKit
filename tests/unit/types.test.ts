@@ -46,6 +46,7 @@ describe("mergeSettings", () => {
 		const input = {
 			dateLocale: "iso" as const,
 			firstRunNoticeShown: true,
+			doneTag: "Erledigt",
 			workDiary: { diaryNotePath: "Diary.md" },
 			besprechung: {
 				folderPath: "Meetings",

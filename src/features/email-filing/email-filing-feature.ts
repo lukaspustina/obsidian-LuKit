@@ -22,6 +22,7 @@ import { mergeDetectedAccounts, isAccountIncluded } from "./email-filing-setting
 import { mineVorgangFilings, minedFilingsToFiledRecords, isCacheStale } from "./email-routing";
 import { addVorgangSection } from "../vorgang/vorgang-engine";
 import { suggestFilingTargets, type FiledRecord } from "../besprechung/besprechung-suggest-engine";
+import { collectBesprechungFiledRecords } from "../besprechung/besprechung-feature";
 import { frontmatterTagsInclude } from "../../shared/frontmatter";
 import { SectionNoteSuggestModal } from "../../shared/modals/section-note-suggest";
 import {
@@ -281,6 +282,7 @@ export class EmailFilingFeature implements LuKitFeature {
 			skipLabel: "↪ Überspringen (im Posteingang lassen)",
 			dropLabel: "✕ Nicht ablegen (nur archivieren)",
 			dropHint: "Nur archivieren",
+			excludeTag: this.plugin.settings.doneTag,
 			openLabel: "→ Stopp und E-Mail in Mail öffnen",
 			onPick: (vorgang) => {
 				const loading = new Notice("Thread wird zusammengestellt…", 0);
@@ -627,6 +629,7 @@ export class EmailFilingFeature implements LuKitFeature {
 			suggestions: this.suggestionsForTitle(`${stripSubjectPrefixes(m.subject)} ${m.partyName}`),
 			dropLabel: "✕ Nicht ablegen",
 			dropHint: "Nicht ablegen",
+			excludeTag: this.plugin.settings.doneTag,
 			onPick: (vorgang) => {
 				const loading = new Notice("Thread wird zusammengestellt…", 0);
 				void this.assembleSelectedThread(m, body, attachments, vorgang).then((assembled) => {
@@ -818,14 +821,12 @@ export class EmailFilingFeature implements LuKitFeature {
 	}
 
 	private sectionNoteFiles(): TFile[] {
-		return this.plugin.app.vault
-			.getMarkdownFiles()
-			.filter((f) =>
-				frontmatterTagsInclude(
-					this.plugin.app.metadataCache.getFileCache(f)?.frontmatter?.tags,
-					SECTION_NOTE_TAGS,
-				),
-			);
+		const done = this.plugin.settings.doneTag;
+		return this.plugin.app.vault.getMarkdownFiles().filter((f) => {
+			const tags = this.plugin.app.metadataCache.getFileCache(f)?.frontmatter?.tags;
+			if (!frontmatterTagsInclude(tags, SECTION_NOTE_TAGS)) return false;
+			return !done || !frontmatterTagsInclude(tags, done);
+		});
 	}
 
 	private sectionNoteBasenames(): string[] {
@@ -836,6 +837,15 @@ export class EmailFilingFeature implements LuKitFeature {
 	// missing) by mining existing Vorgang email sections. Rebuild also happens
 	// after any filing (the cache is invalidated on success).
 	private async buildRoutingCorpus(): Promise<FiledRecord[]> {
+		// Geteiltes Routing-Wissen: geminte Vorgang-Headings plus die
+		// filed_into-Stempel der Besprechungs-Ablage.
+		return [
+			...(await this.minedRoutingRecords()),
+			...collectBesprechungFiledRecords(this.plugin.app, this.plugin.settings.besprechung.folderPath),
+		];
+	}
+
+	private async minedRoutingRecords(): Promise<FiledRecord[]> {
 		const settings = this.plugin.settings.emailFiling;
 		const cache = settings.routingCache;
 		if (cache && !isCacheStale(cache.builtAt, Date.now())) {

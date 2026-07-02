@@ -23,6 +23,30 @@ function texts(modal: SectionNoteSuggestModal): string[] {
 	return modal.getItems().map((item) => modal.getItemText(item));
 }
 
+describe("SectionNoteSuggestModal done-tag filter", () => {
+	it("hides notes carrying the excludeTag from the list", () => {
+		const app = appWithThreeNotes();
+		app.metadataCache.setFrontmatter("Vorgänge/Vorgang - C.md", { tags: ["Vorgang", "Done"] });
+		const modal = new SectionNoteSuggestModal(app as never, SECTION_TAGS, {
+			placeholder: "x",
+			onPick: () => undefined,
+			excludeTag: "Done",
+		});
+		expect(texts(modal)).toEqual(["Vorgang - A", "Vorgang - B"]);
+	});
+
+	it("keeps all notes when excludeTag is empty", () => {
+		const app = appWithThreeNotes();
+		app.metadataCache.setFrontmatter("Vorgänge/Vorgang - C.md", { tags: ["Vorgang", "Done"] });
+		const modal = new SectionNoteSuggestModal(app as never, SECTION_TAGS, {
+			placeholder: "x",
+			onPick: () => undefined,
+			excludeTag: "",
+		});
+		expect(texts(modal)).toEqual(["Vorgang - A", "Vorgang - B", "Vorgang - C"]);
+	});
+});
+
 describe("SectionNoteSuggestModal pinned suggestions", () => {
 	it("renders the first item as the pinned suggestion row", () => {
 		const app = appWithThreeNotes();

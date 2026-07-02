@@ -230,4 +230,30 @@ describe("BesprechungFeature.insertBesprechungSummary — section note path", ()
 		expect(updatedDiary).toContain("Foo");
 		expect(updatedDiary).toContain("Vorgang - X");
 	});
+
+	it("stamps filed_into/filed_at on the besprechung like the filing flow", async () => {
+		const besprechung = createMockTFile("Besprechungen/Foo.md");
+		const vorgang = createMockTFile("Vorgänge/Vorgang - X.md");
+
+		const app = createMockApp({});
+		app.vault.register(besprechung, "### Nächste Schritte\n- Step\n");
+		app.vault.register(vorgang, "# Inhalt\n");
+		app.metadataCache.setFrontmatter(vorgang.path, { tags: ["Vorgang"] });
+
+		const editor = createMockEditor("# Inhalt\n");
+		app.workspace.activeEditor = { editor };
+		app.workspace.activeFile = vorgang;
+
+		const plugin = createMockPlugin(makeTestSettings(), app);
+		const feature = new BesprechungFeature();
+		feature.onload(asLuKitPlugin(plugin));
+
+		await (feature as unknown as { insertBesprechungSummary: (b: typeof besprechung) => Promise<void> }).insertBesprechungSummary(
+			besprechung,
+		);
+
+		const fm = app.fileManager.frontmatter.get(besprechung.path);
+		expect(fm?.filed_into).toBe("[[Vorgang - X]]");
+		expect(fm?.filed_at).toBeTruthy();
+	});
 });

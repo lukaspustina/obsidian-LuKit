@@ -1,4 +1,5 @@
 import { Notice, TFile, normalizePath } from "obsidian";
+import type { App } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature, HelpEntry } from "../../types";
@@ -42,15 +43,6 @@ export class BesprechungFeature implements LuKitFeature {
 		});
 
 		plugin.addCommand({
-			id: "besprechung-add-multiple-summaries",
-			name: "Besprechung: Mehrere Zusammenfassungen einfügen",
-			icon: LUKIT_ICON_ID,
-			editorCallback: () => {
-				this.addBesprechungSummariesCmd();
-			},
-		});
-
-		plugin.addCommand({
 			id: "besprechung-file-pending",
 			name: "Besprechungen: Alle offenen ablegen",
 			icon: LUKIT_ICON_ID,
@@ -85,11 +77,6 @@ export class BesprechungFeature implements LuKitFeature {
 				description: "Besprechungs-Notiz wählen, Kernabschnitte extrahieren, an der Cursor-Position einfügen (in Vorgang/Person/Bestellung/Bewerbung-Notizen als verlinkter Abschnitt).",
 			},
 			{
-				commandId: "besprechung-add-multiple-summaries",
-				displayName: "Besprechung: Mehrere Zusammenfassungen einfügen",
-				description: "Picker öffnet sich nach jeder Einfügung erneut (bereits gewählte Notizen ausgeblendet), bis Esc; der Suchbegriff bleibt erhalten.",
-			},
-			{
 				commandId: "besprechung-file-pending",
 				displayName: "Besprechungen: Alle offenen ablegen",
 				description: "Geht alle Besprechungen mit Offen-Tag durch; pro Besprechung Zielnotiz wählen — legt die Zusammenfassung ab, entfernt das Tag, stempelt filed_into/filed_at.",
@@ -114,38 +101,6 @@ export class BesprechungFeature implements LuKitFeature {
 				new Notice(`Zusammenfassung konnte nicht eingefügt werden: ${err instanceof Error ? err.message : String(err)}`);
 			});
 		}).open();
-	}
-
-	private addBesprechungSummariesCmd(): void {
-		const folderPath = this.plugin.settings.besprechung.folderPath;
-		if (!folderPath) {
-			new Notice("Kein Besprechungs-Ordner konfiguriert — setze ihn unter Einstellungen → LuKit.");
-			return;
-		}
-
-		const picked = new Set<string>();
-		const openPicker = (initialQuery: string): void => {
-			let modal: FolderNoteSuggestModal;
-			modal = new FolderNoteSuggestModal(
-				this.plugin.app,
-				folderPath,
-				"Besprechung wählen… (Esc = fertig)",
-				async (besprechungFile) => {
-					const lastQuery = modal.inputEl.value;
-					picked.add(besprechungFile.path);
-					try {
-						await this.insertBesprechungSummary(besprechungFile);
-					} catch (err: unknown) {
-						new Notice(`Zusammenfassung konnte nicht eingefügt werden: ${err instanceof Error ? err.message : String(err)}`);
-					}
-					openPicker(lastQuery);
-				},
-				picked,
-				initialQuery,
-			);
-			modal.open();
-		};
-		openPicker("");
 	}
 
 	private async insertBesprechungSummary(besprechungFile: TFile): Promise<void> {
@@ -192,6 +147,15 @@ export class BesprechungFeature implements LuKitFeature {
 			activeEditor.setCursor(pos);
 			activeEditor.scrollIntoView({ from: pos, to: pos }, true);
 			await this.addDiaryEntryForBesprechung(activeFile, besprechungFile.basename, date);
+			// Stempel wie beim Ablegen, damit auch manuelle Einfügungen den
+			// Vorschlags-Korpus füttern (das Pending-Tag bleibt unangetastet).
+			try {
+				await this.plugin.app.fileManager.processFrontMatter(besprechungFile, (fm) => {
+					markFiledInFrontmatter(fm, activeFile.basename, new Date());
+				});
+			} catch (e) {
+				new Notice("Eingefügt, aber der filed_into-Stempel schlug fehl: " + (e instanceof Error ? e.message : String(e)));
+			}
 		} else {
 			const cursor = activeEditor.getCursor();
 			activeEditor.replaceRange(summary, cursor);
@@ -273,6 +237,7 @@ export class BesprechungFeature implements LuKitFeature {
 					placeholder,
 					suggestions: this.suggestionsFor(besprechung),
 					dropHint: "Tag entfernen",
+					excludeTag: this.plugin.settings.doneTag,
 					onPick: (vorgang) => {
 						i++;
 						counts.filed++;
@@ -321,6 +286,7 @@ export class BesprechungFeature implements LuKitFeature {
 			{
 				placeholder: `„${active.basename}" ablegen unter…`,
 				suggestions: this.suggestionsFor(active),
+				excludeTag: this.plugin.settings.doneTag,
 				onPick: (vorgang) => {
 					void this.fileBesprechungIntoVorgang(active, vorgang);
 				},
@@ -350,7 +316,13 @@ export class BesprechungFeature implements LuKitFeature {
 	// so the picker still opens with the full list.
 	private suggestionsFor(besprechung: TFile): string[] {
 		try {
-			const corpus = this.buildFilingCorpus(besprechung);
+			// Geteiltes Routing-Wissen: eigene filed_into-Stempel plus der von der
+			// E-Mail-Ablage geminte Vorgang-Korpus (Cache; Staleness egal — leicht
+			// veraltete Vorschläge sind besser als keine).
+			const corpus = [
+				...this.buildFilingCorpus(besprechung),
+				...(this.plugin.settings.emailFiling.routingCache?.records ?? []),
+			];
 			const candidateBasenames = this.sectionNoteBasenames();
 			const fm = this.plugin.app.metadataCache.getFileCache(besprechung)?.frontmatter;
 			const candidateTitle = typeof fm?.title === "string" ? fm.title : besprechung.basename;
@@ -367,29 +339,18 @@ export class BesprechungFeature implements LuKitFeature {
 	// Builds the filing corpus from besprechungen under folderPath that carry a
 	// filed_into value, excluding the one currently being filed.
 	private buildFilingCorpus(exclude: TFile): FiledRecord[] {
-		const prefix = normalizePath(this.plugin.settings.besprechung.folderPath) + "/";
-		const records: FiledRecord[] = [];
-		for (const f of this.plugin.app.vault.getMarkdownFiles()) {
-			if (f.path === exclude.path || !f.path.startsWith(prefix)) continue;
-			const fm = this.plugin.app.metadataCache.getFileCache(f)?.frontmatter;
-			const filedInto = fm?.filed_into;
-			if (typeof filedInto !== "string") continue;
-			const target = extractWikilinkTarget(filedInto);
-			if (target === null) continue;
-			const rawTitle = typeof fm?.title === "string" ? fm.title : f.basename;
-			const parsed = fm?.filed_at == null ? NaN : Date.parse(String(fm.filed_at));
-			records.push({ rawTitle, target, filedAt: Number.isFinite(parsed) ? parsed : null });
-		}
-		return records;
+		return collectBesprechungFiledRecords(this.plugin.app, this.plugin.settings.besprechung.folderPath, exclude.path);
 	}
 
 	// Selectable section-note basenames, using the same filter the modal applies.
 	private sectionNoteBasenames(): string[] {
+		const done = this.plugin.settings.doneTag;
 		return this.plugin.app.vault
 			.getMarkdownFiles()
 			.filter((f) => {
 				const tags = this.plugin.app.metadataCache.getFileCache(f)?.frontmatter?.tags;
-				return frontmatterTagsInclude(tags, BesprechungFeature.SECTION_NOTE_TAGS);
+				if (!frontmatterTagsInclude(tags, BesprechungFeature.SECTION_NOTE_TAGS)) return false;
+				return !done || !frontmatterTagsInclude(tags, done);
 			})
 			.map((f) => f.basename);
 	}
@@ -506,4 +467,24 @@ export class BesprechungFeature implements LuKitFeature {
 			new Notice("Tagebuch konnte nicht geschrieben werden: " + (e instanceof Error ? e.message : String(e)));
 		}
 	}
+}
+
+// Filed-into-Korpus aus Besprechungen unter folderPath — geteiltes Routing-
+// Wissen, das auch die E-Mail-Ablage für ihre Vorschläge einbezieht.
+export function collectBesprechungFiledRecords(app: App, folderPath: string, excludePath?: string): FiledRecord[] {
+	if (!folderPath) return [];
+	const prefix = normalizePath(folderPath) + "/";
+	const records: FiledRecord[] = [];
+	for (const f of app.vault.getMarkdownFiles()) {
+		if (f.path === excludePath || !f.path.startsWith(prefix)) continue;
+		const fm = app.metadataCache.getFileCache(f)?.frontmatter;
+		const filedInto = fm?.filed_into;
+		if (typeof filedInto !== "string") continue;
+		const target = extractWikilinkTarget(filedInto);
+		if (target === null) continue;
+		const rawTitle = typeof fm?.title === "string" ? fm.title : f.basename;
+		const parsed = fm?.filed_at == null ? NaN : Date.parse(String(fm.filed_at));
+		records.push({ rawTitle, target, filedAt: Number.isFinite(parsed) ? parsed : null });
+	}
+	return records;
 }

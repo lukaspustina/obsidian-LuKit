@@ -38,11 +38,6 @@ exports[`LuKitFeature.helpEntries() registry > matches the snapshot 1`] = `
     "displayName": "Besprechung: Zusammenfassung einfügen",
   },
   {
-    "commandId": "besprechung-add-multiple-summaries",
-    "description": "Picker öffnet sich nach jeder Einfügung erneut (bereits gewählte Notizen ausgeblendet), bis Esc; der Suchbegriff bleibt erhalten.",
-    "displayName": "Besprechung: Mehrere Zusammenfassungen einfügen",
-  },
-  {
     "commandId": "besprechung-file-pending",
     "description": "Geht alle Besprechungen mit Offen-Tag durch; pro Besprechung Zielnotiz wählen — legt die Zusammenfassung ab, entfernt das Tag, stempelt filed_into/filed_at.",
     "displayName": "Besprechungen: Alle offenen ablegen",
