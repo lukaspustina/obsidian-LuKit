@@ -91,25 +91,29 @@ function stripFrontmatter(text: string): string {
 	return text.replace(FRONTMATTER, "");
 }
 
-function firstH5Section(body: string): string {
-	const lines = body.split("\n");
-	let start = -1;
-	for (let i = 0; i < lines.length; i++) {
-		if (/^##### /.test(lines[i])) {
-			start = i;
-			break;
-		}
-	}
-	if (start === -1) return "";
+// Vorgang h5 sections are stored newest-first; show the newest few so the
+// preview reveals what happened last and what the next steps are.
+const VORGANG_PREVIEW_SECTIONS = 3;
 
-	let end = lines.length;
-	for (let i = start + 1; i < lines.length; i++) {
+function newestH5Sections(body: string, count: number): string {
+	const lines = body.split("\n");
+	const sections: string[] = [];
+	let start = -1;
+
+	for (let i = 0; i < lines.length && sections.length < count; i++) {
+		if (start === -1) {
+			if (/^##### /.test(lines[i])) start = i;
+			continue;
+		}
 		if (/^#{1,5} /.test(lines[i])) {
-			end = i;
-			break;
+			sections.push(lines.slice(start, i).join("\n").trimEnd());
+			start = /^##### /.test(lines[i]) ? i : -1;
 		}
 	}
-	return lines.slice(start, end).join("\n").trimEnd();
+	if (start !== -1 && sections.length < count) {
+		sections.push(lines.slice(start).join("\n").trimEnd());
+	}
+	return sections.join("\n\n");
 }
 
 export function buildTriagePreview(content: string): string {
@@ -120,7 +124,7 @@ export function buildTriagePreview(content: string): string {
 		return stripped;
 	}
 
-	const h5 = firstH5Section(stripped);
+	const h5 = newestH5Sections(stripped, VORGANG_PREVIEW_SECTIONS);
 	if (h5 === "") {
 		return `# Fakten und Pointer\n${fakten}`;
 	}

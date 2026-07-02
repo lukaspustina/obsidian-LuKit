@@ -76,3 +76,33 @@
 .lukit-email-preview:disabled {
 	opacity: 0.5;
 }
+
+.lukit-triage-modal {
+	width: min(90vw, 1200px);
+	height: 85vh;
+}
+
+.lukit-triage-modal .modal-content {
+	display: flex;
+	flex-direction: column;
+	max-height: 100%;
+}
+
+.lukit-triage-meta {
+	color: var(--text-muted);
+	margin: 0 0 var(--size-4-2);
+}
+
+.lukit-triage-overdue {
+	color: var(--text-error);
+	font-weight: 600;
+}
+
+.lukit-triage-preview {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	user-select: text;
+	border-top: 1px solid var(--background-modifier-border);
+	padding-top: var(--size-4-2);
+}

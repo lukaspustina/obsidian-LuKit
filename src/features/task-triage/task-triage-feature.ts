@@ -139,7 +139,6 @@ export class TaskTriageFeature implements LuKitFeature {
 	private promptCustomDate(): void {
 		new TaskTriageDateModal(
 			this.plugin.app,
-			this.plugin.settings.dateLocale,
 			(dateIso) => {
 				void this.handleSnoozeCustom(dateIso);
 			},

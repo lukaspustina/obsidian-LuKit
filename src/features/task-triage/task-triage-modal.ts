@@ -37,6 +37,7 @@ export class TaskTriageModal extends Modal {
 
 	onOpen(): void {
 		this.previewComponent.load();
+		this.modalEl.addClass("lukit-triage-modal");
 		this.renderHeader();
 		this.renderPreview();
 		this.registerActionKeys();
@@ -45,41 +46,45 @@ export class TaskTriageModal extends Modal {
 
 	private renderHeader(): void {
 		const { contentEl } = this;
-		const { task, locale, today } = this.options;
+		const { task, locale, today, position } = this.options;
 
 		contentEl.createEl("h3", { text: task.title });
 
+		const meta = contentEl.createEl("p", { cls: "lukit-triage-meta" });
+		const parts: string[] = [`${position.index + 1}/${position.total}`];
+
 		const overdue = overdueLabel(task, today, locale);
 		if (overdue !== "") {
-			contentEl.createEl("p", { text: overdue, cls: "lukit-triage-overdue" });
+			meta.createSpan({ text: `${parts.shift()} · ` });
+			meta.createSpan({ text: overdue, cls: "lukit-triage-overdue" });
 		}
 
 		if (task.due !== undefined) {
-			contentEl.createEl("p", { text: `Fällig: ${formatDate(parseIsoDate(task.due), locale)}` });
+			parts.push(`Fällig: ${formatDate(parseIsoDate(task.due), locale)}`);
 		}
 		if (task.scheduled !== undefined) {
-			contentEl.createEl("p", { text: `Geplant: ${formatDate(parseIsoDate(task.scheduled), locale)}` });
+			parts.push(`Geplant: ${formatDate(parseIsoDate(task.scheduled), locale)}`);
 		}
 		if (task.priority !== undefined) {
-			contentEl.createEl("p", { text: `Priorität: ${task.priority}` });
+			parts.push(`Priorität: ${task.priority}`);
 		}
 		if (task.isRecurring) {
-			contentEl.createEl("p", { text: "↻ (wiederkehrend)" });
+			parts.push("↻ wiederkehrend");
 		}
 		if (task.contexts.length > 0) {
-			contentEl.createEl("p", { text: `Kontexte: ${task.contexts.join(", ")}` });
+			parts.push(task.contexts.join(", "));
 		}
 		if (task.projects.length > 0) {
-			contentEl.createEl("p", { text: `Projekte: ${task.projects.map(formatProjectLink).join(", ")}` });
+			parts.push(task.projects.map(formatProjectLink).join(", "));
+		}
+
+		if (parts.length > 0) {
+			meta.createSpan({ text: (overdue !== "" ? " · " : "") + parts.join(" · ") });
 		}
 	}
 
 	private renderPreview(): void {
 		const preview = this.contentEl.createDiv({ cls: "lukit-triage-preview" });
-		preview.style.flex = "0 0 auto";
-		preview.style.maxHeight = "45vh";
-		preview.style.overflowY = "auto";
-		preview.style.userSelect = "text";
 		void MarkdownRenderer.render(
 			this.app,
 			this.options.preview,

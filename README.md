@@ -71,7 +71,7 @@ Filing an email captures the **whole conversation**: your Sent replies **and** t
 
 ### Task Triage (requires TaskNotes ≥ 4.10.0)
 
-Walks all [TaskNotes](https://github.com/callumalpass/tasknotes) tasks that are due or scheduled until today — the same set as an "Until today" Bases view — and forces one quick decision per task, without opening the TaskNotes edit modal each time. Every stop shows the task header (title, due/scheduled with an overdue indicator, priority, recurring badge, contexts, linked projects) and a content preview (for Vorgang notes trimmed to `# Fakten und Pointer` plus the newest section).
+Walks all [TaskNotes](https://github.com/callumalpass/tasknotes) tasks that are due or scheduled until today — the same set as an "Until today" Bases view — and forces one quick decision per task, without opening the TaskNotes edit modal each time. Every stop shows the task header (title plus one compact line: position, overdue indicator, due/scheduled, priority, recurring badge, contexts, linked projects) and a large Markdown-rendered content preview (for Vorgang notes trimmed to `# Fakten und Pointer` plus the newest three sections — what happened last and what's next).
 
 All task access goes through the TaskNotes runtime API, so user-remapped field names, custom statuses, and recurring semantics stay correct. TaskNotes must be installed and at least version 4.10.0 (first release with the runtime API).
 

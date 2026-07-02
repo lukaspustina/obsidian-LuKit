@@ -1,9 +1,12 @@
 import { App, Modal } from "obsidian";
-import { formatDate, dateFormatHint, parseDateString } from "../../shared/date-format";
-import type { DateLocale } from "../../shared/date-format";
+
+function toIso(date: Date): string {
+	const m = String(date.getMonth() + 1).padStart(2, "0");
+	const d = String(date.getDate()).padStart(2, "0");
+	return `${date.getFullYear()}-${m}-${d}`;
+}
 
 export class TaskTriageDateModal extends Modal {
-	private locale: DateLocale;
 	private onSubmit: (dateIso: string) => void;
 	private onCancel: () => void;
 	private submitted = false;
@@ -11,15 +14,8 @@ export class TaskTriageDateModal extends Modal {
 	private errorEl!: HTMLElement;
 	private initialDate: Date;
 
-	constructor(
-		app: App,
-		locale: DateLocale,
-		onSubmit: (dateIso: string) => void,
-		onCancel: () => void,
-		defaultDate?: Date,
-	) {
+	constructor(app: App, onSubmit: (dateIso: string) => void, onCancel: () => void, defaultDate?: Date) {
 		super(app);
-		this.locale = locale;
 		this.onSubmit = onSubmit;
 		this.onCancel = onCancel;
 		this.initialDate = defaultDate ?? new Date();
@@ -31,12 +27,13 @@ export class TaskTriageDateModal extends Modal {
 
 		contentEl.createEl("p", { text: "Verschieben auf…" });
 
+		// Native date input — the same control TaskNotes' own DateTimePickerModal
+		// uses; Electron renders it with a calendar popup. Value is always ISO.
 		this.dateInputEl = contentEl.createEl("input", {
-			type: "text",
-			placeholder: dateFormatHint(this.locale),
+			type: "date",
 			cls: "lukit-text-input",
 		});
-		this.dateInputEl.value = formatDate(this.initialDate, this.locale);
+		this.dateInputEl.value = toIso(this.initialDate);
 
 		this.errorEl = contentEl.createEl("p", { cls: "lukit-modal-error" });
 		this.errorEl.style.display = "none";
@@ -55,7 +52,13 @@ export class TaskTriageDateModal extends Modal {
 
 		setTimeout(() => {
 			this.dateInputEl.focus();
-			this.dateInputEl.select();
+			if (typeof this.dateInputEl.showPicker === "function") {
+				try {
+					this.dateInputEl.showPicker();
+				} catch {
+					// showPicker may throw without a user gesture — the input still works.
+				}
+			}
 		}, 10);
 	}
 
@@ -71,13 +74,12 @@ export class TaskTriageDateModal extends Modal {
 	}
 
 	private submit(): void {
-		const parsed = parseDateString(this.dateInputEl.value.trim(), this.locale);
-		if (parsed === null) {
-			this.errorEl.textContent = `Ungültiges Datum (${dateFormatHint(this.locale)}).`;
+		const iso = this.dateInputEl.value;
+		if (iso === "") {
+			this.errorEl.textContent = "Bitte ein Datum wählen.";
 			this.errorEl.style.display = "block";
 			return;
 		}
-		const iso = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
 		this.submitted = true;
 		this.close();
 		this.onSubmit(iso);
