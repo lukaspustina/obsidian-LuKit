@@ -1,6 +1,7 @@
 # SDD: Erinnerungen-Triage — fällige Tagebuch-Erinnerungen im Triage-Walk
 
-Status: Ready for Implementation
+Status: Done
+Finished: 2026-07-02
 Original: specs/sdd/erinnerungen-triage.md
 Created: 2026-07-02
 Refined: 2026-07-02
