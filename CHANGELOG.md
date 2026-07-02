@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.1] - 2026-07-02
+
+### Fixed
+- Task Triage: tasks whose TaskNotes due/scheduled carry a time component (`YYYY-MM-DDTHH:mm`) were silently excluded from the walk (due today) or rendered NaN labels (overdue) — dates are now normalized to date-only at the bridge boundary (4c18fda).
+- Task Triage: a failing task listing aborted silently (unhandled rejection); it now shows an error Notice and resets the walk (4c18fda).
+- Task Triage: the walk could be started twice while the (long) task listing was still loading — the re-entry guard now claims the walk before the await (4c18fda).
+- Task Triage: walks crossing midnight completed/snoozed/skipped relative to the new day; the walk date is now pinned at walk start (4c18fda).
+- Task Triage: a single stale index path (note just deleted/renamed) failed the whole task listing; unreadable tasks are now skipped individually (4c18fda).
+- Task Triage: Vorgang previews — an empty `# Fakten und Pointer` section fell back to the untrimmed full note, and h5 headings inside the Fakten section were duplicated and consumed the newest-3-sections budget (4c18fda).
+- Task Triage: unloading the plugin mid-walk no longer lets a surviving modal resurrect the walk; the availability check now also requires the `catalog.read` capability (4c18fda).
+
+### Changed
+- Task Triage: ISO date helpers unified into the shared date-format module, duplicated action handlers merged, debug timing logs removed; note previews use cached reads with per-walk caching and next-task prefetch (4c18fda).
+
 ## [1.15.0] - 2026-07-02
 
 ### Added
