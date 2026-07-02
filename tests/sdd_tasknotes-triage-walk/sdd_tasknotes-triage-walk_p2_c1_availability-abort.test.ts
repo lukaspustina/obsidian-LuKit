@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import type { TaskNotesBridge } from "../../src/features/task-triage/tasknotes-bridge";
-import type { TriageTask, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
-import { createMockApp, createMockPlugin, makeTestSettings, asLuKitPlugin, lastNotice, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
+import type { TriageTask, TriageStop, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
+import { createMockApp, createMockPlugin, makeTestSettings, asLuKitPlugin, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
 
 const TODAY = "2026-07-02";
 
@@ -41,14 +41,14 @@ void ({} as SnoozeKind);
 interface FeatureInternals {
 	bridge: TaskNotesBridge;
 	walkActive: boolean;
-	tasks: TriageTask[];
+	stops: TriageStop[];
 	index: number;
 	counts: { completed: number; snoozed: number; instancesSkipped: number; skipped: number };
 	todayIso: () => string;
 	beginWalk: () => Promise<void>;
 	presentStop: () => Promise<void>;
-	loadPreview: (task: TriageTask) => Promise<string>;
-	availableActions: (task: TriageTask) => { snooze: boolean; skipInstance: boolean };
+	loadPreview: (stop: TriageStop) => Promise<string>;
+	availableActions: (stop: TriageStop) => { snooze: boolean; skipInstance: boolean };
 	handleComplete: () => Promise<void>;
 	handleSnooze: (kind: SnoozeKind) => Promise<void>;
 	handleSnoozeCustom: (date: string) => Promise<void>;
@@ -83,7 +83,7 @@ describe("TaskTriageFeature.beginWalk — availability abort", () => {
 
 		await internals.beginWalk();
 
-		expect(lastNotice()).toContain("TaskNotes");
+		expect(noticeMessages().some((m) => m.includes("TaskNotes"))).toBe(true);
 		expect(internals.walkActive).toBe(false);
 		expect(listTasks).not.toHaveBeenCalled();
 	});
@@ -98,7 +98,7 @@ describe("TaskTriageFeature.beginWalk — availability abort", () => {
 
 		await internals.beginWalk();
 
-		expect(lastNotice()).toContain("recurring.write");
+		expect(noticeMessages().some((m) => m.includes("recurring.write"))).toBe(true);
 		expect(internals.walkActive).toBe(false);
 		expect(listTasks).not.toHaveBeenCalled();
 		expect(noticeMessages().length).toBeGreaterThan(0);

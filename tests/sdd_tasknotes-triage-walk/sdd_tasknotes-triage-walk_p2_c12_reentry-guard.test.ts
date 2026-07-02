@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import type { TaskNotesBridge } from "../../src/features/task-triage/tasknotes-bridge";
-import type { TriageTask, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
+import type { TriageTask, TriageStop, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
 import { createMockApp, createMockPlugin, makeTestSettings, asLuKitPlugin, lastNotice, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
 
 const TODAY = "2026-07-02";
@@ -12,11 +12,11 @@ function task(overrides: Partial<TriageTask> = {}): TriageTask {
 	return { path: "TaskNotes/Tasks/Kosten pruefen.md", title: "Kosten prüfen", isCompleted: false, due: "2026-07-01", priority: "normal", contexts: [], projects: [], isRecurring: false, completeInstances: [], skippedInstances: [], ...overrides };
 }
 interface FeatureInternals {
-	bridge: TaskNotesBridge; walkActive: boolean; tasks: TriageTask[]; index: number;
+	bridge: TaskNotesBridge; walkActive: boolean; stops: TriageStop[]; index: number;
 	counts: { completed: number; snoozed: number; instancesSkipped: number; skipped: number };
 	todayIso: () => string; beginWalk: () => Promise<void>; presentStop: () => Promise<void>;
-	loadPreview: (task: TriageTask) => Promise<string>;
-	availableActions: (task: TriageTask) => { snooze: boolean; skipInstance: boolean };
+	loadPreview: (stop: TriageStop) => Promise<string>;
+	availableActions: (stop: TriageStop) => { snooze: boolean; skipInstance: boolean };
 	handleComplete: () => Promise<void>; handleSnooze: (kind: SnoozeKind) => Promise<void>;
 	handleSnoozeCustom: (date: string) => Promise<void>; handleSkipInstance: () => Promise<void>;
 	handleOpenAndStop: () => Promise<void>; handleSkip: () => Promise<void>; handleStop: () => void;
@@ -43,7 +43,7 @@ describe("TaskTriageFeature.beginWalk — re-entry guard", () => {
 
 		expect(internals.walkActive).toBe(true);
 		expect(internals.index).toBe(0);
-		expect(internals.tasks.length).toBe(2);
+		expect(internals.stops.length).toBe(2);
 		expect(listTasks).toHaveBeenCalledTimes(1);
 
 		await internals.beginWalk();
@@ -51,7 +51,7 @@ describe("TaskTriageFeature.beginWalk — re-entry guard", () => {
 		expect(listTasks).toHaveBeenCalledTimes(1);
 		expect(internals.walkActive).toBe(true);
 		expect(internals.index).toBe(0);
-		expect(internals.tasks.length).toBe(2);
+		expect(internals.stops.length).toBe(2);
 		expect(lastNotice()).toBeTruthy();
 	});
 });

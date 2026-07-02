@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import type { TaskNotesBridge } from "../../src/features/task-triage/tasknotes-bridge";
-import type { TriageTask, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
+import type { TriageTask, TriageStop, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
 import { createMockApp, createMockPlugin, makeTestSettings, asLuKitPlugin, lastNotice, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
 
 const TODAY = "2026-07-02";
@@ -39,15 +39,15 @@ function task(overrides: Partial<TriageTask> = {}): TriageTask {
 interface FeatureInternals {
 	bridge: TaskNotesBridge;
 	walkActive: boolean;
-	tasks: TriageTask[];
+	stops: TriageStop[];
 	index: number;
 	counts: { completed: number; snoozed: number; instancesSkipped: number; skipped: number };
 	todayIso: () => string;
 	walkToday: string;
 	beginWalk: () => Promise<void>;
 	presentStop: () => Promise<void>;
-	loadPreview: (task: TriageTask) => Promise<string>;
-	availableActions: (task: TriageTask) => { snooze: boolean; skipInstance: boolean };
+	loadPreview: (stop: TriageStop) => Promise<string>;
+	availableActions: (stop: TriageStop) => { snooze: boolean; skipInstance: boolean };
 	handleComplete: () => Promise<void>;
 	handleSnooze: (kind: SnoozeKind) => Promise<void>;
 	handleSnoozeCustom: (date: string) => Promise<void>;
@@ -80,7 +80,7 @@ describe("TaskTriageFeature.handleComplete — recurring task", () => {
 
 		const recurringTask = task({ path: "R.md", isRecurring: true, scheduled: "2026-07-02" });
 		internals.walkActive = true;
-		internals.tasks = [recurringTask];
+		internals.stops = [recurringTask].map((t) => ({ kind: "task" as const, task: t }));
 		internals.index = 0;
 
 		await internals.handleComplete();

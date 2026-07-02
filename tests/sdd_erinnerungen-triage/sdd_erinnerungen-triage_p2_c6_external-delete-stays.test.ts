@@ -2,9 +2,25 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import type { TaskNotesBridge } from "../../src/features/task-triage/tasknotes-bridge";
 import type { TriageTask, TriageStop, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
-import { createMockApp, createMockPlugin, makeTestSettings, asLuKitPlugin, lastNotice, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
+import { createMockApp, createMockPlugin, createMockTFile, makeTestSettings, asLuKitPlugin, lastNotice, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
 
 const TODAY = "2026-07-02";
+// Tagebuch mit zwei fälligen Erinnerungen (01.07. überfällig, eine datumslos):
+const DIARY = [
+	"---",
+	"tags: []",
+	"---",
+	"",
+	"# Erinnerungen",
+	"",
+	"- Zahnarzt anrufen, 01.07.2026",
+	"- Angebot prüfen",
+	"",
+	"---",
+	"",
+	"##### Mi, 01.07.2026",
+	"- Eintrag",
+].join("\n");
 
 function fakeBridge(overrides: Partial<TaskNotesBridge> = {}): TaskNotesBridge {
 	return {
@@ -57,36 +73,51 @@ interface FeatureInternals {
 	handleStop: () => void;
 }
 
-function setup(bridge: TaskNotesBridge) {
+// diaryContent === null → kein Tagebuch-Pfad konfiguriert
+function setup(bridge: TaskNotesBridge, diaryContent: string | null = DIARY) {
 	const app = createMockApp();
-	const plugin = createMockPlugin(makeTestSettings(), app);
+	const diary = createMockTFile("Diary.md");
+	if (diaryContent !== null) app.vault.register(diary, diaryContent);
+	const plugin = createMockPlugin(
+		makeTestSettings({ workDiary: { diaryNotePath: diaryContent !== null ? "Diary.md" : "" } }),
+		app,
+	);
 	const feature = new TaskTriageFeature();
 	feature.onload(asLuKitPlugin(plugin));
 	const internals = feature as unknown as FeatureInternals;
 	internals.bridge = bridge;
 	internals.todayIso = () => TODAY;
-	internals.walkToday = TODAY;
-	internals.presentStop = vi.fn(async () => {}); // keep headless
-	return { app, feature, internals };
+	internals.presentStop = vi.fn(async () => {}); // headless
+	return { app, feature, internals, diary };
 }
 
 beforeEach(() => resetNotices());
 
-describe("TaskTriageFeature.handleSkipInstance", () => {
-	it("calls bridge.toggleSkippedInstance(path, today) exactly once and advances the walk", async () => {
-		const toggleSkippedInstance = vi.fn(async () => undefined);
-		const { internals } = setup(fakeBridge({ toggleSkippedInstance }));
+// SDD Phase 2, Kriterium 6:
+// GIVEN Tagebuch mit fälliger Erinnerung WHEN beginWalk, dann wird der
+// Notiz-Inhalt extern geändert (Zahnarzt-Zeile entfernt, z.B. via erneutem
+// register/files.set) und danach handleComplete aufgerufen, THEN erscheint
+// eine Notice ("fehlgeschlagen"), counts.completed bleibt 0 und index bleibt
+// auf dem aktuellen Stop stehen.
+describe("SDD erinnerungen-triage P2 C6: external delete before handleComplete keeps walk on stop", () => {
+	it("shows a failure notice and does not advance when the reminder line was removed externally", async () => {
+		const bridge = fakeBridge();
+		const { app, internals, diary } = setup(bridge);
 
-		const recurringTask = task({ path: "R.md", isRecurring: true, scheduled: "2026-07-02" });
-		internals.walkActive = true;
-		internals.stops = [recurringTask].map((t) => ({ kind: "task" as const, task: t }));
-		internals.index = 0;
-		internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };
+		await internals.beginWalk();
+		expect(internals.index).toBe(0);
 
-		await internals.handleSkipInstance();
+		// Externe Änderung: Notiz-Inhalt ohne die Zahnarzt-Zeile überschreiben.
+		const contentWithoutLine = DIARY.split("\n")
+			.filter((line) => !line.includes("Zahnarzt anrufen"))
+			.join("\n");
+		app.vault.register(diary, contentWithoutLine);
 
-		expect(toggleSkippedInstance).toHaveBeenCalledTimes(1);
-		expect(toggleSkippedInstance).toHaveBeenCalledWith("R.md", TODAY);
-		expect(internals.index).toBe(1);
+		await internals.handleComplete();
+
+		expect(lastNotice()).toBeTruthy();
+		expect(lastNotice()).toContain("fehlgeschlagen");
+		expect(internals.counts.completed).toBe(0);
+		expect(internals.index).toBe(0);
 	});
 });

@@ -82,6 +82,19 @@ export function listReminders(content: string, locale: DateLocale): ReminderItem
 	return items;
 }
 
+// Die komplette `# Erinnerungen`-Sektion (Heading bis vor den dritten
+// Trenner) für die Triage-Vorschau; "" wenn nicht vorhanden.
+export function erinnerungenSection(content: string): string {
+	const lines = content.split("\n");
+	const thirdSep = findThirdSeparatorIndex(lines);
+	if (thirdSep === -1) return "";
+	const secondSep = findSecondSeparatorIndex(lines);
+	const searchStart = secondSep !== -1 ? secondSep + 1 : 0;
+	const idx = findErinnerungenIndex(lines, searchStart, thirdSep);
+	if (idx === -1) return "";
+	return lines.slice(idx, thirdSep).join("\n").trimEnd();
+}
+
 // Entfernt das erste Vorkommen der exakten Zeile; null = Zeile nicht gefunden.
 export function removeReminderLine(content: string, line: string): { newContent: string } | null {
 	const lines = content.split("\n");

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import type { TaskNotesBridge } from "../../src/features/task-triage/tasknotes-bridge";
-import type { TriageTask, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
+import type { TriageTask, TriageStop, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
 import { createMockApp, createMockPlugin, makeTestSettings, asLuKitPlugin, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
 
 const TODAY = "2026-07-02";
@@ -39,7 +39,7 @@ function task(overrides: Partial<TriageTask> = {}): TriageTask {
 interface FeatureInternals {
 	bridge: TaskNotesBridge;
 	walkActive: boolean;
-	tasks: TriageTask[];
+	stops: TriageStop[];
 	index: number;
 	counts: { completed: number; snoozed: number; instancesSkipped: number; skipped: number };
 	todayIso: () => string;
@@ -95,13 +95,15 @@ describe("TaskTriageFeature.beginWalk — re-entry during the listing await", ()
 
 		const first = internals.beginWalk();
 		const second = internals.beginWalk();
+		await Promise.resolve();
+		await Promise.resolve();
 		resolveList([task()]);
 		await first;
 		await second;
 
 		expect(listTasks).toHaveBeenCalledTimes(1);
 		expect(noticeMessages().some((m) => m.includes("Triage läuft bereits"))).toBe(true);
-		expect(internals.tasks).toHaveLength(1);
+		expect(internals.stops).toHaveLength(1);
 		expect(internals.walkActive).toBe(true);
 	});
 });

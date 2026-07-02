@@ -18,16 +18,16 @@ Das Remindersystem des Arbeitstagebuchs ist heute write-only: Erinnerungen werde
 
 ## Architecture
 
-- **Engine (pure, `work-diary-engine.ts`)**: `ReminderItem { text: string; date: Date | null; line: string; lineIndex: number }`; `listReminders(content, locale)`, `removeReminderLine(content, line)`, `rescheduleReminderLine(content, line, newDate, locale)` (letztere zwei → `{ newContent } | null`; `null` = Zeile nicht gefunden; bei textidentischen Duplikatzeilen wird die erste Vorkommnis mutiert).
-- **Datums-Parsing**: `listReminders` trennt am **letzten** `, `-Vorkommen; das Suffix wird end-anchored gegen `parseDateString(suffix, locale)` geprüft. Unparsebar (oder kein Komma) → `date: null`, `text` = ganze Zeile ohne `- `-Präfix. Kommas im Erinnerungstext sind damit robust.
+- **Engine (pure, `work-diary-engine.ts`)**: `ReminderItem { text: string; date: Date | null; line: string; lineIndex: number }`; `listReminders(content, locale)`, `removeReminderLine(content, line)`, `rescheduleReminderLine(content, line, newDate, locale)` (letztere zwei → `{ newContent } | null`; `null` = Zeile nicht gefunden; bei textidentischen Duplikatzeilen wird die erste Vorkommnis mutiert). `listReminders` lokalisiert den Erinnerungen-Block über die **vorhandenen privaten Helfer** `findSecondSeparatorIndex`/`findErinnerungenIndex` in derselben Datei — keine neue Separator-Logik, keine dritte `findNthSeparatorIndex`-Kopie.
+- **Datums-Parsing**: via **`extractDateFromTitle(lineText, locale)`** aus `src/shared/date-format.ts` — sie implementiert exakt die Letztes-`, `-Segment-Regel (`lastIndexOf(", ")` + `parseDateString`). Unparsebar (oder kein Komma) → `date: null`, `text` = ganze Zeile ohne `- `-Präfix und ohne Datums-Suffix. Kommas im Erinnerungstext sind damit robust.
 - **Selektion (pure, `task-triage-engine.ts`)**: `TriageStop = { kind: "task"; task: TriageTask } | { kind: "reminder"; reminder: ReminderItem }`; `selectDueReminders(items, todayIso)` — fällig wenn `date === null` oder `toIso(date) <= todayIso`; Sortierung Datum aufsteigend, datumslose zuletzt, Ties stabil in Dokumentreihenfolge (`lineIndex` als Tiebreak). Neu: `reminderOverdueLabel(date: Date | null, todayIso, locale)` — analog `overdueLabel`, aber für ein einzelnes Datum; leerer String bei `null`-Datum oder Fälligkeit heute (die bestehende `overdueLabel(task, …)`-Signatur ist `TriageTask`-gebunden und wird nicht angefasst).
-- **Walk (impure, `task-triage-feature.ts`)**: `beginWalk` lädt zusätzlich Erinnerungen (Pfad via `getDiaryNotePath`; kein Pfad oder Notiz fehlt → leere Liste, keine Meldung), baut `TriageStop[]` = [Erinnerungen, dann Tasks] und präsentiert über das bestehende Modal. Handler verzweigen auf `stop.kind`; Erinnerungs-Mutationen laufen als `vault.process`-Closure durch das **unveränderte** `mutateAndAdvance(mutate, counter)`; gibt die Engine-Funktion `null` zurück (Zeile weg), wirft die Closure — bestehender `onMutationError`-Pfad. Locale für alle Umschreibungen: globales `dateLocale`-Setting.
-- **Modal (`task-triage-modal.ts`)**: Options tragen den `TriageStop`; Erinnerungs-Stops: `actions = { snooze: true, skipInstance: false }` (vollständiges Objekt), Meta-Zeile `n/total · Erinnerung · fällig <Datum im Locale | „ohne Datum"> [· <reminderOverdueLabel>]` (Überfällig-Segment entfällt bei leerem Label), Titel = `reminder.text`. Vorschau = die komplette `# Erinnerungen`-Sektion (Heading + alle Zeilen bis zum dritten `---`), unverändert als Markdown gerendert, ohne Hervorhebung der aktuellen Zeile.
+- **Walk (impure, `task-triage-feature.ts`)**: `beginWalk` lädt zusätzlich Erinnerungen (Pfad via `getDiaryNotePath`; kein Pfad oder Notiz fehlt → leere Liste, keine Meldung), baut `TriageStop[]` = [Erinnerungen, dann Tasks] und präsentiert über das bestehende Modal. Handler verzweigen auf `stop.kind` (betroffen: `handleComplete`, `handleSnooze`, `handleSnoozeCustom`, `handleSkipInstance`, `handleOpenAndStop`, `loadPreview` sowie `TaskTriageModal.renderHeader`); Erinnerungs-Mutationen laufen als `vault.process`-Closure durch das **unveränderte** `mutateAndAdvance(mutate, counter)`; gibt die Engine-Funktion `null` zurück (Zeile weg), wirft die Closure — bestehender `onMutationError`-Pfad. Locale für alle Umschreibungen: globales `dateLocale`-Setting; Snooze-Brücke: `parseIsoDate(snoozeDate(kind, walkToday))` (snoozeDate liefert ISO-String, `rescheduleReminderLine` erwartet `Date`). **Preview-Frische**: alle Erinnerungs-Stops teilen die Tagebuch-Notiz — sie sind vom Preview-Cache und vom Next-Stop-Prefetch ausgenommen und lesen ihre Vorschau bei jeder Präsentation frisch (`previewCache.delete` allein wäre racy: ein in-flight Prefetch könnte nach dem Delete veralteten Inhalt zurückschreiben). Cache/Prefetch bleiben Task-Stops (Vorgang-Notizen) vorbehalten.
+- **Modal (`task-triage-modal.ts`)**: Options tragen den `TriageStop`; Erinnerungs-Stops: `actions = { snooze: true, skipInstance: false }` (vollständiges Objekt), Meta-Zeile `n/total · Erinnerung · fällig <Datum im Locale | „ohne Datum"> [· <reminderOverdueLabel>]` (Überfällig-Segment entfällt bei leerem Label), Titel = `reminder.text`. Vorschau = die komplette `# Erinnerungen`-Sektion (Heading + alle Zeilen bis zum dritten `---`), unverändert als Markdown gerendert, ohne Hervorhebung der aktuellen Zeile. `setPreview` nutzt heute `this.options.task.path` als Render-Kontext für `MarkdownRenderer.render` — wird stop-bewusst (Tagebuch-Pfad für Erinnerungs-Stops).
 
 ## Requirements
 
 1. Der Walk shall fällige Erinnerungen aus der konfigurierten Tagebuch-Notiz als eigene Stops präsentieren — vor allen TaskNotes-Stops.
-2. Eine Erinnerung shall als fällig gelten, wenn ihr Datum ≤ `walkToday` ist oder sie kein parsebares Datum trägt (datumslos = sofort fällig). Datums-Erkennung: letztes `, `-Segment der Zeile, end-anchored via `parseDateString(…, dateLocale)`.
+2. Eine Erinnerung shall als fällig gelten, wenn ihr Datum ≤ `walkToday` ist oder sie kein parsebares Datum trägt (datumslos = sofort fällig). Datums-Erkennung: `extractDateFromTitle(lineText, dateLocale)` aus `src/shared/date-format.ts` (letztes `, `-Segment, end-anchored).
 3. Erinnerungs-Stops shall untereinander nach Datum aufsteigend sortiert sein; datumslose zuletzt; Ties stabil in Dokumentreihenfolge.
 4. ⌘D (Erledigt) auf einem Erinnerungs-Stop shall die Erinnerungszeile aus der Tagebuch-Notiz löschen (`vault.process` + `removeReminderLine`; bei Duplikatzeilen die erste).
 5. ⌘1/⌘2/⌘3/⌘T auf einem Erinnerungs-Stop shall das Datums-Suffix der Zeile auf morgen / +1 Woche / nächsten Montag / das frei gewählte Datum umschreiben (relativ zu `walkToday`, via `snoozeDate`); datumslose Erinnerungen erhalten dabei erstmals ein `, <Datum>`-Suffix im `dateLocale`-Format.
@@ -40,6 +40,8 @@ Das Remindersystem des Arbeitstagebuchs ist heute write-only: Erinnerungen werde
 12. Ist kein Tagebuch-Pfad konfiguriert oder die Notiz nicht vorhanden, shall der Walk ohne Erinnerungs-Stops und ohne zusätzliche Meldung laufen (das Tagebuch-Skelett-Angebot bleibt den Tagebuch-Kommandos vorbehalten). Ist die Notiz vorhanden, aber nicht lesbar, shall der Walk mit Notice „Tagebuch konnte nicht gelesen werden — Erinnerungen übersprungen: <Fehlermeldung>" nur mit Tasks laufen.
 13. Alle neuen Parsing-/Mutations-Funktionen shall pure sein (keine Obsidian-Imports): `listReminders`/`removeReminderLine`/`rescheduleReminderLine` in `work-diary-engine.ts`, `selectDueReminders`/`reminderOverdueLabel`/`TriageStop` in `task-triage-engine.ts`.
 14. Das Kommando shall in „Vorgänge: Fällige Aufgaben durchgehen" umbenannt werden (Command-ID `task-triage-walk` unverändert); `helpEntries`, README und CLAUDE.md ziehen mit.
+15. Erinnerungs-Stops shall vom Preview-Cache und vom Next-Stop-Prefetch ausgenommen sein — ihre Vorschau wird bei jeder Präsentation frisch aus der Tagebuch-Notiz gelesen (eliminiert die Stale-Prefetch-Race per Konstruktion; Cache/Prefetch bleiben Task-Stops vorbehalten).
+16. Der gepinnte Internals-Kontrakt der bestehenden Tests shall mit umgestellt werden: **alle 13 `p2_*`-Dateien** in `tests/sdd_tasknotes-triage-walk/` sowie `tests/acceptance/task-triage-walk-guards.test.ts` pinnen kopierte `FeatureInternals`-Interfaces mit `tasks: TriageTask[]` und `availableActions(task: TriageTask)` — alle werden auf die `TriageStop`-Formen aktualisiert (die `p1_*`-Dateien sind unbetroffen).
 
 ## File & Module Structure
 
@@ -47,8 +49,8 @@ Das Remindersystem des Arbeitstagebuchs ist heute write-only: Erinnerungen werde
 - `src/features/task-triage/task-triage-engine.ts` — neu: `TriageStop`, `selectDueReminders`, `reminderOverdueLabel`.
 - `src/features/task-triage/task-triage-feature.ts` — Stop-Liste, Erinnerungs-Handler (Branch auf `stop.kind` vor `mutateAndAdvance`), availability-Degradation, Umbenennung.
 - `src/features/task-triage/task-triage-modal.ts` — Stop-Arten in Header/Meta/Preview, `actions`-Gating unverändert genutzt.
-- `tests/unit/work-diary-reminders.test.ts` — Engine-Tests (Parsing, Löschen, Umschreiben, Locale-Kanten, Duplikate).
-- `tests/acceptance/task-triage-reminders.test.ts` — Walk-Integration headless.
+- `tests/sdd_erinnerungen-triage/` — SDD-Kriterien-Tests, eine Datei pro Kriterium (`sdd_erinnerungen-triage_p<N>_c<M>_<slug>.test.ts`, Konvention wie `tests/sdd_tasknotes-triage-walk/`): Phase-1-Engine-Tests (Parsing, Löschen, Umschreiben, Locale-Kanten, Duplikate) und Phase-2-Walk-Integration headless.
+- `tests/acceptance/task-triage-walk-guards.test.ts` + **alle 13 `p2_*`-Dateien** in `tests/sdd_tasknotes-triage-walk/` — bestehende Dateien mit kopiertem `FeatureInternals`-Kontrakt, der auf `TriageStop` umgestellt wird (R16).
 
 ## Data Models
 
@@ -97,7 +99,7 @@ Phase complete when: alle neuen Engine-Funktionen implementiert und unit-geteste
 
 ## Phase 2 — Walk-Integration: heterogene Stops
 
-Stop-Liste (Erinnerungen vor Tasks), Modal-Kennzeichnung + Erinnerungen-Preview, Handler über `mutateAndAdvance` mit `vault.process`-Closures, availability-Degradation (nur-Erinnerungen-Walk), Summary-Zählung, Umbenennung in „Vorgänge: Fällige Aufgaben durchgehen" (R14).
+Stop-Liste (Erinnerungen vor Tasks), Modal-Kennzeichnung + Erinnerungen-Preview, Handler über `mutateAndAdvance` mit `vault.process`-Closures, Preview-Invalidierung nach Erinnerungs-Mutationen (R15), availability-Degradation (nur-Erinnerungen-Walk), Summary-Zählung, Umstellung des gepinnten Test-Kontrakts (R16), Umbenennung in „Vorgänge: Fällige Aufgaben durchgehen" (R14).
 
 Phase complete when: (a) alle Acceptance-Szenarien grün, `npm run test` und `npm run build` grün; (b) README und CLAUDE.md beschreiben die Erinnerungs-Stops und den neuen Kommandonamen (separater Checklisten-Punkt, blockiert (a) nicht).
 
@@ -113,6 +115,7 @@ Phase complete when: (a) alle Acceptance-Szenarien grün, `npm run test` und `np
 - GIVEN kein Tagebuch-Pfad konfiguriert WHEN der Walk startet THEN verhält er sich wie bisher (nur Tasks, keine zusätzliche Meldung).
 - GIVEN weder fällige Tasks noch Erinnerungen WHEN der Walk startet THEN erscheint „Keine fälligen Tasks oder Erinnerungen" und `walkActive` bleibt false.
 - GIVEN ein Erinnerungs-Stop WHEN das Modal rendert THEN entspricht die Meta-Zeile `n/total · Erinnerung · fällig <Datum|„ohne Datum">[ · <überfällig>]` und ⌘X ist nicht verfügbar (`actions.skipInstance === false`).
+- GIVEN zwei fällige Erinnerungen WHEN die erste via ⌘D entfernt wird THEN zeigt die Vorschau des zweiten Stops die aktualisierte `# Erinnerungen`-Sektion (Erinnerungs-Previews werden frisch gelesen, nie aus dem Cache).
 
 ## Decision Log
 
@@ -127,6 +130,9 @@ Phase complete when: (a) alle Acceptance-Szenarien grün, `npm run test` und `np
 - **Preview = komplette Erinnerungen-Sektion ohne Hervorhebung**: KISS; die Sektion ist klein, eine Trim-/Highlight-Regel wäre spekulativ.
 - **`mutateAndAdvance` bleibt unverändert**: die bestehende Signatur `(mutate, counter)` trägt Erinnerungs-Mutationen als Closure; das Handler-Branching auf `stop.kind` passiert davor.
 - **Kein eigenes Kommando**: ein zweiter Walk-Befehl würde die Ein-Loop-Idee zerstören.
+- **`e.message`-Interpolation in der Tagebuch-Lese-Notice**: bewusste Anwendung der seit dem Sprachpaket (Commit 858c758) geltenden Notice-Konvention (deutscher Kontext + Fehlerdetail) — keine Abweichung.
+- **Reuse statt Neuimplementierung**: `extractDateFromTitle` (shared/date-format) für das Datums-Suffix, `findSecondSeparatorIndex`/`findErinnerungenIndex` (work-diary-engine) für den Erinnerungen-Block — Validierungs-Amendment, verhindert eine dritte Separator-Kopie.
+- **Kein Cache/Prefetch für Erinnerungs-Previews** (statt `previewCache.delete` nach Mutation): Delete-basierte Invalidierung ist racy gegenüber in-flight Prefetches; der Latenzgewinn des Caches gilt Vorgang-Notizen, nicht der einen lokalen Tagebuch-Notiz. Validierungs-Amendment, 2. Lauf.
 
 ## Open Decisions
 

@@ -76,7 +76,7 @@ All task access goes through the TaskNotes runtime API, so user-remapped field n
 
 **Command:**
 
-- **Vorgänge: Fällige Tasks durchgehen** — Walk the due tasks. Keyboard per stop: **⌘D = complete** (recurring tasks: check off today's instance), **⌘1/⌘2/⌘3 = snooze** to tomorrow / +1 week / next Monday, **⌘T = snooze to a chosen date**, **⌘X = skip today's instance** (recurring only; snooze is hidden for recurring tasks and ⌘X for non-recurring ones), **Enter = open & stop**, **Esc = skip**, **⌘. = stop**. A summary Notice reports completed / snoozed / instances skipped / skipped / remaining.
+- **Vorgänge: Fällige Aufgaben durchgehen** — Walk due diary reminders and TaskNotes tasks (reminders first). Diary reminders come from the `# Erinnerungen` section (dateless ones count as always due): **⌘D deletes the line**, snooze rewrites its date suffix, **Enter opens the diary at the line**; without TaskNotes the walk runs reminders-only. For tasks: Keyboard per stop: **⌘D = complete** (recurring tasks: check off today's instance), **⌘1/⌘2/⌘3 = snooze** to tomorrow / +1 week / next Monday, **⌘T = snooze to a chosen date**, **⌘X = skip today's instance** (recurring only; snooze is hidden for recurring tasks and ⌘X for non-recurring ones), **Enter = open & stop**, **Esc = skip**, **⌘. = stop**. A summary Notice reports completed / snoozed / instances skipped / skipped / remaining.
 
 ## Settings
 
@@ -105,7 +105,7 @@ Controls the date format used in diary headers, Vorgang sections, and reminders.
 | **Besprechung: Aktuelle Notiz ablegen** | File the active Besprechung into a section note (Vorgang/Person/Bestellung/Bewerbung); same insertion + frontmatter stamping as 'Alle offenen ablegen' |
 | **E-Mails: Posteingang ablegen** | (macOS/Apple Mail) Walk the inbox; file each message's conversation (received + your Sent replies) into a section note (archive + embed) or dismiss; inbox-zero, no vault copies |
 | **E-Mail: In Mail ausgewählte Nachricht ablegen** | (macOS/Apple Mail) File the selected Mail message(s) + thread into a section note; capture-only (no archive); for threads you initiated |
-| **Vorgänge: Fällige Tasks durchgehen** | (requires TaskNotes ≥ 4.10.0) Walk all tasks due/scheduled until today; complete, snooze, or skip each via keyboard |
+| **Vorgänge: Fällige Aufgaben durchgehen** | Walk due diary reminders (delete/reschedule the line) and TaskNotes tasks (complete, snooze, skip) via keyboard; reminders first, TaskNotes ≥ 4.10.0 only needed for task stops |
 | **Konvertierung: Altes Format migrieren** | Auto-detect note type and convert old format to current |
 | **Help** | Show the LuKit help dialog |
 

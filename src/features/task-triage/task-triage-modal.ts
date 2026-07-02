@@ -1,15 +1,18 @@
 import { App, Component, MarkdownRenderer, Modal } from "obsidian";
 import { formatDate } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
-import { overdueLabel, formatProjectLink, parseIsoDate } from "./task-triage-engine";
-import type { TriageTask, SnoozeKind } from "./task-triage-engine";
+import { overdueLabel, reminderOverdueLabel, formatProjectLink, parseIsoDate } from "./task-triage-engine";
+import type { TriageStop, SnoozeKind } from "./task-triage-engine";
 
 export interface TaskTriageModalOptions {
-	task: TriageTask;
+	stop: TriageStop;
 	actions: { snooze: boolean; skipInstance: boolean };
 	locale: DateLocale;
 	today: string;
 	position: { index: number; total: number };
+	// Render-Kontext für MarkdownRenderer.render: Task-Notiz-Pfad bzw.
+	// Tagebuch-Pfad für Erinnerungs-Stops.
+	sourcePath: string;
 	onComplete: () => void;
 	onSnooze: (kind: SnoozeKind) => void;
 	onSnoozeCustom: () => void;
@@ -35,7 +38,7 @@ export class TaskTriageModal extends Modal {
 	setPreview(markdown: string): void {
 		if (this.previewEl === undefined) return;
 		this.previewEl.empty();
-		void MarkdownRenderer.render(this.app, markdown, this.previewEl, this.options.task.path, this.previewComponent);
+		void MarkdownRenderer.render(this.app, markdown, this.previewEl, this.options.sourcePath, this.previewComponent);
 	}
 
 	onOpen(): void {
@@ -48,8 +51,39 @@ export class TaskTriageModal extends Modal {
 	}
 
 	private renderHeader(): void {
+		const { stop } = this.options;
+		if (stop.kind === "reminder") {
+			this.renderReminderHeader();
+		} else {
+			this.renderTaskHeader();
+		}
+	}
+
+	private renderReminderHeader(): void {
 		const { contentEl } = this;
-		const { task, locale, today, position } = this.options;
+		const { stop, locale, today, position } = this.options;
+		if (stop.kind !== "reminder") return;
+		const reminder = stop.reminder;
+
+		contentEl.createEl("h3", { text: reminder.text });
+
+		const meta = contentEl.createEl("p", { cls: "lukit-triage-meta" });
+		const due = reminder.date === null ? "ohne Datum" : formatDate(reminder.date, locale);
+		const parts: string[] = [`${position.index + 1}/${position.total}`, "Erinnerung", `fällig ${due}`];
+		meta.createSpan({ text: parts.join(" · ") });
+
+		const overdue = reminderOverdueLabel(reminder.date, today, locale);
+		if (overdue !== "") {
+			meta.createSpan({ text: " · " });
+			meta.createSpan({ text: overdue, cls: "lukit-triage-overdue" });
+		}
+	}
+
+	private renderTaskHeader(): void {
+		const { contentEl } = this;
+		const { stop, locale, today, position } = this.options;
+		if (stop.kind !== "task") return;
+		const task = stop.task;
 
 		contentEl.createEl("h3", { text: task.title });
 

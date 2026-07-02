@@ -2,9 +2,25 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import type { TaskNotesBridge } from "../../src/features/task-triage/tasknotes-bridge";
 import type { TriageTask, TriageStop, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
-import { createMockApp, createMockPlugin, makeTestSettings, asLuKitPlugin, lastNotice, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
+import { createMockApp, createMockPlugin, createMockTFile, makeTestSettings, asLuKitPlugin, lastNotice, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
 
 const TODAY = "2026-07-02";
+// Tagebuch mit zwei fälligen Erinnerungen (01.07. überfällig, eine datumslos):
+const DIARY = [
+	"---",
+	"tags: []",
+	"---",
+	"",
+	"# Erinnerungen",
+	"",
+	"- Zahnarzt anrufen, 01.07.2026",
+	"- Angebot prüfen",
+	"",
+	"---",
+	"",
+	"##### Mi, 01.07.2026",
+	"- Eintrag",
+].join("\n");
 
 function fakeBridge(overrides: Partial<TaskNotesBridge> = {}): TaskNotesBridge {
 	return {
@@ -57,60 +73,38 @@ interface FeatureInternals {
 	handleStop: () => void;
 }
 
-function setup(bridge: TaskNotesBridge) {
+// diaryContent === null → kein Tagebuch-Pfad konfiguriert
+function setup(bridge: TaskNotesBridge, diaryContent: string | null = DIARY) {
 	const app = createMockApp();
-	const plugin = createMockPlugin(makeTestSettings(), app);
+	const diary = createMockTFile("Diary.md");
+	if (diaryContent !== null) app.vault.register(diary, diaryContent);
+	const plugin = createMockPlugin(
+		makeTestSettings({ workDiary: { diaryNotePath: diaryContent !== null ? "Diary.md" : "" } }),
+		app,
+	);
 	const feature = new TaskTriageFeature();
 	feature.onload(asLuKitPlugin(plugin));
 	const internals = feature as unknown as FeatureInternals;
 	internals.bridge = bridge;
 	internals.todayIso = () => TODAY;
-	internals.walkToday = TODAY;
-	internals.presentStop = vi.fn(async () => {}); // keep headless
-	return { app, feature, internals };
+	internals.presentStop = vi.fn(async () => {}); // headless
+	return { app, feature, internals, diary };
 }
 
 beforeEach(() => resetNotices());
 
-describe("TaskTriageFeature.handleSnooze — week preset", () => {
-	it("calls setScheduled with today+7d, no other mutation, and advances the walk", async () => {
-		const setScheduled = vi.fn(async () => undefined);
-		const complete = vi.fn(async () => undefined);
-		const toggleCompleteInstance = vi.fn(async () => undefined);
-		const toggleSkippedInstance = vi.fn(async () => undefined);
-		const bridge = fakeBridge({ setScheduled, complete, toggleCompleteInstance, toggleSkippedInstance });
-		const { internals } = setup(bridge);
+describe("sdd_erinnerungen-triage p2 c2: complete removes reminder line", () => {
+	it("removes the completed reminder line, keeps the other, and advances counts/index", async () => {
+		const { app, internals } = setup(fakeBridge());
 
-		const t = task({ path: "A.md", due: "2026-07-01", isRecurring: false });
-		internals.stops = [t].map((t) => ({ kind: "task" as const, task: t }));
-		internals.index = 0;
-		internals.walkActive = true;
-		internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };
+		await internals.beginWalk();
+		await internals.handleComplete();
 
-		await internals.handleSnooze("week");
-
-		expect(setScheduled).toHaveBeenCalledTimes(1);
-		expect(setScheduled).toHaveBeenCalledWith("A.md", "2026-07-09");
-		expect(complete).not.toHaveBeenCalled();
-		expect(toggleCompleteInstance).not.toHaveBeenCalled();
-		expect(toggleSkippedInstance).not.toHaveBeenCalled();
+		const content = app.vault.files.get("Diary.md");
+		expect(content).toBeDefined();
+		expect(content).not.toContain("- Zahnarzt anrufen, 01.07.2026");
+		expect(content).toContain("- Angebot prüfen");
+		expect(internals.counts.completed).toBe(1);
 		expect(internals.index).toBe(1);
-	});
-
-	it("handleSnoozeCustom calls setScheduled with the chosen date", async () => {
-		const setScheduled = vi.fn(async () => undefined);
-		const bridge = fakeBridge({ setScheduled });
-		const { internals } = setup(bridge);
-
-		const t = task({ path: "B.md", due: "2026-07-01", isRecurring: false });
-		internals.stops = [t].map((t) => ({ kind: "task" as const, task: t }));
-		internals.index = 0;
-		internals.walkActive = true;
-		internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };
-
-		await internals.handleSnoozeCustom("2026-08-15");
-
-		expect(setScheduled).toHaveBeenCalledTimes(1);
-		expect(setScheduled).toHaveBeenCalledWith("B.md", "2026-08-15");
 	});
 });
