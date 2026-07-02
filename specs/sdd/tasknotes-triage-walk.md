@@ -49,7 +49,7 @@ The bridge fetches the **full task list** from TaskNotes and normalizes it into 
 
 ## Requirements
 
-1. The plugin shall register a command "Triage due tasks" (`task-triage-walk`) that starts the walk from anywhere; no open note or base is required.
+1. The plugin shall register a command "Vorgang: Triage due tasks" (`task-triage-walk`) that starts the walk from anywhere; no open note or base is required. (Amended post-ship: named per the project-wide `<Feature>: <Action>` command convention.)
 2. The walk shall include exactly the tasks matching the "Until today" condition: (`due` ≤ today OR `scheduled` ≤ today) AND (task is not in a completed status OR (task is recurring AND today is not in its `complete_instances`)). Recurring effective-status overrides the raw status field: a recurring task scheduled/due today with empty `complete_instances`/`skipped_instances` is included even if its raw status is one TaskNotes considers "completed" for non-recurring tasks.
 3. Recurring tasks whose instance for today is marked skipped (in `skipped_instances`) shall be excluded from the walk.
 4. The walk order shall be `scheduled` ascending, then `due` ascending (tasks without the respective date sort last within each key).
@@ -63,19 +63,19 @@ The bridge fetches the **full task list** from TaskNotes and normalizes it into 
    - linked project wikilink targets (`TriageTask.projects`), rendered via `formatProjectLink`: strip the `[[`/`]]` wikilink brackets, prefer the alias segment (text after `|`) when present, render as non-interactive plain text (no click-through), matching the read-only-header precedent in email-filing's `EmailPreviewModal`. If the raw string does not match the `[[...]]` wikilink pattern, `formatProjectLink` returns it unmodified.
 6. Each walk stop shall display a content preview of the task note by default (no toggle needed to see it), produced by `buildTriagePreview(content)`:
    - Strip a leading YAML frontmatter block (`---...---`) from `content` first, regardless of branch below, via a private helper local to `task-triage-engine.ts` (this is new text-level logic — `src/shared/frontmatter.ts` operates on parsed frontmatter objects, not raw text, and is not reused here; the helper is not promoted to `src/shared/`).
-   - For notes containing a `# Fakten und Pointer` heading (Vorgang-style notes): return the `# Fakten und Pointer` section (via `extractSection` from `besprechung-engine.ts`) followed by only the topmost (newest) h5 section found after it.
+   - For notes containing a `# Fakten und Pointer` heading (Vorgang-style notes): return the `# Fakten und Pointer` section (via `extractSection` from `besprechung-engine.ts`) followed by the newest three (topmost) h5 sections found after it. (Amended post-ship from "only the topmost h5 section" — user feedback: the preview must reveal what happened last and what the next steps are.)
    - For all other notes: return the full (frontmatter-stripped) body, scrollable in the modal.
 7. The following actions shall be available per stop, each advancing to the next task on success:
    - **⌘D — Complete**: recurring task → `api.recurring.toggleCompleteInstance(path, today)`; non-recurring → `api.tasks.complete(path)`.
    - **⌘1 / ⌘2 / ⌘3 — Snooze** to tomorrow / +1 week / next Monday: `api.tasks.setScheduled(path, date)`. Snooze sets only `scheduled`, never `due`.
-   - **⌘T — Snooze to a free date**: prompt via `task-triage-date-modal.ts` (date-only input, no text field), then `setScheduled`.
+   - **⌘T — Snooze to a free date**: prompt via `task-triage-date-modal.ts` — a native `<input type="date">` opened via `showPicker()` (the same control TaskNotes' own `DateTimePickerModal` uses) — then `setScheduled`. Cancelling the date modal re-presents the current stop. (Amended post-ship from a locale-parsed free-text field.)
    - **⌘X — Skip today's instance** (recurring tasks only): `api.recurring.toggleSkippedInstance(path, today)`.
    - **Enter — Open & stop**: open the task note in a new tab (`bridge.openInNewTab`) and end the walk, showing the summary Notice (Req 9) exactly as any other end-of-walk path.
    - **Esc — Skip**: leave the task untouched, advance.
    - **⌘. — Stop**: end the walk, showing the summary Notice.
 8. Snooze actions (⌘1/⌘2/⌘3/⌘T) shall be hidden for recurring tasks; ⌘X shall be hidden for non-recurring tasks.
 9. The walk shall end with a summary Notice on every exit path (natural completion, ⌘. Stop, Enter/open-and-stop), reporting: completed, snoozed, instances skipped, skipped, and remaining. `remaining` is defined as the total number of tasks in the ordered list minus `completed`, `snoozed`, `instancesSkipped`, and `skipped` — i.e. "visited" means "received a mutating action" (Complete/Snooze/⌘X), not merely "was the current stop." The task current when Enter (open & stop) fires received no mutating action, so it is counted in `remaining`, and the five buckets always sum to the total task count.
-10. If TaskNotes is not installed, is installed but exposes no `.api`, exposes `.api` with `apiVersion !== 1`, or is missing a required capability, the command shall abort with an explanatory Notice naming which of these four conditions failed. Required capabilities are one per bridge mutation used by the walk (complete, recurring completion toggle, recurring skip toggle, setScheduled); the bridge checks each via `hasCapability(...)` and availability fails if any is missing, with the Notice naming the specific missing capability identifier.
+10. If TaskNotes is not installed, is installed but exposes no `.api`, exposes `.api` with `apiVersion !== 1`, or is missing a required capability, the command shall abort with an explanatory Notice naming which of these four conditions failed. Required capabilities (pinned against TaskNotes 4.11.1 — the real capability list is coarser than per-mutation): `"tasks.read"` (listing), `"tasks.write"` (complete + setScheduled), `"recurring.write"` (both instance toggles); the bridge checks each via `hasCapability(...)` in that order and availability fails on the first missing one, with the Notice naming the specific identifier. The runtime API exists since TaskNotes 4.10.0; older versions fail availability with `api-missing`.
 11. If an API mutation fails, the walk shall show a Notice and remain on the current task (the user can retry or Esc-skip); it shall not silently advance.
 12. A concurrent-walk guard shall reject starting the walk while one is already running (same pattern as email-filing).
 13. If the walk matches zero tasks, the command shall show a "Keine fälligen Tasks" Notice and not open the modal.
@@ -89,8 +89,7 @@ The bridge fetches the **full task list** from TaskNotes and normalizes it into 
 - `src/features/task-triage/task-triage-modal.ts` — walk modal; shortcuts registered via `scope.register` in `onOpen` (pattern: `section-note-suggest.ts`); implements the Esc-as-skip deferred-flag pattern (Req 14).
 - `src/features/task-triage/task-triage-feature.ts` — `LuKitFeature` implementation, command registration, walk loop, summary Notice.
 - `src/main.ts` — register the feature (modified).
-- `tests/unit/task-triage-engine.test.ts` — engine unit tests.
-- `tests/acceptance/task-triage.test.ts` — command flow with a mocked bridge.
+- `tests/sdd_tasknotes-triage-walk/` — one test file per SDD criterion (`p1_c1`–`p1_c23` engine/bridge, `p2_c1`–`p2_c13` command flow with a mocked bridge); `tests/unit/tasknotes-bridge-listing.test.ts` covers the indexed-listing fast path. (Amended post-ship: per-criterion organization from /sdd-implement instead of two consolidated files.)
 - `README.md`, `CLAUDE.md` — updated in Phase 2 (new command, new feature section).
 - No settings file: v1 has no configuration (fixed snooze presets, fixed order, `dateLocale` reused from main settings).
 
@@ -140,7 +139,9 @@ export interface TriageSummary {
 
 `tasknotes-bridge.ts` also declares a local, minimal `TaskNotesApi` interface covering only the surface LuKit calls — `apiVersion: number`, `hasCapability(id: string): boolean`, the task-listing method, `tasks.complete`/`tasks.setScheduled`, `recurring.toggleCompleteInstance`/`recurring.toggleSkippedInstance` — obtained via a single narrow `as unknown as TaskNotesApi` cast at the `app.plugins.getPlugin("tasknotes")` boundary (`app.plugins` is not in the public `obsidian.d.ts`; precedent: the local `RawMailMessageMeta`/`ThreadMessage` types in `mail-bridge.ts`). The exact listing method name and the raw TaskNotes `TaskInfo` field names consumed by the mapping into `TriageTask` are pinned at Phase 1 start by inspecting the installed TaskNotes API (see Phase 1 verification steps below); once pinned, add a corresponding minimal local `TaskInfo` type covering exactly the fields read.
 
-`TriageTask` field mapping happens once in the bridge from TaskNotes' normalized task-info objects — the engine never sees raw frontmatter. `isCompleted` derivation: prefer the API's boolean completed-equivalent field on the task-info type if one exists; if the API exposes no such field, derive it via `api.query.filterOptions()`'s completed-status group membership — never by comparing against a hardcoded status string.
+`TriageTask` field mapping happens once in the bridge from TaskNotes' normalized task-info objects — the engine never sees raw frontmatter. `isCompleted` derivation (pinned): TaskNotes' `TaskInfo` has no boolean completed field; it is derived via `api.catalog.statuses(): StatusConfig[]` (the `isCompleted` flag of the config whose `value` matches the task's status; unknown status → false) — never by comparing against a hardcoded status string.
+
+Listing (pinned, post-ship perf amendment): the official `api.tasks.list()` walks every markdown file in the vault and falls back to a disk read for each note without cached frontmatter (20–30 s on a large vault). `listTasks()` therefore probes TaskNotes' internal `cacheManager.getAllTaskPaths()` filter index (synchronous, metadataCache-backed) and fetches only those paths via `api.tasks.get(path)`, falling back to `list()` whenever the internal shape is absent or throws.
 
 ## Error Handling
 
@@ -214,6 +215,17 @@ Phase complete when: acceptance tests with a mocked bridge cover every action pa
 - GIVEN a walk that produces 2 completed, 1 snoozed, 1 instance-skipped, and 1 skipped task with N total tasks, WHEN the walk ends via natural completion, ⌘., or Enter, THEN the summary Notice reports exactly those four counts plus a `remaining` value such that all five sum to N.
 - GIVEN a walk is already running, WHEN the `task-triage-walk` command is invoked again, THEN it is rejected with a Notice, no second modal opens, and the original walk's state is unchanged.
 - GIVEN a note whose content fails to load (`readNote` rejects), WHEN the stop for that task renders, THEN the header/actions still render and the preview area shows a placeholder instead of throwing.
+
+## Post-Ship Amendments (2026-07-02)
+
+Applied after both phases shipped and were smoke-tested, driven by user feedback; the implementation is the reference:
+
+- Command renamed to "Vorgang: Triage due tasks" (project `<Feature>: <Action>` convention).
+- Vorgang preview shows the newest **three** h5 sections (was: one) so the walk reveals recent activity and next steps; markdown-rendered via `MarkdownRenderer` with a per-modal `Component`.
+- Walk modal sized like the email preview (85vh × min(90vw, 1200px)); metadata collapsed to one muted line with a position counter; hint bar is a manual `.prompt-instructions` element (plain `Modal` has no `setInstructions`).
+- ⌘T uses a native `<input type="date">` + `showPicker()`; cancel re-presents the current stop (fixes a review-found walk-stranding blocker).
+- Listing uses TaskNotes' internal path index with official-API fallback (see Data Models); the modal opens before the first preview loads ("Lade Vorschau…" placeholder, async `setPreview`).
+- Capability identifiers pinned to the real, coarser TaskNotes list: `tasks.read` / `tasks.write` / `recurring.write`; runtime API requires TaskNotes ≥ 4.10.0.
 
 ## Decision Log
 
