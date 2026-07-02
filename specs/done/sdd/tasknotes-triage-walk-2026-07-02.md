@@ -1,6 +1,7 @@
 # SDD: TaskNotes Triage Walk
 
-Status: Ready for Implementation
+Status: Done
+Finished: 2026-07-02
 Original: specs/sdd/tasknotes-triage-walk.md
 Refined: 2026-07-02
 
