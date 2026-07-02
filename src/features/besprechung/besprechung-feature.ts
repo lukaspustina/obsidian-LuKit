@@ -27,6 +27,7 @@ import { getDiaryNotePath } from "../../shared/diary-settings";
 export class BesprechungFeature implements LuKitFeature {
 	id = "besprechung";
 	private plugin!: LuKitPlugin;
+	private filingWalkActive = false;
 
 	onload(plugin: LuKitPlugin): void {
 		this.plugin = plugin;
@@ -232,6 +233,10 @@ export class BesprechungFeature implements LuKitFeature {
 	}
 
 	private filePendingCmd(): void {
+		if (this.filingWalkActive) {
+			new Notice("Ablage läuft bereits.");
+			return;
+		}
 		const folderPath = this.plugin.settings.besprechung.folderPath;
 		if (!folderPath) {
 			new Notice("LuKit: No Besprechung folder configured. Set it in Settings → LuKit.");
@@ -249,38 +254,48 @@ export class BesprechungFeature implements LuKitFeature {
 			return;
 		}
 
+		this.filingWalkActive = true;
 		let i = 0;
+		const counts = { filed: 0, skipped: 0, dropped: 0 };
+		const summary = (): string => `${counts.filed} abgelegt, ${counts.skipped} übersprungen, ${counts.dropped} nicht abgelegt`;
 		const next = (): void => {
 			if (i >= pending.length) {
-				new Notice(`LuKit: Filing done (${pending.length} processed).`);
+				this.filingWalkActive = false;
+				new Notice(`Ablage beendet: ${summary()}`);
 				return;
 			}
 			const besprechung = pending[i];
-			const placeholder = `[${i + 1}/${pending.length}] File "${besprechung.basename}" under… (ESC to stop)`;
+			const placeholder = `[${i + 1}/${pending.length}] File "${besprechung.basename}" under… (Esc = Überspringen)`;
 			new SectionNoteSuggestModal(
 				this.plugin.app,
 				BesprechungFeature.SECTION_NOTE_TAGS,
 				{
 					placeholder,
 					suggestions: this.suggestionsFor(besprechung),
+					dropHint: "Tag entfernen",
 					onPick: (vorgang) => {
 						i++;
+						counts.filed++;
 						void this.fileBesprechungIntoVorgang(besprechung, vorgang).then(next);
 					},
 					onSkip: () => {
 						i++;
+						counts.skipped++;
 						next();
 					},
 					onDrop: () => {
 						i++;
+						counts.dropped++;
 						void this.dropPending(besprechung).then(next);
 					},
 					onOpenSource: () => {
+						this.filingWalkActive = false;
 						void this.plugin.app.workspace.getLeaf("tab").openFile(besprechung);
-						new Notice(`LuKit: Stopped at "${besprechung.basename}" (${i} done, ${pending.length - i} remaining).`);
+						new Notice(`Ablage gestoppt bei „${besprechung.basename}": ${summary()}, ${pending.length - i} offen`);
 					},
 					onCancel: () => {
-						new Notice(`LuKit: Filing stopped (${i} done, ${pending.length - i} remaining).`);
+						this.filingWalkActive = false;
+						new Notice(`Ablage gestoppt: ${summary()}, ${pending.length - i} offen`);
 					},
 				},
 			).open();

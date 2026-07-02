@@ -275,11 +275,12 @@ export class EmailFilingFeature implements LuKitFeature {
 
 		const emailMeta = this.toEmailMeta(meta);
 		new SectionNoteSuggestModal(this.plugin.app, SECTION_NOTE_TAGS, {
-			placeholder: `[${i + 1}/${metas.length}] „${meta.subject}" ablegen unter… (ESC = Stopp)`,
+			placeholder: `[${i + 1}/${metas.length}] „${meta.subject}" ablegen unter… (Esc = Überspringen)`,
 			previewText: `Von: ${meta.senderName}\nBetreff: ${meta.subject}\n\n${body || "(kein Textinhalt)"}`,
 			suggestions: this.suggestionsFor(meta),
 			skipLabel: "↪ Überspringen (im Posteingang lassen)",
 			dropLabel: "✕ Nicht ablegen (nur archivieren)",
+			dropHint: "Nur archivieren",
 			openLabel: "→ Stopp und E-Mail in Mail öffnen",
 			onPick: (vorgang) => {
 				const loading = new Notice("Thread wird zusammengestellt…", 0);
@@ -625,6 +626,7 @@ export class EmailFilingFeature implements LuKitFeature {
 			previewText: `${m.direction === "in" ? "Von" : "An"}: ${m.partyName}\nBetreff: ${m.subject}\n\n${body || "(kein Textinhalt)"}`,
 			suggestions: this.suggestionsForTitle(`${stripSubjectPrefixes(m.subject)} ${m.partyName}`),
 			dropLabel: "✕ Nicht ablegen",
+			dropHint: "Nicht ablegen",
 			onPick: (vorgang) => {
 				const loading = new Notice("Thread wird zusammengestellt…", 0);
 				void this.assembleSelectedThread(m, body, attachments, vorgang).then((assembled) => {

@@ -39,6 +39,9 @@ export interface SectionNoteSuggestOptions {
 	skipLabel?: string;
 	dropLabel?: string;
 	openLabel?: string;
+	// Short hint-bar label for the ⌘N action — must describe what onDrop
+	// actually does for this caller (e.g. "Nur archivieren" vs "Tag entfernen").
+	dropHint?: string;
 	// When set, a read-only scrollable panel with this text is shown above the
 	// search field (e.g. an email preview to read before picking a target).
 	previewText?: string;
@@ -93,8 +96,10 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 			return false;
 		});
 		if (this.options.onDrop) {
-			this.scope.register(["Mod"], "D", () => {
-				this.act(this.options.onDrop); // ⌘D → Don't file
+			// ⌘N ("Nicht ablegen") — deliberately NOT ⌘D, which means
+			// "Erledigt/complete" in the task-triage walk.
+			this.scope.register(["Mod"], "N", () => {
+				this.act(this.options.onDrop);
 				return false;
 			});
 		}
@@ -112,7 +117,8 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 			{ command: "↵", purpose: "Ablegen" },
 		];
 		if (this.options.onSkip) instructions.push({ command: "esc", purpose: "Überspringen" });
-		if (this.options.onDrop) instructions.push({ command: "⌘D", purpose: "Nur archivieren" });
+		else if (this.options.onCancel) instructions.push({ command: "esc", purpose: "Stopp" });
+		if (this.options.onDrop) instructions.push({ command: "⌘N", purpose: this.options.dropHint ?? "Nicht ablegen" });
 		if (this.options.onCancel) instructions.push({ command: "⌘.", purpose: "Stopp" });
 		if (this.previewPanel) instructions.push({ command: "⌘P", purpose: "Vorschau ein/aus" });
 		this.setInstructions(instructions);

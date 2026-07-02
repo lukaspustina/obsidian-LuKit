@@ -106,6 +106,22 @@ describe("BesprechungFeature.filePendingCmd", () => {
 		expect(result).toBe(true);
 	});
 
+	it("rejects a second pending walk while one is running", () => {
+		const besprechung = createMockTFile("Besprechungen/Foo.md");
+		const app = createMockApp({});
+		app.vault.register(besprechung, "");
+		app.metadataCache.setFrontmatter(besprechung.path, { tags: ["Besprechung", "todo"] });
+		const plugin = createMockPlugin(makeTestSettings(), app);
+		const feature = new BesprechungFeature();
+		feature.onload(asLuKitPlugin(plugin));
+		const internals = feature as unknown as { filePendingCmd: () => void };
+
+		internals.filePendingCmd();
+		internals.filePendingCmd();
+
+		expect(lastNotice()).toContain("läuft bereits");
+	});
+
 	it("vorgangAlreadyLinks detects the date-suffixed anchor bullet the plugin itself writes", () => {
 		const app = createMockApp({});
 		const plugin = createMockPlugin(makeTestSettings(), app);
