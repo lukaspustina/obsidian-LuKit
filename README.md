@@ -69,6 +69,16 @@ Filing an email captures the **whole conversation**: your Sent replies **and** t
 
 **Setup:** In Settings > LuKit, set the walk order, the default archive mailbox, and a per-account archive mailbox (use **Detect accounts** to populate them). Each detected account also gets an **include-in-walk** toggle — uncheck accounts you don't triage here to keep the walk fast. Gmail accounts typically archive to `[Gmail]/All Mail`. Requires granting Obsidian permission to control Mail (System Settings → Privacy → Automation).
 
+### Task Triage (requires TaskNotes ≥ 4.10.0)
+
+Walks all [TaskNotes](https://github.com/callumalpass/tasknotes) tasks that are due or scheduled until today — the same set as an "Until today" Bases view — and forces one quick decision per task, without opening the TaskNotes edit modal each time. Every stop shows the task header (title, due/scheduled with an overdue indicator, priority, recurring badge, contexts, linked projects) and a content preview (for Vorgang notes trimmed to `# Fakten und Pointer` plus the newest section).
+
+All task access goes through the TaskNotes runtime API, so user-remapped field names, custom statuses, and recurring semantics stay correct. TaskNotes must be installed and at least version 4.10.0 (first release with the runtime API).
+
+**Command:**
+
+- **Triage: Walk due tasks** — Walk the due tasks. Keyboard per stop: **⌘D = complete** (recurring tasks: check off today's instance), **⌘1/⌘2/⌘3 = snooze** to tomorrow / +1 week / next Monday, **⌘T = snooze to a chosen date**, **⌘X = skip today's instance** (recurring only; snooze is hidden for recurring tasks and ⌘X for non-recurring ones), **Enter = open & stop**, **Esc = skip**, **⌘. = stop**. A summary Notice reports completed / snoozed / instances skipped / skipped / remaining.
+
 ## Settings
 
 ### Date format
@@ -97,6 +107,7 @@ Controls the date format used in diary headers, Vorgang sections, and reminders.
 | **Besprechung: File this Besprechung** | File the active Besprechung into a section note (Vorgang/Person/Bestellung/Bewerbung); same insertion + frontmatter stamping as File pending |
 | **E-Mail: File inbox emails** | (macOS/Apple Mail) Walk the inbox; file each message's conversation (received + your Sent replies) into a section note (archive + embed) or dismiss; inbox-zero, no vault copies |
 | **E-Mail: File selected Mail message** | (macOS/Apple Mail) File the selected Mail message(s) + thread into a section note; capture-only (no archive); for threads you initiated |
+| **Triage: Walk due tasks** | (requires TaskNotes ≥ 4.10.0) Walk all tasks due/scheduled until today; complete, snooze, or skip each via keyboard |
 | **Migration: Convert note** | Auto-detect note type and convert old format to current |
 | **Help** | Show the LuKit help dialog |
 
