@@ -93,7 +93,7 @@ export class EmailFilingFeature implements LuKitFeature {
 
 		plugin.addCommand({
 			id: "email-filing-walk",
-			name: "E-Mail: File inbox emails",
+			name: "E-Mails: Posteingang ablegen",
 			icon: LUKIT_ICON_ID,
 			callback: () => {
 				this.startWalk();
@@ -102,7 +102,7 @@ export class EmailFilingFeature implements LuKitFeature {
 
 		plugin.addCommand({
 			id: "email-filing-file-selected",
-			name: "E-Mail: File selected Mail message",
+			name: "E-Mail: In Mail ausgewählte Nachricht ablegen",
 			icon: LUKIT_ICON_ID,
 			callback: () => {
 				this.startSelectedWalk();
@@ -118,13 +118,13 @@ export class EmailFilingFeature implements LuKitFeature {
 		return [
 			{
 				commandId: "email-filing-walk",
-				displayName: "E-Mail: File inbox emails",
+				displayName: "E-Mails: Posteingang ablegen",
 				description:
 					"Walk the Apple Mail inbox; for each message pick a Vorgang/Person/Bestellung/Bewerbung note, edit the extracted body, then archive the message and file the conversation (inbound + your Sent replies).",
 			},
 			{
 				commandId: "email-filing-file-selected",
-				displayName: "E-Mail: File selected Mail message",
+				displayName: "E-Mail: In Mail ausgewählte Nachricht ablegen",
 				description:
 					"File the message(s) currently selected in Apple Mail (any mailbox, incl. Sent) and their thread into a Vorgang — capture-only, nothing is archived. Use it for threads you initiated.",
 			},

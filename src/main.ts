@@ -34,7 +34,7 @@ export default class LuKitPlugin extends Plugin {
 
 		this.addCommand({
 			id: "lukit-help",
-			name: "Help",
+			name: "Hilfe",
 			icon: LUKIT_ICON_ID,
 			callback: () => new HelpModal(this.app, this).open(),
 		});

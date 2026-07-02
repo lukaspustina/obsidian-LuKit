@@ -28,35 +28,35 @@ export class WorkDiaryFeature implements LuKitFeature {
 
 		plugin.addCommand({
 			id: "diary-ensure-today",
-			name: "Diary: Ensure today's header",
+			name: "Tagebuch: Heutiges Datum hinzufügen",
 			icon: LUKIT_ICON_ID,
 			callback: () => this.ensureTodayHeaderCmd(),
 		});
 
 		plugin.addCommand({
 			id: "diary-add-entry",
-			name: "Diary: Add linked entry",
+			name: "Tagebuch: Notiz per Suche hinzufügen",
 			icon: LUKIT_ICON_ID,
 			callback: () => this.addDiaryEntryCmd(),
 		});
 
 		plugin.addCommand({
 			id: "diary-add-text",
-			name: "Diary: Add text entry",
+			name: "Tagebuch: Texteintrag hinzufügen",
 			icon: LUKIT_ICON_ID,
 			callback: () => this.addTextEntryCmd(),
 		});
 
 		plugin.addCommand({
 			id: "diary-add-reminder",
-			name: "Diary: Add reminder",
+			name: "Tagebuch: Erinnerung hinzufügen",
 			icon: LUKIT_ICON_ID,
 			callback: () => this.addReminderCmd(),
 		});
 
 		plugin.addCommand({
 			id: "diary-add-current-note",
-			name: "Diary: Add current note",
+			name: "Tagebuch: Aktuelle Notiz hinzufügen",
 			icon: LUKIT_ICON_ID,
 			callback: () => this.addCurrentNoteCmd(),
 		});
@@ -74,27 +74,27 @@ export class WorkDiaryFeature implements LuKitFeature {
 		return [
 			{
 				commandId: "diary-ensure-today",
-				displayName: "Diary: Ensure today's header",
+				displayName: "Tagebuch: Heutiges Datum hinzufügen",
 				description: "Creates today's date header if missing, opens the diary note and positions the cursor below it.",
 			},
 			{
 				commandId: "diary-add-entry",
-				displayName: "Diary: Add linked entry",
+				displayName: "Tagebuch: Notiz per Suche hinzufügen",
 				description: "Pick a note and heading via fuzzy search, inserts a linked entry under today's header.",
 			},
 			{
 				commandId: "diary-add-text",
-				displayName: "Diary: Add text entry",
+				displayName: "Tagebuch: Texteintrag hinzufügen",
 				description: "Type free text and pick a date, inserts as a bullet under that date's header.",
 			},
 			{
 				commandId: "diary-add-reminder",
-				displayName: "Diary: Add reminder",
+				displayName: "Tagebuch: Erinnerung hinzufügen",
 				description: "Type a reminder and pick a due date, inserts under # Erinnerungen tagged with that date.",
 			},
 			{
 				commandId: "diary-add-current-note",
-				displayName: "Diary: Add current note",
+				displayName: "Tagebuch: Aktuelle Notiz hinzufügen",
 				description: "Adds the active note (with the heading at cursor) as a linked diary entry — no modals.",
 			},
 		];

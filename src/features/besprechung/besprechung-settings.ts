@@ -41,7 +41,7 @@ export function renderBesprechungSettings(
 
 	new Setting(containerEl)
 		.setName("Pending tag")
-		.setDesc("Frontmatter tag marking unfiled Besprechungen (used by 'File pending notes')")
+		.setDesc("Frontmatter tag marking unfiled Besprechungen (used by 'Alle offenen ablegen')")
 		.addText((text) =>
 			text
 				.setPlaceholder("todo")
@@ -72,7 +72,7 @@ export function renderBesprechungSettings(
 
 	new Setting(containerEl)
 		.setName("Pending order")
-		.setDesc("Order in which 'File pending notes' walks the backlog")
+		.setDesc("Order in which 'Alle offenen ablegen' walks the backlog")
 		.addDropdown((dropdown) =>
 			dropdown
 				.addOption("oldest", "Oldest first")

@@ -17,7 +17,7 @@ export class VorgangFeature implements LuKitFeature {
 
 		plugin.addCommand({
 			id: "vorgang-add-section",
-			name: "Vorgang: Add section",
+			name: "Vorgang: Abschnitt hinzufügen",
 			icon: LUKIT_ICON_ID,
 			callback: () => this.addVorgangSectionCmd(),
 		});
@@ -31,7 +31,7 @@ export class VorgangFeature implements LuKitFeature {
 		return [
 			{
 				commandId: "vorgang-add-section",
-				displayName: "Vorgang: Add section",
+				displayName: "Vorgang: Abschnitt hinzufügen",
 				description: "Prompts for a name and a date, inserts TOC entry + h5 header section. Also creates a linked diary entry if a diary path is configured.",
 			},
 		];

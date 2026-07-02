@@ -31,7 +31,7 @@ export class TaskTriageFeature implements LuKitFeature {
 		this.bridge = createTaskNotesBridge(plugin.app);
 		plugin.addCommand({
 			id: "task-triage-walk",
-			name: "Vorgang: Triage due tasks",
+			name: "Vorgänge: Fällige Tasks durchgehen",
 			icon: LUKIT_ICON_ID,
 			callback: () => this.startWalk(),
 		});
@@ -49,7 +49,7 @@ export class TaskTriageFeature implements LuKitFeature {
 		return [
 			{
 				commandId: "task-triage-walk",
-				displayName: "Vorgang: Triage due tasks",
+				displayName: "Vorgänge: Fällige Tasks durchgehen",
 				description:
 					"Walk every TaskNotes task due or scheduled by today; per task: complete, snooze, skip today's recurring instance, open & stop, or skip. Requires the TaskNotes plugin.",
 			},

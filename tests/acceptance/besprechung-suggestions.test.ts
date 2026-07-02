@@ -41,7 +41,7 @@ function makeFeature(app: ReturnType<typeof createMockApp>, settings = makeTestS
 }
 
 describe("BesprechungFeature filing suggestions — modal wiring", () => {
-	it("passes the learned target as the top suggestion to the modal (File this Besprechung)", () => {
+	it("passes the learned target as the top suggestion to the modal (Aktuelle Notiz ablegen)", () => {
 		const app = createMockApp({});
 		// Two corpus besprechungen, both filed into the same Vorgang.
 		for (const n of ["One", "Two"]) {

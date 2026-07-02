@@ -20,7 +20,7 @@ const MEETING_NOTE = [
 	"- Everyone agreed Y",
 ].join("\n");
 
-describe("Besprechung: Add summary command flow", () => {
+describe("Besprechung: Zusammenfassung einfügen command flow", () => {
 	it("extracts and formats both default sections", () => {
 		const result = formatBesprechungSummary(MEETING_NOTE);
 		expect(result.missing).toEqual([]);

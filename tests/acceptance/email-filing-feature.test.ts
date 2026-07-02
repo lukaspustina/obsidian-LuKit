@@ -382,7 +382,7 @@ describe("EmailFilingFeature.fileEmailIntoVorgang — thread assembly (Phase 1)"
 	});
 });
 
-describe("EmailFilingFeature — single-shot 'File selected Mail message' (Phase 2)", () => {
+describe("EmailFilingFeature — single-shot 'In Mail ausgewählte Nachricht ablegen' (Phase 2)", () => {
 	const SEL_OUT: SelectedMessage = {
 		id: "s@1",
 		accountName: "iCloud",

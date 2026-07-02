@@ -10,11 +10,11 @@ Maintains a reverse-chronological work diary in a single note. Each day gets an 
 
 **Commands:**
 
-- **Diary: Ensure today's header** — Creates today's date header if missing, opens the diary note and positions the cursor below it.
-- **Diary: Add linked entry** — Pick a note and heading via fuzzy search, inserts a linked entry under today's header. Stays in the current note.
-- **Diary: Add current note** — Adds the currently open note (with the heading at cursor position) as a diary entry in one step — no modals. Rejects if the active file is the diary note itself.
-- **Diary: Add text entry** — Type free text and pick a date (defaults to today), inserts it as a bullet under that date's header. Stays in the current note.
-- **Diary: Add reminder** — Type a reminder and pick a due date (defaults to today), inserts it under a `# Erinnerungen` section between frontmatter and the diary separator (third `---`). Newest entries appear first, each tagged with the chosen date (e.g., `- Call dentist, 13.02.2026`).
+- **Tagebuch: Heutiges Datum hinzufügen** — Creates today's date header if missing, opens the diary note and positions the cursor below it.
+- **Tagebuch: Notiz per Suche hinzufügen** — Pick a note and heading via fuzzy search, inserts a linked entry under today's header. Stays in the current note.
+- **Tagebuch: Aktuelle Notiz hinzufügen** — Adds the currently open note (with the heading at cursor position) as a diary entry in one step — no modals. Rejects if the active file is the diary note itself.
+- **Tagebuch: Texteintrag hinzufügen** — Type free text and pick a date (defaults to today), inserts it as a bullet under that date's header. Stays in the current note.
+- **Tagebuch: Erinnerung hinzufügen** — Type a reminder and pick a due date (defaults to today), inserts it under a `# Erinnerungen` section between frontmatter and the diary separator (third `---`). Newest entries appear first, each tagged with the chosen date (e.g., `- Call dentist, 13.02.2026`).
 
 **Setup:** Set the diary note path in Settings > LuKit.
 
@@ -24,7 +24,7 @@ Automates adding a new section to "Vorgang"-style notes. A Vorgang note has a `#
 
 **Commands:**
 
-- **Vorgang: Add section** — Prompts for a section name and date (defaults to today), inserts a TOC bullet under `# Inhalt` and an h5 header section, then places the cursor on a blank bullet below the new header. If no `# Inhalt` exists, one is created. Also adds a linked diary entry (e.g., `- [[Note#Section, DD.MM.YYYY|Note: Section, DD.MM.YYYY]]`) under the chosen date's header in the configured diary note. Silently skips the diary entry if no diary path is configured.
+- **Vorgang: Abschnitt hinzufügen** — Prompts for a section name and date (defaults to today), inserts a TOC bullet under `# Inhalt` and an h5 header section, then places the cursor on a blank bullet below the new header. If no `# Inhalt` exists, one is created. Also adds a linked diary entry (e.g., `- [[Note#Section, DD.MM.YYYY|Note: Section, DD.MM.YYYY]]`) under the chosen date's header in the configured diary note. Silently skips the diary entry if no diary path is configured.
 
 ### Besprechung
 
@@ -36,10 +36,10 @@ When the active note is tagged `Vorgang`, `Person`, `Bestellung`, or `Bewerbung`
 
 **Commands:**
 
-- **Besprechung: Add summary** — Pick a meeting note from the configured folder, extract the key sections, and insert at the cursor position (or as a linked section if the active note is a Vorgang/Person/Bestellung/Bewerbung).
-- **Besprechung: Add multiple summaries** — Same as above, but the picker re-opens after each insertion (with already-picked files hidden) until you press ESC.
-- **Besprechung: File pending notes** — For each Besprechung tagged with the configured pending tag (default: `todo`), pick a target Vorgang/Person/Bestellung/Bewerbung. The picker pins the most likely target(s) to the top as `★ <name> (suggested)` rows, ranked from past `filed_into` routings and the besprechung's title — recurring meetings and 1:1s usually land their target first; the full list stays below and the suggestion is always overridable. The summary is filed into the picked note, the pending tag is removed, and the Besprechung gets `filed_into: "[[Vorgang]]"` and `filed_at: <ISO>` stamps in its frontmatter (so future automation can learn from past routings). Picker also offers: `↪ Skip this Besprechung` (leave it pending, advance), `✕ Don't file (just remove pending tag)`, and `→ Stop and open this Besprechung in a new tab` (for cases needing manual review). Keyboard: Enter files into the highlighted note, **Esc (or click outside) = Skip**, **⌘. = Stop**, **⌘D = Don't file**; the shortcuts are shown in the modal's hint bar. Processing order (oldest or newest first by creation time) is configurable.
-- **Besprechung: File this Besprechung** — Same as above (including the pinned suggestions), but operates on the active Besprechung instead of iterating the pending backlog. Active note must have `Besprechung` in its frontmatter `tags`; the command files into the picked target regardless of pending-tag state, so it works for back-filling untagged besprechungen too. Picker offers Pick + `✕ Don't file`; ESC cancels.
+- **Besprechung: Zusammenfassung einfügen** — Pick a meeting note from the configured folder, extract the key sections, and insert at the cursor position (or as a linked section if the active note is a Vorgang/Person/Bestellung/Bewerbung).
+- **Besprechung: Mehrere Zusammenfassungen einfügen** — Same as above, but the picker re-opens after each insertion (with already-picked files hidden) until you press ESC.
+- **Besprechungen: Alle offenen ablegen** — For each Besprechung tagged with the configured pending tag (default: `todo`), pick a target Vorgang/Person/Bestellung/Bewerbung. The picker pins the most likely target(s) to the top as `★ <name> (suggested)` rows, ranked from past `filed_into` routings and the besprechung's title — recurring meetings and 1:1s usually land their target first; the full list stays below and the suggestion is always overridable. The summary is filed into the picked note, the pending tag is removed, and the Besprechung gets `filed_into: "[[Vorgang]]"` and `filed_at: <ISO>` stamps in its frontmatter (so future automation can learn from past routings). Picker also offers: `↪ Skip this Besprechung` (leave it pending, advance), `✕ Don't file (just remove pending tag)`, and `→ Stop and open this Besprechung in a new tab` (for cases needing manual review). Keyboard: Enter files into the highlighted note, **Esc (or click outside) = Skip**, **⌘. = Stop**, **⌘D = Don't file**; the shortcuts are shown in the modal's hint bar. Processing order (oldest or newest first by creation time) is configurable.
+- **Besprechung: Aktuelle Notiz ablegen** — Same as above (including the pinned suggestions), but operates on the active Besprechung instead of iterating the pending backlog. Active note must have `Besprechung` in its frontmatter `tags`; the command files into the picked target regardless of pending-tag state, so it works for back-filling untagged besprechungen too. Picker offers Pick + `✕ Don't file`; ESC cancels.
 
 **Setup:** Set the Besprechung folder path, section headings, pending tag, and pending order in Settings > LuKit. Section headings are comma-separated (e.g. `Nächste Schritte, Zusammenfassung, Agenda`).
 
@@ -52,11 +52,11 @@ Auto-detects and converts old-format notes to the current format with a single c
 
 **Commands:**
 
-- **Migration: Convert note** — Auto-detects the note type, prompts for a frontmatter tag (Vorgang only, default: `"Vorgang"`), shows a confirmation dialog with the number of changes, and applies the migration. Safe to run multiple times (idempotent).
+- **Konvertierung: Altes Format migrieren** — Auto-detects the note type, prompts for a frontmatter tag (Vorgang only, default: `"Vorgang"`), shows a confirmation dialog with the number of changes, and applies the migration. Safe to run multiple times (idempotent).
 
 ### Email Filing (macOS / Apple Mail only)
 
-Walks your Apple Mail inbox one message at a time and files each into a Vorgang/Person/Bestellung/Bewerbung note — the inbox-zero counterpart to **Besprechung: File pending notes**. For each message you pick a target note (the most likely targets are pinned on top by a name-match ranking), review the assembled thread in a preview, and the messages are archived in Mail and embedded as one h5 section. Quoted history, signatures, and inline images are stripped; each message keeps a `message://` link (in its sub-header) back to the archived original.
+Walks your Apple Mail inbox one message at a time and files each into a Vorgang/Person/Bestellung/Bewerbung note — the inbox-zero counterpart to **Besprechungen: Alle offenen ablegen**. For each message you pick a target note (the most likely targets are pinned on top by a name-match ranking), review the assembled thread in a preview, and the messages are archived in Mail and embedded as one h5 section. Quoted history, signatures, and inline images are stripped; each message keeps a `message://` link (in its sub-header) back to the archived original.
 
 The inbox is the queue: filing or dismissing a message moves it out of the inbox, so nothing is re-offered and no copies are stored in the vault.
 
@@ -64,8 +64,8 @@ Filing an email captures the **whole conversation**: your Sent replies **and** t
 
 **Commands:**
 
-- **E-Mail: File inbox emails** — Walk the inbox. Per message: pick a target (then review the assembled thread in a per-message preview — include/exclude checkbox + editable body per message — and confirm), `↪ Überspringen` (leave in inbox), `✕ Nicht ablegen` (archive without filing), or `→ Stopp` (open in Mail and stop). Keyboard: Enter files, **Esc = Skip**, **⌘. = Stop**, **⌘D = Nur archivieren**, **⌘P = toggle the email peek**; shortcuts shown in the modal's hint bar.
-- **E-Mail: File selected Mail message** — File the message(s) currently selected in Apple Mail (any mailbox, **including Sent**) and their thread into a Vorgang — **capture-only, nothing is archived**. Use it for threads you started (which never land in the inbox). Configure a Sent mailbox per account in settings (**Detect accounts** fills it in).
+- **E-Mails: Posteingang ablegen** — Walk the inbox. Per message: pick a target (then review the assembled thread in a per-message preview — include/exclude checkbox + editable body per message — and confirm), `↪ Überspringen` (leave in inbox), `✕ Nicht ablegen` (archive without filing), or `→ Stopp` (open in Mail and stop). Keyboard: Enter files, **Esc = Skip**, **⌘. = Stop**, **⌘D = Nur archivieren**, **⌘P = toggle the email peek**; shortcuts shown in the modal's hint bar.
+- **E-Mail: In Mail ausgewählte Nachricht ablegen** — File the message(s) currently selected in Apple Mail (any mailbox, **including Sent**) and their thread into a Vorgang — **capture-only, nothing is archived**. Use it for threads you started (which never land in the inbox). Configure a Sent mailbox per account in settings (**Detect accounts** fills it in).
 
 **Setup:** In Settings > LuKit, set the walk order, the default archive mailbox, and a per-account archive mailbox (use **Detect accounts** to populate them). Each detected account also gets an **include-in-walk** toggle — uncheck accounts you don't triage here to keep the walk fast. Gmail accounts typically archive to `[Gmail]/All Mail`. Requires granting Obsidian permission to control Mail (System Settings → Privacy → Automation).
 
@@ -77,7 +77,7 @@ All task access goes through the TaskNotes runtime API, so user-remapped field n
 
 **Command:**
 
-- **Vorgang: Triage due tasks** — Walk the due tasks. Keyboard per stop: **⌘D = complete** (recurring tasks: check off today's instance), **⌘1/⌘2/⌘3 = snooze** to tomorrow / +1 week / next Monday, **⌘T = snooze to a chosen date**, **⌘X = skip today's instance** (recurring only; snooze is hidden for recurring tasks and ⌘X for non-recurring ones), **Enter = open & stop**, **Esc = skip**, **⌘. = stop**. A summary Notice reports completed / snoozed / instances skipped / skipped / remaining.
+- **Vorgänge: Fällige Tasks durchgehen** — Walk the due tasks. Keyboard per stop: **⌘D = complete** (recurring tasks: check off today's instance), **⌘1/⌘2/⌘3 = snooze** to tomorrow / +1 week / next Monday, **⌘T = snooze to a chosen date**, **⌘X = skip today's instance** (recurring only; snooze is hidden for recurring tasks and ⌘X for non-recurring ones), **Enter = open & stop**, **Esc = skip**, **⌘. = stop**. A summary Notice reports completed / snoozed / instances skipped / skipped / remaining.
 
 ## Settings
 
@@ -95,20 +95,20 @@ Controls the date format used in diary headers, Vorgang sections, and reminders.
 
 | Command | Description |
 |---|---|
-| **Diary: Ensure today's header** | Creates today's date header if missing, opens the diary note |
-| **Diary: Add linked entry** | Pick a note and heading via fuzzy search, inserts under today's header |
-| **Diary: Add current note** | Add the active note (with heading at cursor) as a diary entry — no modals |
-| **Diary: Add text entry** | Type free text and pick a date, inserts as a bullet under that date's header |
-| **Diary: Add reminder** | Type a reminder and pick a due date, inserts under `# Erinnerungen` |
-| **Vorgang: Add section** | Prompts for a name, inserts TOC entry + h5 header section + diary entry |
-| **Besprechung: Add summary** | Pick a meeting note, extract key sections, insert at cursor (or as a linked section in Vorgang/Person/Bestellung/Bewerbung notes) |
-| **Besprechung: Add multiple summaries** | Picker re-opens after each insertion (already-picked files hidden) until ESC |
-| **Besprechung: File pending notes** | Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary and removes the pending tag |
-| **Besprechung: File this Besprechung** | File the active Besprechung into a section note (Vorgang/Person/Bestellung/Bewerbung); same insertion + frontmatter stamping as File pending |
-| **E-Mail: File inbox emails** | (macOS/Apple Mail) Walk the inbox; file each message's conversation (received + your Sent replies) into a section note (archive + embed) or dismiss; inbox-zero, no vault copies |
-| **E-Mail: File selected Mail message** | (macOS/Apple Mail) File the selected Mail message(s) + thread into a section note; capture-only (no archive); for threads you initiated |
-| **Vorgang: Triage due tasks** | (requires TaskNotes ≥ 4.10.0) Walk all tasks due/scheduled until today; complete, snooze, or skip each via keyboard |
-| **Migration: Convert note** | Auto-detect note type and convert old format to current |
+| **Tagebuch: Heutiges Datum hinzufügen** | Creates today's date header if missing, opens the diary note |
+| **Tagebuch: Notiz per Suche hinzufügen** | Pick a note and heading via fuzzy search, inserts under today's header |
+| **Tagebuch: Aktuelle Notiz hinzufügen** | Add the active note (with heading at cursor) as a diary entry — no modals |
+| **Tagebuch: Texteintrag hinzufügen** | Type free text and pick a date, inserts as a bullet under that date's header |
+| **Tagebuch: Erinnerung hinzufügen** | Type a reminder and pick a due date, inserts under `# Erinnerungen` |
+| **Vorgang: Abschnitt hinzufügen** | Prompts for a name, inserts TOC entry + h5 header section + diary entry |
+| **Besprechung: Zusammenfassung einfügen** | Pick a meeting note, extract key sections, insert at cursor (or as a linked section in Vorgang/Person/Bestellung/Bewerbung notes) |
+| **Besprechung: Mehrere Zusammenfassungen einfügen** | Picker re-opens after each insertion (already-picked files hidden) until ESC |
+| **Besprechungen: Alle offenen ablegen** | Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary and removes the pending tag |
+| **Besprechung: Aktuelle Notiz ablegen** | File the active Besprechung into a section note (Vorgang/Person/Bestellung/Bewerbung); same insertion + frontmatter stamping as 'Alle offenen ablegen' |
+| **E-Mails: Posteingang ablegen** | (macOS/Apple Mail) Walk the inbox; file each message's conversation (received + your Sent replies) into a section note (archive + embed) or dismiss; inbox-zero, no vault copies |
+| **E-Mail: In Mail ausgewählte Nachricht ablegen** | (macOS/Apple Mail) File the selected Mail message(s) + thread into a section note; capture-only (no archive); for threads you initiated |
+| **Vorgänge: Fällige Tasks durchgehen** | (requires TaskNotes ≥ 4.10.0) Walk all tasks due/scheduled until today; complete, snooze, or skip each via keyboard |
+| **Konvertierung: Altes Format migrieren** | Auto-detect note type and convert old format to current |
 | **Help** | Show the LuKit help dialog |
 
 ## CLI

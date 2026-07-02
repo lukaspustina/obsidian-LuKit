@@ -5,57 +5,57 @@ exports[`LuKitFeature.helpEntries() registry > matches the snapshot 1`] = `
   {
     "commandId": "diary-ensure-today",
     "description": "Creates today's date header if missing, opens the diary note and positions the cursor below it.",
-    "displayName": "Diary: Ensure today's header",
+    "displayName": "Tagebuch: Heutiges Datum hinzufügen",
   },
   {
     "commandId": "diary-add-entry",
     "description": "Pick a note and heading via fuzzy search, inserts a linked entry under today's header.",
-    "displayName": "Diary: Add linked entry",
+    "displayName": "Tagebuch: Notiz per Suche hinzufügen",
   },
   {
     "commandId": "diary-add-text",
     "description": "Type free text and pick a date, inserts as a bullet under that date's header.",
-    "displayName": "Diary: Add text entry",
+    "displayName": "Tagebuch: Texteintrag hinzufügen",
   },
   {
     "commandId": "diary-add-reminder",
     "description": "Type a reminder and pick a due date, inserts under # Erinnerungen tagged with that date.",
-    "displayName": "Diary: Add reminder",
+    "displayName": "Tagebuch: Erinnerung hinzufügen",
   },
   {
     "commandId": "diary-add-current-note",
     "description": "Adds the active note (with the heading at cursor) as a linked diary entry — no modals.",
-    "displayName": "Diary: Add current note",
+    "displayName": "Tagebuch: Aktuelle Notiz hinzufügen",
   },
   {
     "commandId": "vorgang-add-section",
     "description": "Prompts for a name and a date, inserts TOC entry + h5 header section. Also creates a linked diary entry if a diary path is configured.",
-    "displayName": "Vorgang: Add section",
+    "displayName": "Vorgang: Abschnitt hinzufügen",
   },
   {
     "commandId": "besprechung-add-summary",
     "description": "Pick a meeting note, extract key sections, insert at cursor (or as a linked section in Vorgang/Person/Bestellung/Bewerbung notes).",
-    "displayName": "Besprechung: Add summary",
+    "displayName": "Besprechung: Zusammenfassung einfügen",
   },
   {
     "commandId": "besprechung-add-multiple-summaries",
     "description": "Picker re-opens after each insertion (already-picked files hidden) until ESC; persists the search query across iterations.",
-    "displayName": "Besprechung: Add multiple summaries",
+    "displayName": "Besprechung: Mehrere Zusammenfassungen einfügen",
   },
   {
     "commandId": "besprechung-file-pending",
     "description": "Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary, removes the tag, stamps filed_into/filed_at.",
-    "displayName": "Besprechung: File pending notes",
+    "displayName": "Besprechungen: Alle offenen ablegen",
   },
   {
     "commandId": "besprechung-file-this",
-    "description": "File the active Besprechung note into a target section note (Vorgang/Person/Bestellung/Bewerbung). Same insertion + stamp behaviour as 'File pending notes', but on the open note.",
-    "displayName": "Besprechung: File this Besprechung",
+    "description": "File the active Besprechung note into a target section note (Vorgang/Person/Bestellung/Bewerbung). Same insertion + stamp behaviour as 'Alle offenen ablegen', but on the open note.",
+    "displayName": "Besprechung: Aktuelle Notiz ablegen",
   },
   {
     "commandId": "migration-convert-bold",
     "description": "Auto-detects the note type and converts old format to current. Shows a confirmation dialog with line-diff count first.",
-    "displayName": "Migration: Convert note",
+    "displayName": "Konvertierung: Altes Format migrieren",
   },
 ]
 `;

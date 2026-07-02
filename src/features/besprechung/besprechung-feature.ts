@@ -33,7 +33,7 @@ export class BesprechungFeature implements LuKitFeature {
 
 		plugin.addCommand({
 			id: "besprechung-add-summary",
-			name: "Besprechung: Add summary",
+			name: "Besprechung: Zusammenfassung einfügen",
 			icon: LUKIT_ICON_ID,
 			editorCallback: () => {
 				this.addBesprechungSummaryCmd();
@@ -42,7 +42,7 @@ export class BesprechungFeature implements LuKitFeature {
 
 		plugin.addCommand({
 			id: "besprechung-add-multiple-summaries",
-			name: "Besprechung: Add multiple summaries",
+			name: "Besprechung: Mehrere Zusammenfassungen einfügen",
 			icon: LUKIT_ICON_ID,
 			editorCallback: () => {
 				this.addBesprechungSummariesCmd();
@@ -51,7 +51,7 @@ export class BesprechungFeature implements LuKitFeature {
 
 		plugin.addCommand({
 			id: "besprechung-file-pending",
-			name: "Besprechung: File pending notes",
+			name: "Besprechungen: Alle offenen ablegen",
 			icon: LUKIT_ICON_ID,
 			callback: () => {
 				this.filePendingCmd();
@@ -60,7 +60,7 @@ export class BesprechungFeature implements LuKitFeature {
 
 		plugin.addCommand({
 			id: "besprechung-file-this",
-			name: "Besprechung: File this Besprechung",
+			name: "Besprechung: Aktuelle Notiz ablegen",
 			icon: LUKIT_ICON_ID,
 			callback: () => {
 				this.fileActiveBesprechungCmd();
@@ -80,23 +80,23 @@ export class BesprechungFeature implements LuKitFeature {
 		return [
 			{
 				commandId: "besprechung-add-summary",
-				displayName: "Besprechung: Add summary",
+				displayName: "Besprechung: Zusammenfassung einfügen",
 				description: "Pick a meeting note, extract key sections, insert at cursor (or as a linked section in Vorgang/Person/Bestellung/Bewerbung notes).",
 			},
 			{
 				commandId: "besprechung-add-multiple-summaries",
-				displayName: "Besprechung: Add multiple summaries",
+				displayName: "Besprechung: Mehrere Zusammenfassungen einfügen",
 				description: "Picker re-opens after each insertion (already-picked files hidden) until ESC; persists the search query across iterations.",
 			},
 			{
 				commandId: "besprechung-file-pending",
-				displayName: "Besprechung: File pending notes",
+				displayName: "Besprechungen: Alle offenen ablegen",
 				description: "Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary, removes the tag, stamps filed_into/filed_at.",
 			},
 			{
 				commandId: "besprechung-file-this",
-				displayName: "Besprechung: File this Besprechung",
-				description: "File the active Besprechung note into a target section note (Vorgang/Person/Bestellung/Bewerbung). Same insertion + stamp behaviour as 'File pending notes', but on the open note.",
+				displayName: "Besprechung: Aktuelle Notiz ablegen",
+				description: "File the active Besprechung note into a target section note (Vorgang/Person/Bestellung/Bewerbung). Same insertion + stamp behaviour as 'Alle offenen ablegen', but on the open note.",
 			},
 		];
 	}
