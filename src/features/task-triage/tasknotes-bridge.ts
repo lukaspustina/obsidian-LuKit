@@ -79,13 +79,26 @@ interface AppWithPlugins {
 	plugins: PluginsAccessor;
 }
 
-const REQUIRED_CAPABILITIES = ["tasks.read", "tasks.write", "recurring.write"] as const;
+const REQUIRED_CAPABILITIES = ["tasks.read", "tasks.write", "recurring.write", "catalog.read"] as const;
+
+// TaskNotes allows time-of-day on due/scheduled ("YYYY-MM-DDTHH:mm"); the
+// engine's string comparisons and date parsing require pure YYYY-MM-DD.
+const ISO_DATE_PREFIX = /^\d{4}-\d{2}-\d{2}/;
+
+function normalizeDate(value: string | undefined): string | undefined {
+	if (value === undefined || !ISO_DATE_PREFIX.test(value)) {
+		return undefined;
+	}
+	return value.slice(0, 10);
+}
 
 export function createTaskNotesBridge(app: App): TaskNotesBridge {
+	function pluginRegistry(): PluginsAccessor {
+		return (app as unknown as AppWithPlugins).plugins;
+	}
+
 	function getApi(): TaskNotesApi | undefined {
-		const plugins = (app as unknown as AppWithPlugins).plugins;
-		const plugin = plugins.getPlugin("tasknotes");
-		return plugin?.api;
+		return pluginRegistry().getPlugin("tasknotes")?.api;
 	}
 
 	function requireApi(): TaskNotesApi {
@@ -105,8 +118,7 @@ export function createTaskNotesBridge(app: App): TaskNotesBridge {
 	}
 
 	function internalTaskPaths(): string[] | null {
-		const plugins = (app as unknown as AppWithPlugins).plugins;
-		const cache = plugins.getPlugin("tasknotes")?.cacheManager;
+		const cache = pluginRegistry().getPlugin("tasknotes")?.cacheManager;
 		if (cache === undefined || typeof cache.getAllTaskPaths !== "function") {
 			return null;
 		}
@@ -118,23 +130,18 @@ export function createTaskNotesBridge(app: App): TaskNotesBridge {
 	}
 
 	async function fetchTaskInfos(api: TaskNotesApi): Promise<TaskInfo[]> {
-		const started = Date.now();
 		const paths = internalTaskPaths();
 		if (paths === null) {
-			const infos = await api.tasks.list();
-			console.log(`LuKit task-triage: listTasks fallback list() tasks=${infos.length} ms=${Date.now() - started}`);
-			return infos;
+			return api.tasks.list();
 		}
-		const infos = await Promise.all(paths.map((p) => api.tasks.get(p)));
-		const found = infos.filter((info): info is TaskInfo => info !== null);
-		console.log(`LuKit task-triage: listTasks fast-path paths=${paths.length} tasks=${found.length} ms=${Date.now() - started}`);
-		return found;
+		// A single stale index path must not kill the whole listing.
+		const infos = await Promise.all(paths.map((p) => api.tasks.get(p).catch(() => null)));
+		return infos.filter((info): info is TaskInfo => info !== null);
 	}
 
 	return {
 		availability(): BridgeAvailability {
-			const plugins = (app as unknown as AppWithPlugins).plugins;
-			const plugin = plugins.getPlugin("tasknotes");
+			const plugin = pluginRegistry().getPlugin("tasknotes");
 			if (plugin === null) {
 				return { ok: false, reason: "plugin-missing" };
 			}
@@ -166,8 +173,8 @@ export function createTaskNotesBridge(app: App): TaskNotesBridge {
 				path: task.path,
 				title: task.title,
 				isCompleted: statuses.find((s) => s.value === task.status)?.isCompleted ?? false,
-				due: task.due,
-				scheduled: task.scheduled,
+				due: normalizeDate(task.due),
+				scheduled: normalizeDate(task.scheduled),
 				priority: task.priority,
 				contexts: task.contexts ?? [],
 				projects: task.projects ?? [],
@@ -194,7 +201,7 @@ export function createTaskNotesBridge(app: App): TaskNotesBridge {
 		},
 
 		async readNote(path: string): Promise<string> {
-			return app.vault.read(resolveFile(path));
+			return app.vault.cachedRead(resolveFile(path));
 		},
 
 		async openInNewTab(path: string): Promise<void> {

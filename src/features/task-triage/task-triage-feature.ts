@@ -1,6 +1,7 @@
 import { Notice } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID, type LuKitFeature, type HelpEntry } from "../../types";
+import { formatDate } from "../../shared/date-format";
 import { createTaskNotesBridge, type TaskNotesBridge, type BridgeAvailability } from "./tasknotes-bridge";
 import { selectTriageTasks, snoozeDate, buildTriagePreview, type TriageTask, type SnoozeKind } from "./task-triage-engine";
 import { TaskTriageModal } from "./task-triage-modal";
@@ -17,13 +18,13 @@ export class TaskTriageFeature implements LuKitFeature {
 	tasks: TriageTask[] = [];
 	index = 0;
 	counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };
+	// Pinned once per walk so a walk crossing midnight keeps mutating the
+	// instances/dates the selection (and the visible modal) was based on.
+	walkToday = "";
+	private modal?: TaskTriageModal;
+	private previewCache = new Map<string, string>();
 
-	todayIso: () => string = () => {
-		const d = new Date();
-		const m = String(d.getMonth() + 1).padStart(2, "0");
-		const day = String(d.getDate()).padStart(2, "0");
-		return `${d.getFullYear()}-${m}-${day}`;
-	};
+	todayIso: () => string = () => formatDate(new Date(), "iso");
 
 	onload(plugin: LuKitPlugin): void {
 		this.plugin = plugin;
@@ -37,7 +38,11 @@ export class TaskTriageFeature implements LuKitFeature {
 	}
 
 	onunload(): void {
-		// nothing to clean up
+		// Abort a running walk so a surviving modal's dismiss cannot
+		// resurrect it from the unloaded plugin instance.
+		this.walkActive = false;
+		this.modal?.closeSilently();
+		this.modal = undefined;
 	}
 
 	helpEntries(): HelpEntry[] {
@@ -61,24 +66,31 @@ export class TaskTriageFeature implements LuKitFeature {
 			return;
 		}
 
-		const started = Date.now();
 		const availability = this.bridge.availability();
 		if (!availability.ok) {
 			new Notice(this.availabilityMessage(availability));
 			return;
 		}
-		console.log(`LuKit task-triage: availability ms=${Date.now() - started}`);
 
-		const today = this.todayIso();
+		// Claim the walk before the (potentially long) listing await so a
+		// second command invocation cannot start a concurrent walk.
+		this.walkActive = true;
+		this.walkToday = this.todayIso();
 		const loading = new Notice("Sammle fällige Tasks…", 0);
 		let all: TriageTask[];
 		try {
 			all = await this.bridge.listTasks();
+		} catch (e) {
+			this.walkActive = false;
+			this.logError(e);
+			new Notice("Konnte Tasks nicht laden — Triage abgebrochen.");
+			return;
 		} finally {
 			loading.hide();
 		}
-		const selected = selectTriageTasks(all, today);
+		const selected = selectTriageTasks(all, this.walkToday);
 		if (selected.length === 0) {
+			this.walkActive = false;
 			new Notice("Keine fälligen Tasks");
 			return;
 		}
@@ -86,7 +98,7 @@ export class TaskTriageFeature implements LuKitFeature {
 		this.tasks = selected;
 		this.index = 0;
 		this.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };
-		this.walkActive = true;
+		this.previewCache.clear();
 		await this.presentStop();
 	}
 
@@ -104,13 +116,16 @@ export class TaskTriageFeature implements LuKitFeature {
 	}
 
 	private async presentStop(): Promise<void> {
+		if (!this.walkActive) {
+			return;
+		}
 		const task = this.tasks[this.index];
 		const actions = this.availableActions(task);
 		const modal = new TaskTriageModal(this.plugin.app, {
 			task,
 			actions,
 			locale: this.plugin.settings.dateLocale,
-			today: this.todayIso(),
+			today: this.walkToday,
 			position: { index: this.index, total: this.tasks.length },
 			onComplete: () => {
 				void this.handleComplete();
@@ -134,12 +149,16 @@ export class TaskTriageFeature implements LuKitFeature {
 				this.handleStop();
 			},
 		});
+		this.modal = modal;
 		modal.open();
-		const previewStarted = Date.now();
 		void this.loadPreview(task).then((preview) => {
-			console.log(`LuKit task-triage: preview ms=${Date.now() - previewStarted}`);
 			modal.setPreview(preview);
 		});
+		// Warm the cache for the next stop while the user works this one.
+		const next = this.tasks[this.index + 1];
+		if (next !== undefined) {
+			void this.loadPreview(next);
+		}
 	}
 
 	private promptCustomDate(): void {
@@ -156,9 +175,15 @@ export class TaskTriageFeature implements LuKitFeature {
 	}
 
 	async loadPreview(task: TriageTask): Promise<string> {
+		const cached = this.previewCache.get(task.path);
+		if (cached !== undefined) {
+			return cached;
+		}
 		try {
 			const content = await this.bridge.readNote(task.path);
-			return buildTriagePreview(content);
+			const preview = buildTriagePreview(content);
+			this.previewCache.set(task.path, preview);
+			return preview;
 		} catch (e) {
 			this.logError(e);
 			return PREVIEW_PLACEHOLDER;
@@ -169,52 +194,36 @@ export class TaskTriageFeature implements LuKitFeature {
 		return { snooze: !task.isRecurring, skipInstance: task.isRecurring };
 	}
 
-	async handleComplete(): Promise<void> {
-		const t = this.tasks[this.index];
+	private async mutateAndAdvance(mutate: () => Promise<void>, counter: "completed" | "snoozed" | "instancesSkipped"): Promise<void> {
 		try {
-			if (t.isRecurring) {
-				await this.bridge.toggleCompleteInstance(t.path, this.todayIso());
-			} else {
-				await this.bridge.complete(t.path);
-			}
+			await mutate();
 		} catch (e) {
 			return this.onMutationError(e);
 		}
-		this.counts.completed++;
+		this.counts[counter]++;
 		await this.advance();
 	}
 
-	async handleSnooze(kind: SnoozeKind): Promise<void> {
+	async handleComplete(): Promise<void> {
 		const t = this.tasks[this.index];
-		try {
-			await this.bridge.setScheduled(t.path, snoozeDate(kind, this.todayIso()));
-		} catch (e) {
-			return this.onMutationError(e);
-		}
-		this.counts.snoozed++;
-		await this.advance();
+		await this.mutateAndAdvance(
+			() => (t.isRecurring ? this.bridge.toggleCompleteInstance(t.path, this.walkToday) : this.bridge.complete(t.path)),
+			"completed",
+		);
+	}
+
+	async handleSnooze(kind: SnoozeKind): Promise<void> {
+		await this.handleSnoozeCustom(snoozeDate(kind, this.walkToday));
 	}
 
 	async handleSnoozeCustom(date: string): Promise<void> {
 		const t = this.tasks[this.index];
-		try {
-			await this.bridge.setScheduled(t.path, date);
-		} catch (e) {
-			return this.onMutationError(e);
-		}
-		this.counts.snoozed++;
-		await this.advance();
+		await this.mutateAndAdvance(() => this.bridge.setScheduled(t.path, date), "snoozed");
 	}
 
 	async handleSkipInstance(): Promise<void> {
 		const t = this.tasks[this.index];
-		try {
-			await this.bridge.toggleSkippedInstance(t.path, this.todayIso());
-		} catch (e) {
-			return this.onMutationError(e);
-		}
-		this.counts.instancesSkipped++;
-		await this.advance();
+		await this.mutateAndAdvance(() => this.bridge.toggleSkippedInstance(t.path, this.walkToday), "instancesSkipped");
 	}
 
 	async handleSkip(): Promise<void> {
@@ -244,6 +253,9 @@ export class TaskTriageFeature implements LuKitFeature {
 	}
 
 	private async advance(): Promise<void> {
+		if (!this.walkActive) {
+			return;
+		}
 		this.index++;
 		if (this.index >= this.tasks.length) {
 			this.finishWalk();
@@ -259,6 +271,7 @@ export class TaskTriageFeature implements LuKitFeature {
 			`Triage beendet: ${completed} erledigt, ${snoozed} verschoben, ${instancesSkipped} ausgelassen, ${skipped} übersprungen, ${remaining} offen`,
 		);
 		this.walkActive = false;
+		this.modal = undefined;
 	}
 
 	private logError(e: unknown): void {

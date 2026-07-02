@@ -1,10 +1,5 @@
 import { App, Modal } from "obsidian";
-
-function toIso(date: Date): string {
-	const m = String(date.getMonth() + 1).padStart(2, "0");
-	const d = String(date.getDate()).padStart(2, "0");
-	return `${date.getFullYear()}-${m}-${d}`;
-}
+import { formatDate } from "../../shared/date-format";
 
 export class TaskTriageDateModal extends Modal {
 	private onSubmit: (dateIso: string) => void;
@@ -33,7 +28,7 @@ export class TaskTriageDateModal extends Modal {
 			type: "date",
 			cls: "lukit-text-input",
 		});
-		this.dateInputEl.value = toIso(this.initialDate);
+		this.dateInputEl.value = formatDate(this.initialDate, "iso");
 
 		this.errorEl = contentEl.createEl("p", { cls: "lukit-modal-error" });
 		this.errorEl.style.display = "none";

@@ -45,6 +45,27 @@ describe("createTaskNotesBridge availability", () => {
 		});
 	});
 
+	it("returns capability-missing naming catalog.read when hasCapability rejects it", () => {
+		const app = {
+			plugins: {
+				getPlugin: (_id: string) => ({
+					api: {
+						apiVersion: 1,
+						hasCapability: (id: string) => id !== "catalog.read",
+					},
+				}),
+			},
+		} as unknown as App;
+
+		const result = createTaskNotesBridge(app).availability();
+
+		expect(result).toEqual({
+			ok: false,
+			reason: "capability-missing",
+			capability: "catalog.read",
+		});
+	});
+
 	it("returns ok:true when all required capabilities are present", () => {
 		const app = {
 			plugins: {

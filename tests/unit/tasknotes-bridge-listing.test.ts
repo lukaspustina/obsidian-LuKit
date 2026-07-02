@@ -7,6 +7,7 @@ interface RawTaskInfo {
 	title: string;
 	status: string;
 	due?: string;
+	scheduled?: string;
 }
 
 function makeApi(tasks: RawTaskInfo[]) {
@@ -77,6 +78,23 @@ describe("tasknotes-bridge listTasks — indexed fast path", () => {
 		expect(result).toHaveLength(2);
 	});
 
+	it("skips paths whose tasks.get rejects instead of failing the whole listing", async () => {
+		const api = makeApi(TASKS);
+		api.tasks.get.mockImplementation(async (path: string) => {
+			if (path === "TaskNotes/Tasks/A.md") throw new Error("stale index entry");
+			return TASKS.find((t) => t.path === path) ?? null;
+		});
+		const app = makeApp({
+			api,
+			cacheManager: { getAllTaskPaths: () => new Set(TASKS.map((t) => t.path)) },
+		});
+
+		const result = await createTaskNotesBridge(app).listTasks();
+
+		expect(api.tasks.list).not.toHaveBeenCalled();
+		expect(result.map((t) => t.path)).toEqual(["TaskNotes/Tasks/B.md"]);
+	});
+
 	it("falls back to tasks.list when getAllTaskPaths throws", async () => {
 		const api = makeApi(TASKS);
 		const app = makeApp({
@@ -92,5 +110,33 @@ describe("tasknotes-bridge listTasks — indexed fast path", () => {
 
 		expect(api.tasks.list).toHaveBeenCalledTimes(1);
 		expect(result).toHaveLength(2);
+	});
+});
+
+describe("tasknotes-bridge listTasks — date normalization", () => {
+	it("truncates datetime due/scheduled values to YYYY-MM-DD", async () => {
+		const tasks: RawTaskInfo[] = [
+			{ path: "TaskNotes/Tasks/C.md", title: "Termin vorbereiten", status: "open", due: "2026-07-02T14:30", scheduled: "2026-07-01T09:00" },
+		];
+		const api = makeApi(tasks);
+		const app = makeApp({ api });
+
+		const result = await createTaskNotesBridge(app).listTasks();
+
+		expect(result[0].due).toBe("2026-07-02");
+		expect(result[0].scheduled).toBe("2026-07-01");
+	});
+
+	it("drops non-date due/scheduled values instead of passing garbage to the engine", async () => {
+		const tasks: RawTaskInfo[] = [
+			{ path: "TaskNotes/Tasks/D.md", title: "Unterlagen sichten", status: "open", due: "bald", scheduled: "2026-07-01" },
+		];
+		const api = makeApi(tasks);
+		const app = makeApp({ api });
+
+		const result = await createTaskNotesBridge(app).listTasks();
+
+		expect(result[0].due).toBeUndefined();
+		expect(result[0].scheduled).toBe("2026-07-01");
 	});
 });

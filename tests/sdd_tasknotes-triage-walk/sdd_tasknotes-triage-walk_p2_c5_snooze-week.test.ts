@@ -43,6 +43,7 @@ interface FeatureInternals {
 	index: number;
 	counts: { completed: number; snoozed: number; instancesSkipped: number; skipped: number };
 	todayIso: () => string;
+	walkToday: string;
 	beginWalk: () => Promise<void>;
 	presentStop: () => Promise<void>;
 	loadPreview: (task: TriageTask) => Promise<string>;
@@ -64,6 +65,7 @@ function setup(bridge: TaskNotesBridge) {
 	const internals = feature as unknown as FeatureInternals;
 	internals.bridge = bridge;
 	internals.todayIso = () => TODAY;
+	internals.walkToday = TODAY;
 	internals.presentStop = vi.fn(async () => {}); // keep headless
 	return { app, feature, internals };
 }

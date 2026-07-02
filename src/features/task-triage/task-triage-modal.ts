@@ -1,7 +1,7 @@
 import { App, Component, MarkdownRenderer, Modal } from "obsidian";
 import { formatDate } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
-import { overdueLabel, formatProjectLink } from "./task-triage-engine";
+import { overdueLabel, formatProjectLink, parseIsoDate } from "./task-triage-engine";
 import type { TriageTask, SnoozeKind } from "./task-triage-engine";
 
 export interface TaskTriageModalOptions {
@@ -17,11 +17,6 @@ export interface TaskTriageModalOptions {
 	onOpenAndStop: () => void;
 	onSkip: () => void;
 	onStop: () => void;
-}
-
-function parseIsoDate(iso: string): Date {
-	const [y, m, d] = iso.split("-").map(Number);
-	return new Date(y, m - 1, d);
 }
 
 export class TaskTriageModal extends Modal {
@@ -172,6 +167,13 @@ export class TaskTriageModal extends Modal {
 		this.chosen = true;
 		this.close();
 		fn();
+	}
+
+	// Close without routing the dismiss to onSkip — used by the feature's
+	// onunload so a plugin unload cannot resurrect the walk.
+	closeSilently(): void {
+		this.chosen = true;
+		this.close();
 	}
 
 	onClose(): void {

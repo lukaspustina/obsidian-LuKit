@@ -1,3 +1,4 @@
+import { formatDate, parseDateString } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
 import { extractSection } from "../besprechung/besprechung-engine";
 
@@ -25,22 +26,20 @@ export interface TriageSummary {
 	remaining: number;
 }
 
-function parseIsoDate(iso: string): Date {
-	const [y, m, d] = iso.split("-").map(Number);
-	return new Date(y, m - 1, d);
-}
-
-function toIso(date: Date): string {
-	const y = date.getFullYear();
-	const m = String(date.getMonth() + 1).padStart(2, "0");
-	const d = String(date.getDate()).padStart(2, "0");
-	return `${y}-${m}-${d}`;
+// All triage dates are YYYY-MM-DD by the bridge's normalization contract;
+// anything else is a programming error, so fail fast instead of NaN-math.
+export function parseIsoDate(iso: string): Date {
+	const parsed = parseDateString(iso, "iso");
+	if (parsed === null) {
+		throw new Error("invalid-iso-date");
+	}
+	return parsed;
 }
 
 function addDays(iso: string, days: number): string {
 	const dt = parseIsoDate(iso);
 	dt.setDate(dt.getDate() + days);
-	return toIso(dt);
+	return formatDate(dt, "iso");
 }
 
 function daysBetween(fromIso: string, toIsoStr: string): number {
@@ -116,19 +115,37 @@ function newestH5Sections(body: string, count: number): string {
 	return sections.join("\n\n");
 }
 
+const FAKTEN_HEADING = /^# Fakten und Pointer\s*$/;
+
+// The body after the Fakten h1 section (from the next h1 on), so the h5 scan
+// never re-counts h5 headings that live inside the Fakten section itself.
+function bodyAfterFakten(lines: string[], faktenIdx: number): string {
+	for (let i = faktenIdx + 1; i < lines.length; i++) {
+		if (/^# /.test(lines[i])) {
+			return lines.slice(i).join("\n");
+		}
+	}
+	return "";
+}
+
 export function buildTriagePreview(content: string): string {
 	const stripped = stripFrontmatter(content);
-	const fakten = extractSection(stripped, "Fakten und Pointer");
+	const lines = stripped.split("\n");
+	const faktenIdx = lines.findIndex((line) => FAKTEN_HEADING.test(line));
 
-	if (fakten === null) {
+	// Detect Vorgang-ness by the heading itself — extractSection returns null
+	// for an empty-bodied section too, which must still get the trimmed view.
+	if (faktenIdx === -1) {
 		return stripped;
 	}
 
-	const h5 = newestH5Sections(stripped, VORGANG_PREVIEW_SECTIONS);
+	const fakten = extractSection(stripped, "Fakten und Pointer");
+	const head = fakten === null ? "# Fakten und Pointer" : `# Fakten und Pointer\n${fakten}`;
+	const h5 = newestH5Sections(bodyAfterFakten(lines, faktenIdx), VORGANG_PREVIEW_SECTIONS);
 	if (h5 === "") {
-		return `# Fakten und Pointer\n${fakten}`;
+		return head;
 	}
-	return `# Fakten und Pointer\n${fakten}\n\n${h5}`;
+	return `${head}\n\n${h5}`;
 }
 
 export function overdueLabel(task: TriageTask, today: string, locale: DateLocale): string {
