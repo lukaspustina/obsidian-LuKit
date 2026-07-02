@@ -1,4 +1,4 @@
-import { App, Modal } from "obsidian";
+import { App, Component, MarkdownRenderer, Modal } from "obsidian";
 import { formatDate } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
 import { overdueLabel, formatProjectLink } from "./task-triage-engine";
@@ -28,6 +28,7 @@ function parseIsoDate(iso: string): Date {
 export class TaskTriageModal extends Modal {
 	private options: TaskTriageModalOptions;
 	private chosen = false;
+	private previewComponent = new Component();
 
 	constructor(app: App, options: TaskTriageModalOptions) {
 		super(app);
@@ -35,6 +36,7 @@ export class TaskTriageModal extends Modal {
 	}
 
 	onOpen(): void {
+		this.previewComponent.load();
 		this.renderHeader();
 		this.renderPreview();
 		this.registerActionKeys();
@@ -74,12 +76,17 @@ export class TaskTriageModal extends Modal {
 
 	private renderPreview(): void {
 		const preview = this.contentEl.createDiv({ cls: "lukit-triage-preview" });
-		preview.setText(this.options.preview);
 		preview.style.flex = "0 0 auto";
 		preview.style.maxHeight = "45vh";
 		preview.style.overflowY = "auto";
-		preview.style.whiteSpace = "pre-wrap";
 		preview.style.userSelect = "text";
+		void MarkdownRenderer.render(
+			this.app,
+			this.options.preview,
+			preview,
+			this.options.task.path,
+			this.previewComponent,
+		);
 	}
 
 	private registerActionKeys(): void {
@@ -161,6 +168,7 @@ export class TaskTriageModal extends Modal {
 	}
 
 	onClose(): void {
+		this.previewComponent.unload();
 		this.contentEl.empty();
 		setTimeout(() => {
 			if (this.chosen) return;

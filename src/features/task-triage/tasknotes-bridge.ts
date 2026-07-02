@@ -43,6 +43,7 @@ interface TaskNotesApi {
 	apiVersion: number;
 	hasCapability(id: string): boolean;
 	tasks: {
+		get(path: string): Promise<TaskInfo | null>;
 		list(): Promise<TaskInfo[]>;
 		complete(path: string): Promise<void>;
 		setScheduled(path: string, date: string): Promise<void>;
@@ -56,8 +57,22 @@ interface TaskNotesApi {
 	};
 }
 
+// Unofficial fast path: TaskNotes' internal TaskManager keeps a synchronous
+// filter index of task paths. The official api.tasks.list() instead walks
+// EVERY markdown file in the vault and falls back to a disk read for each
+// note without cached frontmatter — 20-30s on a large vault. We probe the
+// internal index defensively and fall back to list() if its shape changes.
+interface TaskNotesInternalCacheManager {
+	getAllTaskPaths?(): Set<string>;
+}
+
+interface TaskNotesPluginInstance {
+	api?: TaskNotesApi;
+	cacheManager?: TaskNotesInternalCacheManager;
+}
+
 interface PluginsAccessor {
-	getPlugin(id: string): { api?: TaskNotesApi } | null;
+	getPlugin(id: string): TaskNotesPluginInstance | null;
 }
 
 interface AppWithPlugins {
@@ -89,6 +104,28 @@ export function createTaskNotesBridge(app: App): TaskNotesBridge {
 		return file;
 	}
 
+	function internalTaskPaths(): string[] | null {
+		const plugins = (app as unknown as AppWithPlugins).plugins;
+		const cache = plugins.getPlugin("tasknotes")?.cacheManager;
+		if (cache === undefined || typeof cache.getAllTaskPaths !== "function") {
+			return null;
+		}
+		try {
+			return Array.from(cache.getAllTaskPaths());
+		} catch {
+			return null;
+		}
+	}
+
+	async function fetchTaskInfos(api: TaskNotesApi): Promise<TaskInfo[]> {
+		const paths = internalTaskPaths();
+		if (paths === null) {
+			return api.tasks.list();
+		}
+		const infos = await Promise.all(paths.map((p) => api.tasks.get(p)));
+		return infos.filter((info): info is TaskInfo => info !== null);
+	}
+
 	return {
 		availability(): BridgeAvailability {
 			const plugins = (app as unknown as AppWithPlugins).plugins;
@@ -117,7 +154,7 @@ export function createTaskNotesBridge(app: App): TaskNotesBridge {
 
 		async listTasks(): Promise<TriageTask[]> {
 			const api = requireApi();
-			const infos = await api.tasks.list();
+			const infos = await fetchTaskInfos(api);
 			const statuses = api.catalog.statuses();
 
 			return infos.map((task) => ({

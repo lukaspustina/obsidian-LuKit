@@ -79,5 +79,12 @@ export class Setting {
 	addToggle(_fn: any): this { return this; }
 	addButton(_fn: any): this { return this; }
 }
+export class Component {
+	load(): void {}
+	unload(): void {}
+}
+export const MarkdownRenderer = {
+	render: (_app: any, _md: string, _el: any, _path: string, _c: any): Promise<void> => Promise.resolve(),
+};
 export function addIcon(_id: string, _svg: string): void {}
 export function normalizePath(p: string): string { return p; }

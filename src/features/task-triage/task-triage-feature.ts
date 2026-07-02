@@ -30,7 +30,7 @@ export class TaskTriageFeature implements LuKitFeature {
 		this.bridge = createTaskNotesBridge(plugin.app);
 		plugin.addCommand({
 			id: "task-triage-walk",
-			name: "Triage: Walk due tasks",
+			name: "Vorgang: Triage due tasks",
 			icon: LUKIT_ICON_ID,
 			callback: () => this.startWalk(),
 		});
@@ -44,7 +44,7 @@ export class TaskTriageFeature implements LuKitFeature {
 		return [
 			{
 				commandId: "task-triage-walk",
-				displayName: "Triage: Walk due tasks",
+				displayName: "Vorgang: Triage due tasks",
 				description:
 					"Walk every TaskNotes task due or scheduled by today; per task: complete, snooze, skip today's recurring instance, open & stop, or skip. Requires the TaskNotes plugin.",
 			},
@@ -68,7 +68,13 @@ export class TaskTriageFeature implements LuKitFeature {
 		}
 
 		const today = this.todayIso();
-		const all = await this.bridge.listTasks();
+		const loading = new Notice("Sammle fällige Tasks…", 0);
+		let all: TriageTask[];
+		try {
+			all = await this.bridge.listTasks();
+		} finally {
+			loading.hide();
+		}
 		const selected = selectTriageTasks(all, today);
 		if (selected.length === 0) {
 			new Notice("Keine fälligen Tasks");
