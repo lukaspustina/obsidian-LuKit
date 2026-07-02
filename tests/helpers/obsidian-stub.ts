@@ -30,8 +30,40 @@ export class TFile {
 	basename = "";
 	stat = { mtime: 0, ctime: 0 };
 }
+// Recording element stub: captures created texts/children so modal render
+// output can be asserted headlessly (e.g. the triage meta line).
+export function __stubEl(): any {
+	const el: any = {
+		texts: [] as string[],
+		children: [] as any[],
+		empty: () => { el.children.length = 0; el.texts.length = 0; },
+		addClass: () => undefined,
+		addEventListener: () => undefined,
+		appendText: (t: string) => { el.texts.push(t); },
+		setText: (t: string) => { el.texts.push(t); },
+		createEl: (_tag: string, opts?: any) => {
+			const child = __stubEl();
+			if (opts && typeof opts.text === "string") child.texts.push(opts.text);
+			el.children.push(child);
+			return child;
+		},
+		createDiv: (opts?: any) => el.createEl("div", opts),
+		createSpan: (opts?: any) => el.createEl("span", opts),
+	};
+	return el;
+}
+
+// Collects all recorded texts of an element tree (depth-first).
+export function __allTexts(el: any): string[] {
+	const out: string[] = [...el.texts];
+	for (const child of el.children ?? []) out.push(...__allTexts(child));
+	return out;
+}
+
 export class Modal {
-	contentEl: any = { empty: () => undefined, addClass: () => undefined, createEl: () => ({ addClass: () => undefined, addEventListener: () => undefined, appendText: () => undefined, createEl: () => ({}) }) };
+	contentEl: any = __stubEl();
+	modalEl: any = __stubEl();
+	scope: any = { register: () => undefined };
 	app: any;
 	constructor(app: any) { this.app = app; }
 	open(): void {}

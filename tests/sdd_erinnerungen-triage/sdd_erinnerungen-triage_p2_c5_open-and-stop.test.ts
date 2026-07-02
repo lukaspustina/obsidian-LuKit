@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import type { TaskNotesBridge } from "../../src/features/task-triage/tasknotes-bridge";
 import type { TriageTask, TriageStop, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
-import { createMockApp, createMockPlugin, createMockTFile, makeTestSettings, asLuKitPlugin, lastNotice, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
+import { createMockApp, createMockPlugin, createMockTFile, createMockEditor, makeTestSettings, asLuKitPlugin, lastNotice, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
 
 const TODAY = "2026-07-02";
 // Tagebuch mit zwei fälligen Erinnerungen (01.07. überfällig, eine datumslos):
@@ -99,10 +99,15 @@ describe("TaskTriageFeature.handleOpenAndStop (Erinnerungen)", () => {
 		const listTasks = vi.fn(async () => []);
 		const { app, internals, diary } = setup(fakeBridge({ openInNewTab, listTasks }));
 
+		const editor = createMockEditor(DIARY);
+		app.workspace.activeEditor = { editor };
+
 		await internals.beginWalk();
 		await internals.handleOpenAndStop();
 
 		expect(app.workspace.openedFiles).toContain(diary);
+		// Cursor steht auf der Erinnerungszeile (lineIndex 6 = "- Zahnarzt anrufen, 01.07.2026").
+		expect(editor.cursorPos).toEqual({ line: 6, ch: 0 });
 		expect(internals.walkActive).toBe(false);
 		expect(internals.counts.completed).toBe(0);
 		expect(internals.counts.skipped).toBe(0);

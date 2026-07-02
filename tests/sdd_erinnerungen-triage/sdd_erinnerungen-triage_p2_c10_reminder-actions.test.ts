@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { TaskTriageModal } from "../../src/features/task-triage/task-triage-modal";
+import { __allTexts } from "../helpers/obsidian-stub";
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import type { TaskNotesBridge } from "../../src/features/task-triage/tasknotes-bridge";
 import type { TriageTask, TriageStop, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
@@ -119,5 +121,62 @@ describe("SDD erinnerungen-triage Phase 2 #10: availableActions Gegensatz Erinne
 		};
 
 		expect(internals.availableActions(recurringTaskStop)).toEqual({ snooze: false, skipInstance: true });
+	});
+
+	it("rendert die Meta-Zeile n/total · Erinnerung · fällig <Datum> · <überfällig>", () => {
+		const { app } = setup(fakeBridge());
+		const modal = new TaskTriageModal(app as never, {
+			stop: {
+				kind: "reminder",
+				reminder: { text: "Zahnarzt anrufen", date: new Date(2026, 6, 1), line: "- Zahnarzt anrufen, 01.07.2026", lineIndex: 6 },
+			},
+			actions: { snooze: true, skipInstance: false },
+			locale: "de",
+			today: TODAY,
+			position: { index: 0, total: 2 },
+			sourcePath: "Diary.md",
+			onComplete: () => undefined,
+			onSnooze: () => undefined,
+			onSnoozeCustom: () => undefined,
+			onSkipInstance: () => undefined,
+			onOpenAndStop: () => undefined,
+			onSkip: () => undefined,
+			onStop: () => undefined,
+		});
+
+		(modal as unknown as { renderHeader: () => void }).renderHeader();
+
+		const texts = __allTexts((modal as unknown as { contentEl: unknown }).contentEl).join("");
+		expect(texts).toContain("Zahnarzt anrufen");
+		expect(texts).toContain("1/2 · Erinnerung · fällig 01.07.2026");
+		expect(texts).toContain("1d überfällig");
+	});
+
+	it("rendert datumslose Erinnerungen mit „ohne Datum“ und ohne Überfällig-Segment", () => {
+		const { app } = setup(fakeBridge());
+		const modal = new TaskTriageModal(app as never, {
+			stop: {
+				kind: "reminder",
+				reminder: { text: "Angebot prüfen", date: null, line: "- Angebot prüfen", lineIndex: 7 },
+			},
+			actions: { snooze: true, skipInstance: false },
+			locale: "de",
+			today: TODAY,
+			position: { index: 1, total: 2 },
+			sourcePath: "Diary.md",
+			onComplete: () => undefined,
+			onSnooze: () => undefined,
+			onSnoozeCustom: () => undefined,
+			onSkipInstance: () => undefined,
+			onOpenAndStop: () => undefined,
+			onSkip: () => undefined,
+			onStop: () => undefined,
+		});
+
+		(modal as unknown as { renderHeader: () => void }).renderHeader();
+
+		const texts = __allTexts((modal as unknown as { contentEl: unknown }).contentEl).join("");
+		expect(texts).toContain("2/2 · Erinnerung · fällig ohne Datum");
+		expect(texts).not.toContain("überfällig");
 	});
 });
