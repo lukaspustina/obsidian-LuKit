@@ -102,10 +102,11 @@ function runJxa(script: string, args: string[]): Promise<string> {
 			"osascript",
 			["-l", "JavaScript", "-e", script, ...args],
 			{ maxBuffer: 16 * 1024 * 1024 },
-			(error, stdout) => {
+			(error, stdout, stderr) => {
 				if (error) {
+					const detail = typeof stderr === "string" ? stderr.trim() : "";
 					const msg = typeof error.message === "string" ? error.message : String(error);
-					if (msg.includes("-1743")) {
+					if (msg.includes("-1743") || detail.includes("-1743")) {
 						reject(
 							new Error(
 								"Mail-Automatisierung verweigert (-1743). Bitte erlaube Obsidian den Zugriff auf Mail in den Systemeinstellungen → Datenschutz → Automatisierung.",
@@ -113,7 +114,11 @@ function runJxa(script: string, args: string[]): Promise<string> {
 						);
 						return;
 					}
-					reject(error);
+					// Never surface error.message — execFile embeds the full command
+					// line (including the script source) in it. stderr's last line
+					// carries the actual JXA error.
+					const lastLine = detail === "" ? "" : (detail.split("\n").pop() ?? "").trim();
+					reject(new Error(lastLine === "" ? "Mail-Zugriff fehlgeschlagen." : `Mail-Zugriff fehlgeschlagen: ${lastLine}`));
 					return;
 				}
 				resolve(stdout);

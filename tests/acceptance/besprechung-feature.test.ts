@@ -106,6 +106,21 @@ describe("BesprechungFeature.filePendingCmd", () => {
 		expect(result).toBe(true);
 	});
 
+	it("vorgangAlreadyLinks detects the date-suffixed anchor bullet the plugin itself writes", () => {
+		const app = createMockApp({});
+		const plugin = createMockPlugin(makeTestSettings(), app);
+		const feature = new BesprechungFeature();
+		feature.onload(asLuKitPlugin(plugin));
+
+		// formatLinkedBullet("Meeting-B", …) writes `- [[#Meeting-B, 15.01.2026]]`
+		const vorgangContent = ["# Inhalt", "- [[#Meeting-B, 15.01.2026]]"].join("\n");
+
+		const internals = feature as unknown as { vorgangAlreadyLinks: (c: string, n: string) => boolean };
+		expect(internals.vorgangAlreadyLinks(vorgangContent, "Meeting-B")).toBe(true);
+		// A different note whose name merely shares the prefix must not match.
+		expect(internals.vorgangAlreadyLinks(vorgangContent, "Meeting")).toBe(false);
+	});
+
 	it("creates a diary entry when filing a besprechung into a vorgang", async () => {
 		const besprechung = createMockTFile("Besprechungen/Foo.md");
 		const vorgang = createMockTFile("Vorgänge/Vorgang - X.md");

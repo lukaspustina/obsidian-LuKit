@@ -210,7 +210,16 @@ export class BesprechungFeature implements LuKitFeature {
 		for (let i = range.firstBullet; i < range.afterLastBullet; i++) {
 			if (!lines[i].startsWith("- ")) continue;
 			const target = extractWikilinkTarget(lines[i]);
+			if (target === null) continue;
 			if (target === besprechungBasename) return true;
+			// formatLinkedBullet appends ", <date>" when the basename lacks one,
+			// so the extracted target carries the date suffix.
+			if (
+				target.startsWith(`${besprechungBasename}, `) &&
+				(["de", "en", "iso"] as const).some((locale) => extractDateFromTitle(target, locale) !== null)
+			) {
+				return true;
+			}
 		}
 		return false;
 	}

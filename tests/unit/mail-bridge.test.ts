@@ -42,6 +42,43 @@ describe("createOsascriptBridge — argv safety and mailbox resolution", () => {
 		expect(args).toContain("Archive");
 	});
 
+	it("sanitizes execFile errors — command line and script source never reach the message", async () => {
+		execFileMock.mockImplementation(
+			(_f: string, _a: string[], _o: unknown, cb: (e: Error | null, out: string, err: string) => void) =>
+				cb(
+					new Error("Command failed: osascript -l JavaScript -e function run(argv){ SECRET_SCRIPT }"),
+					"",
+					"execution error: Error: Mail got an error: timed out (-2700)",
+				),
+		);
+		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
+
+		const err = await bridge.archive("iCloud", "id-1").then(
+			() => null,
+			(e: Error) => e,
+		);
+
+		expect(err).not.toBeNull();
+		expect(err?.message).not.toContain("SECRET_SCRIPT");
+		expect(err?.message).toContain("Mail-Zugriff fehlgeschlagen");
+		expect(err?.message).toContain("-2700");
+	});
+
+	it("maps -1743 in stderr to the automation-permission message", async () => {
+		execFileMock.mockImplementation(
+			(_f: string, _a: string[], _o: unknown, cb: (e: Error | null, out: string, err: string) => void) =>
+				cb(new Error("Command failed: osascript …"), "", "execution error: Fehler (-1743)"),
+		);
+		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
+
+		const err = await bridge.archive("iCloud", "id-1").then(
+			() => null,
+			(e: Error) => e,
+		);
+
+		expect(err?.message).toContain("Automatisierung");
+	});
+
 	it("reports a true/false inbox membership from the script output", async () => {
 		execFileMock.mockImplementation(callbackWith("false\n"));
 		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");

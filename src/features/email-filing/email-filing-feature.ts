@@ -300,7 +300,13 @@ export class EmailFilingFeature implements LuKitFeature {
 								assembled,
 								this.applyPreviewResults(assembled.messages, results),
 								vorgang,
-							).then(() => this.presentMessage(metas, i + 1));
+							)
+								.then(() => this.presentMessage(metas, i + 1))
+								.catch((e) => {
+									this.logBridgeError(e);
+									new Notice("Ablage fehlgeschlagen — E-Mail wird erneut angezeigt.");
+									this.presentMessage(metas, i);
+								});
 						},
 						// Cancelling the preview returns to the picker for this same
 						// message (re-pick or choose Skip/Don't-file), rather than skipping it.
@@ -308,6 +314,13 @@ export class EmailFilingFeature implements LuKitFeature {
 							this.presentMessage(metas, i);
 						},
 					).open();
+				}).catch((e) => {
+					// Without this catch a rejection wedges the walk: the loading
+					// Notice never hides and walkInProgress stays true.
+					loading.hide();
+					this.logBridgeError(e);
+					new Notice("Thread konnte nicht zusammengestellt werden — E-Mail wird erneut angezeigt.");
+					this.presentMessage(metas, i);
 				});
 			},
 			onSkip: () => {
@@ -631,12 +644,25 @@ export class EmailFilingFeature implements LuKitFeature {
 								assembled,
 								this.applyPreviewResults(assembled.messages, results),
 								vorgang,
-							).then(() => this.presentSelected(sel, i + 1));
+							)
+								.then(() => this.presentSelected(sel, i + 1))
+								.catch((e) => {
+									this.logBridgeError(e);
+									new Notice("Ablage fehlgeschlagen — Nachricht wird erneut angezeigt.");
+									this.presentSelected(sel, i);
+								});
 						},
 						() => {
 							this.presentSelected(sel, i);
 						},
 					).open();
+				}).catch((e) => {
+					// Without this catch a rejection wedges the walk: the loading
+					// Notice never hides and walkInProgress stays true.
+					loading.hide();
+					this.logBridgeError(e);
+					new Notice("Thread konnte nicht zusammengestellt werden — Nachricht wird erneut angezeigt.");
+					this.presentSelected(sel, i);
 				});
 			},
 			onDrop: () => this.presentSelected(sel, i + 1),
@@ -840,6 +866,12 @@ export class EmailFilingFeature implements LuKitFeature {
 	}
 
 	renderSettings(containerEl: HTMLElement, plugin: LuKitPlugin): void {
+		// Own section div so "Detect accounts" can re-render only this feature's
+		// block instead of wiping the whole settings tab.
+		this.renderEmailSettings(containerEl.createDiv(), plugin);
+	}
+
+	private renderEmailSettings(containerEl: HTMLElement, plugin: LuKitPlugin): void {
 		const settings = plugin.settings.emailFiling;
 		containerEl.createEl("h3", { text: "E-Mail-Ablage" });
 
@@ -949,7 +981,7 @@ export class EmailFilingFeature implements LuKitFeature {
 						await plugin.saveSettings();
 						this.bridge = this.makeBridge();
 						containerEl.empty();
-						this.renderSettings(containerEl, plugin);
+						this.renderEmailSettings(containerEl, plugin);
 					} catch (e) {
 						this.logBridgeError(e);
 						new Notice("Konten konnten nicht ermittelt werden (Mail-Zugriff prüfen).");
