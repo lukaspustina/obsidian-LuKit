@@ -2,7 +2,7 @@ import { Notice, TFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature, HelpEntry } from "../../types";
-import { addVorgangSection, addVorgangSectionLinked, applyTypePrefix, buildStubContent, formatCreatedAtTimestamp, formatVorgangHeadingText, mergeVorgangContent } from "./vorgang-engine";
+import { addVorgangSection, addVorgangSectionLinked, applyTypePrefix, buildStubContent, ensureVorgangSkeleton, formatCreatedAtTimestamp, formatVorgangHeadingText, mergeVorgangContent } from "./vorgang-engine";
 import { extractDateFromTitle } from "../../shared/date-format";
 import { formatDiaryEntry, addEntryUnderToday } from "../../shared/diary";
 import { getDiaryNotePath } from "../../shared/diary-settings";
@@ -75,7 +75,7 @@ export class VorgangFeature implements LuKitFeature {
 			{
 				commandId: "vorgang-convert",
 				displayName: "Vorgang: Aktuelle Notiz umwandeln",
-				description: "Macht die aktive Notiz zur Zielnotiz: Typ wählen (Vorgang/Person/Bestellung/Bewerbung), ergänzt im Frontmatter das Tag, note_type: tasknote und Created at (Datei-Erstelldatum) und gleicht das Titel-Präfix an (<Typ> - <Name>: fehlendes Präfix wird vorangestellt, ein anderes Typ-Präfix ersetzt). Der Notiz-Inhalt bleibt unangetastet; idempotent.",
+				description: 'Macht die aktive Notiz zur Zielnotiz: Typ wählen (Vorgang/Person/Bestellung/Bewerbung), ergänzt im Frontmatter das Tag, note_type: tasknote und Created at (Datei-Erstelldatum) und gleicht das Titel-Präfix an (<Typ> - <Name>: fehlendes Präfix wird vorangestellt, ein anderes Typ-Präfix ersetzt). Ergänzt das Zielnotiz-Skelett (Fakten und Pointer, Nächste Schritte, Inhalt); ein bestehender Body wandert in eine datierte Sektion „Notiz". Idempotent.',
 			},
 			{
 				commandId: "vorgang-close",
@@ -149,9 +149,10 @@ export class VorgangFeature implements LuKitFeature {
 		}).open();
 	}
 
-	// Ergänzt nur die Funktionsfelder (Picker-Tag, TaskNotes-Erkennung,
-	// Datierung); bestehende Frontmatter-Werte und der Notiz-Inhalt bleiben
-	// unangetastet.
+	// Ergänzt die Funktionsfelder (Picker-Tag, TaskNotes-Erkennung, Datierung)
+	// und das Zielnotiz-Skelett; ein bestehender Body wandert in eine datierte
+	// Sektion „Notiz". Bestehende Frontmatter-Werte und bereits strukturierte
+	// Notizen bleiben unangetastet.
 	private async convertNote(file: TFile, tag: string): Promise<void> {
 		try {
 			await this.plugin.app.fileManager.processFrontMatter(file, (fm) => {
@@ -163,6 +164,9 @@ export class VorgangFeature implements LuKitFeature {
 					fm["Created at"] = formatCreatedAtTimestamp(new Date(file.stat.ctime));
 				}
 			});
+			await this.plugin.app.vault.process(file, (c) =>
+				ensureVorgangSkeleton(c, this.plugin.settings.dateLocale, new Date()),
+			);
 			// Titel-Präfix an den gewählten Typ angleichen ("<Typ> - <Name>").
 			const newBasename = applyTypePrefix(file.basename, tag, SECTION_NOTE_TAGS);
 			if (newBasename !== file.basename) {

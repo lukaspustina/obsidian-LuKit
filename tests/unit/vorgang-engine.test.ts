@@ -8,6 +8,7 @@ import {
 	findInhaltBulletRange,
 	addVorgangSection,
 	addVorgangSectionLinked,
+	ensureVorgangSkeleton,
 } from "../../src/features/vorgang/vorgang-engine";
 import { formatDate, extractDateFromTitle } from "../../src/shared/date-format";
 
@@ -667,5 +668,52 @@ describe("addVorgangSection with bodyLines", () => {
 		expect(newContent.indexOf("line1")).toBeGreaterThan(newContent.indexOf("##### Müller, 30.06.2026"));
 		// TOC gains exactly one new wikilink bullet (1 existing → 2).
 		expect((newContent.match(/- \[\[#/g) ?? []).length).toBe(2);
+	});
+});
+
+describe("ensureVorgangSkeleton", () => {
+	const date = new Date(2026, 6, 5); // 05.07.2026
+
+	it("adds the skeleton after the frontmatter when the body is empty", () => {
+		const content = "---\ntags: []\n---\n";
+		const result = ensureVorgangSkeleton(content, "de", date);
+		expect(result).toBe("---\ntags: []\n---\n\n# Fakten und Pointer\n\n# Nächste Schritte\n\n# Inhalt\n");
+	});
+
+	it("moves an existing body into a dated 'Notiz' section with TOC entry", () => {
+		const content = ["---", "tags: []", "---", "", "Alte Zeile 1", "- alter Bullet", ""].join("\n");
+		const result = ensureVorgangSkeleton(content, "de", date);
+
+		expect(result).toContain("# Fakten und Pointer");
+		expect(result).toContain("# Nächste Schritte");
+		expect(result).toContain("- [[#Notiz, 05.07.2026]]");
+		expect(result).toContain("##### Notiz, 05.07.2026");
+		// Body lines verbatim, below the new h5 header, in original order.
+		const headerAt = result.indexOf("##### Notiz, 05.07.2026");
+		expect(result.indexOf("Alte Zeile 1")).toBeGreaterThan(headerAt);
+		expect(result.indexOf("- alter Bullet")).toBeGreaterThan(result.indexOf("Alte Zeile 1"));
+		// The old body no longer sits above the skeleton.
+		expect(result.indexOf("# Fakten und Pointer")).toBeLessThan(result.indexOf("Alte Zeile 1"));
+	});
+
+	it("is idempotent — content with # Inhalt stays unchanged", () => {
+		const content = ["---", "tags: []", "---", "", "# Fakten und Pointer", "- x", "", "# Inhalt", ""].join("\n");
+		expect(ensureVorgangSkeleton(content, "de", date)).toBe(content);
+	});
+
+	it("stays unchanged when only # Fakten und Pointer exists (no duplicate structure)", () => {
+		const content = ["---", "tags: []", "---", "", "# Fakten und Pointer", "- x", ""].join("\n");
+		expect(ensureVorgangSkeleton(content, "de", date)).toBe(content);
+	});
+
+	it("handles notes without frontmatter", () => {
+		const result = ensureVorgangSkeleton("Nur Text\n", "de", date);
+		expect(result.startsWith("# Fakten und Pointer")).toBe(true);
+		expect(result).toContain("##### Notiz, 05.07.2026");
+		expect(result.indexOf("Nur Text")).toBeGreaterThan(result.indexOf("##### Notiz, 05.07.2026"));
+	});
+
+	it("produces the bare skeleton for a completely empty note", () => {
+		expect(ensureVorgangSkeleton("", "de", date)).toBe("# Fakten und Pointer\n\n# Nächste Schritte\n\n# Inhalt\n");
 	});
 });

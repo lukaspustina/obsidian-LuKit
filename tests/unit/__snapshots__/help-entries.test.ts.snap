@@ -39,7 +39,7 @@ exports[`LuKitFeature.helpEntries() registry > matches the snapshot 1`] = `
   },
   {
     "commandId": "vorgang-convert",
-    "description": "Macht die aktive Notiz zur Zielnotiz: Typ wählen (Vorgang/Person/Bestellung/Bewerbung), ergänzt im Frontmatter das Tag, note_type: tasknote und Created at (Datei-Erstelldatum) und gleicht das Titel-Präfix an (<Typ> - <Name>: fehlendes Präfix wird vorangestellt, ein anderes Typ-Präfix ersetzt). Der Notiz-Inhalt bleibt unangetastet; idempotent.",
+    "description": "Macht die aktive Notiz zur Zielnotiz: Typ wählen (Vorgang/Person/Bestellung/Bewerbung), ergänzt im Frontmatter das Tag, note_type: tasknote und Created at (Datei-Erstelldatum) und gleicht das Titel-Präfix an (<Typ> - <Name>: fehlendes Präfix wird vorangestellt, ein anderes Typ-Präfix ersetzt). Ergänzt das Zielnotiz-Skelett (Fakten und Pointer, Nächste Schritte, Inhalt); ein bestehender Body wandert in eine datierte Sektion „Notiz". Idempotent.",
     "displayName": "Vorgang: Aktuelle Notiz umwandeln",
   },
   {

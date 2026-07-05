@@ -112,6 +112,29 @@ export function addVorgangSectionLinked(
 	return insertVorgangContent(content, bullet, header, bodyLines, sortDate, locale);
 }
 
+// „Aktuelle Notiz umwandeln": ergänzt das Zielnotiz-Skelett (# Fakten und
+// Pointer / # Nächste Schritte / # Inhalt). Ein bestehender Body wandert in
+// eine datierte h5-Sektion „Notiz" mit TOC-Eintrag; Notizen, die bereits
+// # Inhalt oder # Fakten und Pointer enthalten, bleiben unverändert.
+export function ensureVorgangSkeleton(content: string, locale: DateLocale, date: Date): string {
+	const lines = content.split("\n");
+	if (lines.some((l) => l.trim() === "# Inhalt" || l.trim() === "# Fakten und Pointer")) return content;
+	const fmEnd = findFrontmatterEndIndex(lines);
+	const frontmatterLines = fmEnd === -1 ? [] : lines.slice(0, fmEnd + 1);
+	const body = lines.slice(fmEnd + 1);
+	while (body.length > 0 && body[0].trim() === "") body.shift();
+	const bodyLines = trimTrailingEmptyLines(body);
+	const skeletonLines =
+		fmEnd === -1
+			? ["# Fakten und Pointer", "", "# Nächste Schritte", "", "# Inhalt"]
+			: [...frontmatterLines, "", "# Fakten und Pointer", "", "# Nächste Schritte", "", "# Inhalt"];
+	const skeleton = skeletonLines.join("\n") + "\n";
+	if (bodyLines.length === 0) return skeleton;
+	const bullet = formatVorgangBullet("Notiz", locale, date);
+	const header = formatVorgangHeader("Notiz", locale, date);
+	return insertVorgangContent(skeleton, bullet, header, bodyLines, date, locale).newContent;
+}
+
 export function insertVorgangContent(
 	content: string,
 	bullet: string,

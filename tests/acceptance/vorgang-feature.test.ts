@@ -89,6 +89,32 @@ describe("VorgangFeature.convertNote", () => {
 		expect(app.fileManager.renamedTo).toEqual([]);
 	});
 
+	it("adds the section-note skeleton and moves an existing body into a dated 'Notiz' section", async () => {
+		const active = createMockTFile("Vorgänge/Vorgang - Strukturlos.md");
+		const { app, feature } = setup(active);
+		app.vault.files.set(active.path, "---\ntags: []\n---\n\nAlter Freitext\n");
+
+		await (feature as unknown as { convertNote: (f: MockTFile, tag: string) => Promise<void> }).convertNote(active, "Vorgang");
+
+		const content = app.vault.files.get(active.path) ?? "";
+		expect(content).toContain("# Fakten und Pointer");
+		expect(content).toContain("# Inhalt");
+		expect(content).toContain("- [[#Notiz, ");
+		expect(content).toContain("##### Notiz, ");
+		expect(content.indexOf("Alter Freitext")).toBeGreaterThan(content.indexOf("##### Notiz, "));
+	});
+
+	it("leaves an already structured body unchanged (skeleton idempotence)", async () => {
+		const active = createMockTFile("Vorgänge/Vorgang - Strukturiert.md");
+		const { app, feature } = setup(active);
+		const structured = "---\ntags: []\n---\n\n# Fakten und Pointer\n- x\n\n# Inhalt\n";
+		app.vault.files.set(active.path, structured);
+
+		await (feature as unknown as { convertNote: (f: MockTFile, tag: string) => Promise<void> }).convertNote(active, "Vorgang");
+
+		expect(app.vault.files.get(active.path)).toBe(structured);
+	});
+
 	it("replaces a different type prefix instead of stacking", async () => {
 		const active = createMockTFile("Notizen/Person - Erika Beispiel.md");
 		const { app, feature } = setup(active);
