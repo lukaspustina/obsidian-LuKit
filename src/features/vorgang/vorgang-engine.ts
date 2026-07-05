@@ -6,6 +6,8 @@ import {
 	formatLinkedBullet,
 	stripTrailingBrackets,
 	appendSectionAt,
+	tocAlreadyLinks,
+	extractWikilinkTarget,
 } from "../../shared/note-structure";
 
 export { findInhaltSectionIndex, findInhaltBulletRange, formatLinkedBullet };
@@ -110,7 +112,7 @@ export function addVorgangSectionLinked(
 	return insertVorgangContent(content, bullet, header, bodyLines, sortDate, locale);
 }
 
-function insertVorgangContent(
+export function insertVorgangContent(
 	content: string,
 	bullet: string,
 	header: string,
@@ -170,4 +172,163 @@ function trimTrailingEmptyLines(lines: string[]): string[] {
 		result.pop();
 	}
 	return result;
+}
+
+// Returns the index of the closing "---" of a frontmatter block, or -1 when
+// there is no frontmatter (first line is not "---"). Shared by
+// mergeVorgangContent and buildStubContent.
+function findFrontmatterEndIndex(lines: string[]): number {
+	if (lines[0] !== "---") return -1;
+	for (let i = 1; i < lines.length; i++) {
+		if (lines[i] === "---") return i;
+	}
+	return -1;
+}
+
+// Extracts the body of a "# <header>" section (lines after the header up to
+// the next h1-h5 heading), verbatim, not trimmed.
+function sliceSectionBody(lines: string[], header: string): string[] {
+	const start = lines.findIndex((l) => l.trim() === header);
+	if (start === -1) return [];
+	const body: string[] = [];
+	for (let i = start + 1; i < lines.length; i++) {
+		if (/^#{1,5} /.test(lines[i])) break;
+		body.push(lines[i]);
+	}
+	return body;
+}
+
+interface SourceH5Section {
+	header: string;
+	headingText: string;
+	body: string[];
+	date: Date | null;
+}
+
+// Enumerates the source's h5 sections (header + body up to the next h1-h5
+// heading). Content before the first "##### " header never opens a section.
+function parseH5Sections(lines: string[], locale: DateLocale): SourceH5Section[] {
+	const sections: SourceH5Section[] = [];
+	let i = 0;
+	while (i < lines.length) {
+		if (!lines[i].startsWith("##### ")) {
+			i++;
+			continue;
+		}
+		const header = lines[i];
+		const headingText = header.slice(6);
+		const body: string[] = [];
+		i++;
+		while (i < lines.length && !/^#{1,5} /.test(lines[i])) {
+			body.push(lines[i]);
+			i++;
+		}
+		while (body.length > 0 && body[body.length - 1].trim() === "") {
+			body.pop();
+		}
+		const date = extractDateFromTitle(stripTrailingBrackets(headingText), locale);
+		sections.push({ header, headingText, body, date });
+	}
+	return sections;
+}
+
+// Appends newLines to an existing "# header" section (right after its last
+// non-empty line, no inserted blank), or creates the section when missing:
+// after createAfterHeader's content range when that section exists, else
+// directly after the frontmatter.
+function mergeH1Section(
+	content: string,
+	header: string,
+	newLines: string[],
+	createAfterHeader: string | null,
+): string {
+	const lines = content.split("\n");
+	const headerIndex = lines.findIndex((l) => l.trim() === header);
+
+	if (headerIndex !== -1) {
+		let rangeEnd = lines.length;
+		for (let i = headerIndex + 1; i < lines.length; i++) {
+			if (/^#{1,5} /.test(lines[i])) {
+				rangeEnd = i;
+				break;
+			}
+		}
+		let lastNonEmpty = headerIndex;
+		for (let i = headerIndex + 1; i < rangeEnd; i++) {
+			if (lines[i].trim() !== "") lastNonEmpty = i;
+		}
+		lines.splice(lastNonEmpty + 1, 0, ...newLines);
+		return lines.join("\n");
+	}
+
+	let insertAt: number;
+	const afterIndex = createAfterHeader !== null ? lines.findIndex((l) => l.trim() === createAfterHeader) : -1;
+	if (afterIndex !== -1) {
+		insertAt = lines.length;
+		for (let i = afterIndex + 1; i < lines.length; i++) {
+			if (/^#{1,5} /.test(lines[i])) {
+				insertAt = i;
+				break;
+			}
+		}
+	} else {
+		insertAt = findFrontmatterEndIndex(lines) + 1;
+	}
+	lines.splice(insertAt, 0, header, ...newLines);
+	return lines.join("\n");
+}
+
+// Merges a source Vorgang's Fakten/Nächste-Schritte bullets and h5 sections
+// into a target Vorgang's content. Pure — mergeDate is passed in so dateless
+// source sections resolve deterministically.
+export function mergeVorgangContent(
+	sourceContent: string,
+	targetContent: string,
+	locale: DateLocale,
+	mergeDate: Date,
+): { newTargetContent: string; mergedSections: number; skippedDuplicates: number } {
+	const sourceLines = sourceContent.split("\n");
+	const originalTargetLines = targetContent.split("\n");
+	let working = targetContent;
+
+	const faktenBody = sliceSectionBody(sourceLines, "# Fakten und Pointer").filter((l) => l.trim() !== "");
+	if (faktenBody.length > 0) {
+		working = mergeH1Section(working, "# Fakten und Pointer", faktenBody, null);
+	}
+
+	const nsBody = sliceSectionBody(sourceLines, "# Nächste Schritte").filter((l) => l.trim() !== "");
+	if (nsBody.length > 0) {
+		working = mergeH1Section(working, "# Nächste Schritte", nsBody, "# Fakten und Pointer");
+	}
+
+	const sections = parseH5Sections(sourceLines, locale);
+	let mergedSections = 0;
+	let skippedDuplicates = 0;
+	for (const sec of [...sections].reverse()) {
+		const linkTarget = extractWikilinkTarget(sec.header);
+		if (linkTarget !== null && tocAlreadyLinks(originalTargetLines, linkTarget)) {
+			skippedDuplicates++;
+			continue;
+		}
+		const sortDate = sec.date ?? mergeDate;
+		const tocName = linkTarget ?? sec.headingText;
+		const bullet = formatLinkedBullet(tocName, locale, sortDate);
+		const { newContent } = insertVorgangContent(working, bullet, sec.header, sec.body, sortDate, locale);
+		working = newContent;
+		mergedSections++;
+	}
+
+	return { newTargetContent: working, mergedSections, skippedDuplicates };
+}
+
+// Builds the stub body for a merged-away source Vorgang: the frontmatter
+// block byte-identical, a blank line, then the merge-reference sentence.
+// Notes without frontmatter get just the sentence.
+export function buildStubContent(liveContent: string, targetBasename: string): string {
+	const lines = liveContent.split("\n");
+	const fmEnd = findFrontmatterEndIndex(lines);
+	const sentence = `Zusammengeführt in [[${targetBasename}]].`;
+	if (fmEnd === -1) return `${sentence}\n`;
+	const frontmatter = lines.slice(0, fmEnd + 1).join("\n");
+	return `${frontmatter}\n\n${sentence}\n`;
 }

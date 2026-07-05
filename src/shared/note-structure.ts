@@ -81,6 +81,32 @@ export function stripTrailingBrackets(s: string): string {
 	return s.replace(/\]+$/, "");
 }
 
+// Checks whether the `# Inhalt` TOC in `lines` contains a wikilink resolving
+// to `target`. Robust against date-resolution drift because it parses the
+// link target from each bullet rather than matching the rendered bullet
+// string.
+export function tocAlreadyLinks(lines: string[], target: string): boolean {
+	const inhaltIndex = findInhaltSectionIndex(lines);
+	if (inhaltIndex === -1) return false;
+	const range = findInhaltBulletRange(lines, inhaltIndex);
+	if (range === null) return false;
+	for (let i = range.firstBullet; i < range.afterLastBullet; i++) {
+		if (!lines[i].startsWith("- ")) continue;
+		const found = extractWikilinkTarget(lines[i]);
+		if (found === null) continue;
+		if (found === target) return true;
+		// formatLinkedBullet appends ", <date>" when the basename lacks one, so
+		// the extracted target carries the date suffix.
+		if (
+			found.startsWith(`${target}, `) &&
+			(["de", "en", "iso"] as const).some((locale) => extractDateFromTitle(found, locale) !== null)
+		) {
+			return true;
+		}
+	}
+	return false;
+}
+
 // Inserts an h5 section (header + optional body) into `lines` at `atIndex`.
 // Returns a new array (input not mutated) and the cursor line index pointing
 // to where the user can start typing.
