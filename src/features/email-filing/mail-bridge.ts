@@ -166,6 +166,25 @@ function lukitSentMailbox(Mail, accountName, preferredName) {
   }
   return null;
 }
+function lukitArchiveBox(Mail, accountName, preferredName) {
+  const acct = lukitAccount(Mail, accountName);
+  if (!acct) return null;
+  // Exact configured name first (user override).
+  if (preferredName) {
+    try { const bs = acct.mailboxes.whose({ name: preferredName })(); if (bs.length) return bs[0]; } catch (e) {}
+  }
+  // Auto-detect: Archive / Archiv (iCloud, Exchange) and Gmail's All Mail /
+  // Alle Nachrichten — Gmail accounts have no "Archive" mailbox at all.
+  let names = [];
+  try { names = [].concat(acct.mailboxes.name()); } catch (e) { return null; }
+  const patterns = [/^archive?$/i, /^archiv$/i, /^all mail$/i, /^alle nachrichten$/i];
+  for (let p = 0; p < patterns.length; p++) {
+    for (let i = 0; i < names.length; i++) {
+      if (patterns[p].test(names[i])) { try { return acct.mailboxes[i]; } catch (e) {} }
+    }
+  }
+  return null;
+}
 // Reads a message's attachments resiliently: name, mimeType and size are read
 // independently so a throwing property (mimeType() throws in some Mail versions)
 // does not drop the whole attachment. Skips only entries with no readable name.
@@ -252,8 +271,8 @@ function run(argv) {
   const accountName = argv[0], messageId = argv[1], mailboxName = argv[2];
   const m = lukitFindInInbox(Mail, accountName, messageId);
   if (!m) return "not-found";
-  const acct = lukitAccount(Mail, accountName);
-  const dest = acct.mailboxes.byName(mailboxName);
+  const dest = lukitArchiveBox(Mail, accountName, mailboxName);
+  if (!dest) return "no-mailbox";
   Mail.move(m, { to: dest });
   return "ok";
 }
@@ -450,6 +469,11 @@ export function createOsascriptBridge(
 			const result = (
 				await runJxa(ARCHIVE_JS, [accountName, messageId, mailboxFor(accountName)])
 			).trim();
+			if (result === "no-mailbox") {
+				throw new Error(
+					`Archiv-Postfach „${mailboxFor(accountName)}" im Konto „${accountName}" nicht gefunden — bitte in den LuKit-Einstellungen das richtige Postfach eintragen (Gmail: „All Mail" bzw. „Alle Nachrichten").`,
+				);
+			}
 			if (result !== "ok" && result !== "not-found") {
 				throw new Error(`Archivierung fehlgeschlagen (${result})`);
 			}

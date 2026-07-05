@@ -79,6 +79,33 @@ describe("createOsascriptBridge — argv safety and mailbox resolution", () => {
 		expect(err?.message).toContain("Automatisierung");
 	});
 
+	it("explains a missing archive mailbox with account name and Gmail hint", async () => {
+		execFileMock.mockImplementation(callbackWith("no-mailbox\n"));
+		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
+
+		const err = await bridge.archive("Privat Gmail", "id-1").then(
+			() => null,
+			(e: Error) => e,
+		);
+
+		expect(err?.message).toContain("Archiv-Postfach");
+		expect(err?.message).toContain("Privat Gmail");
+		expect(err?.message).toContain("All Mail");
+	});
+
+	it("archive script resolves the mailbox via the fallback helper, not byName", async () => {
+		execFileMock.mockImplementation(callbackWith("ok"));
+		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
+
+		await bridge.archive("Privat Gmail", "id-1");
+
+		const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+		const script = args[args.indexOf("-e") + 1];
+		expect(script).toContain("lukitArchiveBox");
+		expect(script).not.toContain("byName");
+		expect(script).toContain("all mail");
+	});
+
 	it("reports a true/false inbox membership from the script output", async () => {
 		execFileMock.mockImplementation(callbackWith("false\n"));
 		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
