@@ -27,7 +27,10 @@ if (cli) {
 const context = await esbuild.context({
 	entryPoints: ["src/main.ts"],
 	bundle: true,
-	external: ["obsidian", "electron", "child_process", "@codemirror/autocomplete", "@codemirror/collab", "@codemirror/commands", "@codemirror/language", "@codemirror/lint", "@codemirror/search", "@codemirror/state", "@codemirror/view", "@lezer/common", "@lezer/highlight", "@lezer/lr"],
+	// "child_process" and "path" are Node builtins used by the email-filing
+	// bridge/attachment save path; the bundle isn't platform: "node", so they
+	// must be externalized explicitly or the build breaks.
+	external: ["obsidian", "electron", "child_process", "path", "@codemirror/autocomplete", "@codemirror/collab", "@codemirror/commands", "@codemirror/language", "@codemirror/lint", "@codemirror/search", "@codemirror/state", "@codemirror/view", "@lezer/common", "@lezer/highlight", "@lezer/lr"],
 	format: "cjs",
 	target: "es2022",
 	logLevel: "info",

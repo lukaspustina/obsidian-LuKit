@@ -65,6 +65,8 @@ The inbox is the queue: filing or dismissing a message moves it out of the inbox
 
 Filing an email captures the **whole conversation**: your Sent replies **and** the thread's other emails still in your inbox are pulled in alongside the received message and written as one section, newest-first, de-duplicated against what the Vorgang already contains (re-filing a thread only adds new messages). The sibling inbox emails are archived too, so the whole thread leaves the inbox. In the preview each message has an **include/exclude checkbox** and an **editable body** — excluding one keeps it out of the note but still archives it. Suggestions also learn across sessions from Vorgänge you've filed into before.
 
+Attachments of the **included** messages are saved into the target note's `_resources/` folder and linked as wikilinks in the `Anhänge:` line; attachments that can't be saved (offline/lazy-IMAP, or any save failure) degrade to their plain filename instead — filing always completes either way.
+
 **Commands:**
 
 - **E-Mails: Posteingang ablegen** — Walk the inbox. Per message: pick a target (then review the assembled thread in a per-message preview — include/exclude checkbox + editable body per message — and confirm), `↪ Überspringen` (leave in inbox), `✕ Nicht ablegen` (archive without filing), or `→ Stopp` (open in Mail and stop). Keyboard: Enter files, **Esc = Skip**, **⌘. = Stop**, **⌘N = Nur archivieren**, **⌘P = toggle the email peek**; shortcuts shown in the modal's hint bar. With a configured "Kommando für neuen Vorgang" (e.g. your QuickAdd choice), the picker offers `＋ Neuen Vorgang anlegen…` — it runs the command and reopens the picker with the fresh note pinned on top.

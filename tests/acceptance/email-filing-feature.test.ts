@@ -24,6 +24,7 @@ function fakeBridge(overrides: Partial<MailBridge> = {}): MailBridge {
 		listInboxForThread: vi.fn(async () => []),
 		getSelection: vi.fn(async () => []),
 		detectSentMailboxes: vi.fn(async () => ({})),
+		saveAttachments: vi.fn(async () => []),
 		...overrides,
 	};
 }

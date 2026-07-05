@@ -20,10 +20,23 @@ export interface MockEditor {
 	value: string;
 }
 
+// Adapter stub for the attachment-save flow: `folders` holds existing folder
+// paths (vault-relative), `folderFiles` maps a folder to its contained file
+// paths (as adapter.list returns them, i.e. full vault-relative paths).
+export interface MockVaultAdapter {
+	folders: Set<string>;
+	folderFiles: Map<string, string[]>;
+	exists: (path: string) => Promise<boolean>;
+	mkdir: (path: string) => Promise<void>;
+	list: (path: string) => Promise<{ files: string[]; folders: string[] }>;
+	getBasePath: () => string;
+}
+
 export interface MockVault {
 	files: Map<string, string>;
 	processCallCount: number;
 	lastProcessedPath: string | null;
+	adapter: MockVaultAdapter;
 	read: (file: MockTFile) => Promise<string>;
 	modify: (file: MockTFile, content: string) => Promise<void>;
 	process: (file: MockTFile, fn: (content: string) => string) => Promise<void>;
@@ -150,10 +163,27 @@ export function createMockVault(initialFiles?: Record<string, string>): MockVaul
 		tfiles.set(path, createMockTFile(path));
 	}
 
+	const folders = new Set<string>();
+	const folderFiles = new Map<string, string[]>();
+	const adapter: MockVaultAdapter = {
+		folders,
+		folderFiles,
+		exists: vi.fn(async (path: string): Promise<boolean> => folders.has(path)),
+		mkdir: vi.fn(async (path: string): Promise<void> => {
+			folders.add(path);
+		}),
+		list: vi.fn(async (path: string): Promise<{ files: string[]; folders: string[] }> => ({
+			files: folderFiles.get(path) ?? [],
+			folders: [],
+		})),
+		getBasePath: () => "/vault",
+	};
+
 	const vault: MockVault = {
 		files,
 		processCallCount: 0,
 		lastProcessedPath: null,
+		adapter,
 		read: vi.fn(async (file: MockTFile): Promise<string> => {
 			const content = files.get(file.path);
 			if (content === undefined) {

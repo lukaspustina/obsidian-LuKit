@@ -1,5 +1,6 @@
 import { execFile } from "child_process";
-import { Notice, Setting, type TFile } from "obsidian";
+import { join } from "path";
+import { Notice, Setting, normalizePath, type App, type FileSystemAdapter, type TFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature, HelpEntry } from "../../types";
@@ -13,6 +14,8 @@ import {
 	stripSubjectPrefixes,
 	sanitizeSenderSubject,
 	threadKey,
+	resolveAttachmentFileNames,
+	decodeMessageIdFromUrl,
 	type EmailMeta,
 	type MailAttachment,
 	type ThreadSectionMessage,
@@ -35,6 +38,14 @@ import {
 // minScore must sit below NAME_MATCH_WEIGHT (0.4) so name-match-only ranking
 // (empty corpus) surfaces suggestions.
 const SUGGEST_MIN_SCORE = 0.01;
+
+// Absolute filesystem destination for a saved attachment: getBasePath() (the
+// bridge doesn't know the vault) + the vault-relative _resources folder +
+// the already-resolved filename.
+function resolveAttachmentDestPath(app: App, vaultRelativeFolder: string, fileName: string): string {
+	const basePath = (app.vault.adapter as FileSystemAdapter).getBasePath();
+	return join(basePath, vaultRelativeFolder, fileName);
+}
 
 // A fully-gathered thread, ready to preview and then commit. Built read-only by
 // assembleThread (no archive, no write); committed by commitThread.
@@ -539,6 +550,8 @@ export class EmailFilingFeature implements LuKitFeature {
 			return;
 		}
 
+		await this.saveThreadAttachments(meta.accountName, contentMessages, vorgang);
+
 		try {
 			const locale = this.plugin.settings.dateLocale;
 			const content = await this.plugin.app.vault.read(vorgang);
@@ -566,6 +579,76 @@ export class EmailFilingFeature implements LuKitFeature {
 		const extra = contentMessages.length - 1;
 		const suffix = extra > 0 ? ` (+${extra} Thread-Nachrichten)` : "";
 		new Notice(`Abgelegt: „${meta.subject}" → „${vorgang.basename}".${suffix}`);
+	}
+
+	// Vault-relative _resources folder for a target Vorgang note: the note's own
+	// folder plus "_resources". Falls back to deriving the folder from the note's
+	// path when `.parent` isn't populated (root-level notes have no parent path).
+	private resourcesFolderPathFor(vorgang: TFile): string {
+		const parentPath = vorgang.parent?.path;
+		if (parentPath) return `${parentPath}/_resources`;
+		const idx = vorgang.path.lastIndexOf("/");
+		return idx === -1 ? "_resources" : `${vorgang.path.slice(0, idx)}/_resources`;
+	}
+
+	// Saves the attachments of the included messages into the target Vorgang's
+	// _resources folder and fills msg.savedNames for the ones that succeed.
+	// Never throws — any failure (folder, listing, bridge) degrades the affected
+	// message(s) to plaintext names; the filing itself always proceeds.
+	private async saveThreadAttachments(
+		accountName: string,
+		contentMessages: ThreadSectionMessage[],
+		vorgang: TFile,
+	): Promise<void> {
+		const withAttachments = contentMessages.filter((m) => m.attachments.length > 0);
+		if (withAttachments.length === 0) return;
+
+		const adapter = this.plugin.app.vault.adapter;
+		const resourcesFolderPath = this.resourcesFolderPathFor(vorgang);
+		let existingNames: Set<string>;
+		try {
+			if (!(await adapter.exists(normalizePath(resourcesFolderPath)))) {
+				await adapter.mkdir(normalizePath(resourcesFolderPath));
+			}
+			const listed = await adapter.list(resourcesFolderPath);
+			existingNames = new Set(listed.files.map((p) => p.split("/").pop() as string));
+		} catch (e) {
+			// _resources not creatable/listable — no save attempt for any message
+			// of this thread, all attachment names stay plaintext.
+			this.logBridgeError(e);
+			return;
+		}
+
+		for (const msg of withAttachments) {
+			const pairs = resolveAttachmentFileNames(existingNames, msg.attachments.map((a) => a.name));
+			for (const { resolved } of pairs) existingNames.add(resolved);
+
+			const messageId = decodeMessageIdFromUrl(msg.messageUrl);
+			if (messageId === null) continue;
+
+			const items = pairs.map(({ original, resolved }) => ({
+				attachmentName: original,
+				destPath: resolveAttachmentDestPath(this.plugin.app, resourcesFolderPath, resolved),
+			}));
+
+			let saved: string[];
+			try {
+				saved = await this.bridge.saveAttachments(accountName, messageId, items);
+			} catch (e) {
+				this.logBridgeError(e);
+				continue;
+			}
+
+			const remaining = [...saved];
+			const savedNames = new Map<string, string>();
+			for (const { original, resolved } of pairs) {
+				const idx = remaining.indexOf(original);
+				if (idx === -1) continue;
+				savedNames.set(original, resolved);
+				remaining.splice(idx, 1);
+			}
+			if (savedNames.size > 0) msg.savedNames = savedNames;
+		}
 	}
 
 	// Non-interactive filing (assemble → commit with all messages, unedited). The
@@ -774,6 +857,7 @@ export class EmailFilingFeature implements LuKitFeature {
 			new Notice(`Nichts in „${vorgang.basename}" übernommen (alle abgewählt).`);
 			return;
 		}
+		await this.saveThreadAttachments(m.accountName, contentMessages, vorgang);
 		try {
 			const locale = this.plugin.settings.dateLocale;
 			const content = await this.plugin.app.vault.read(vorgang);
