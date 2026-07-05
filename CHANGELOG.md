@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-07-05
+
+### Added
+- **Vorgang: In anderen Vorgang zusammenführen** — structure-aware merge of two Vorgänge: Fakten and Nächste Schritte bullets are appended, h5 sections land date-sorted with fresh TOC entries, already-linked sections are skipped as duplicates. The source becomes a stub (`Zusammengeführt in [[Ziel]].`), gets the done tag, loses `note_type`, and is deliberately NOT renamed; the merge is logged to the diary and summarized in a pluralized Notice. Fail-safe write order: target first — an aborted merge never loses data (c215168, 442ab9b).
+- **Email attachments land in the vault** — filing an email (walk and single-shot) saves the included messages' real attachments to the target note's folder under `_resources/` and links them as wikilinks in the `Anhänge:` line. Collision-safe naming (` 2` suffix, case-insensitive, thread-wide), sender-controlled filenames are sanitized against path traversal, and any save failure degrades to the plain name without stopping the filing (89d8983, f060715).
+- **Vorgang: Aktuelle Notiz umwandeln** now adds the section-note skeleton (`# Fakten und Pointer`, `# Nächste Schritte`, `# Inhalt`); an existing body moves into a dated `Notiz` section with TOC entry — converted notes are immediately merge- and reference-ready (79c039c). The command also aligns the title prefix (`<Typ> - <Name>`, replacing a different type prefix) (a4d0c46).
+- **Create a Vorgang mid-walk** — the filing pickers (email + besprechung) gain a „＋ Neuen Vorgang anlegen…" entry that runs a configured command (e.g. a QuickAdd choice), waits for the new note to be tag-indexed, and reopens the picker with it pinned. New setting: „Kommando für neuen Vorgang" (63c9526).
+- **Vorgang: Vorgang referenzieren / Abschließen** — insert a one-way linked section for a picked Vorgang; close a Vorgang (done tag, `note_type` removed, rename to „… - done", diary entry) (8c41f1f).
+- Migration command renamed to the Vorgang prefix (ID unchanged — hotkeys survive) (87f0965).
+
+### Fixed
+- Gmail archiving: the archive mailbox now resolves via fallback search (Archive/Archiv/All Mail/Alle Nachrichten — Gmail has no "Archive" mailbox) and matches nested `[Gmail]/…` names by their last path segment; an unresolvable mailbox yields a German Notice naming the account (feeb463, 7b3bb35).
+
+### Security
+- npm audit fix — vitest, vite, postcss security updates (008b062).
+
 ## [1.17.0] - 2026-07-02
 
 ### Added
