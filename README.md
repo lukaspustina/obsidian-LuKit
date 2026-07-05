@@ -54,7 +54,7 @@ Auto-detects and converts old-format notes to the current format with a single c
 
 **Commands:**
 
-- **Konvertierung: Altes Format migrieren** — Auto-detects the note type, prompts for a frontmatter tag (Vorgang only, default: `"Vorgang"`), shows a confirmation dialog with the number of changes, and applies the migration. Safe to run multiple times (idempotent).
+- **Vorgang: Altes Format migrieren** — Auto-detects the note type, prompts for a frontmatter tag (Vorgang only, default: `"Vorgang"`), shows a confirmation dialog with the number of changes, and applies the migration. Safe to run multiple times (idempotent).
 
 ### Email Filing (macOS / Apple Mail only)
 
@@ -112,7 +112,7 @@ Controls the date format used in diary headers, Vorgang sections, and reminders.
 | **E-Mails: Posteingang ablegen** | (macOS/Apple Mail) Walk the inbox; file each message's conversation (received + your Sent replies) into a section note (archive + embed) or dismiss; inbox-zero, no vault copies |
 | **E-Mail: In Mail ausgewählte Nachricht ablegen** | (macOS/Apple Mail) File the selected Mail message(s) + thread into a section note; capture-only (no archive); for threads you initiated |
 | **Vorgänge: Fällige Aufgaben durchgehen** | Walk due diary reminders (delete/reschedule the line) and TaskNotes tasks (complete, snooze, skip) via keyboard; reminders first, TaskNotes ≥ 4.10.0 only needed for task stops |
-| **Konvertierung: Altes Format migrieren** | Auto-detect note type and convert old format to current |
+| **Vorgang: Altes Format migrieren** | Auto-detect note type and convert old format to current |
 | **Help** | Show the LuKit help dialog |
 
 ## CLI

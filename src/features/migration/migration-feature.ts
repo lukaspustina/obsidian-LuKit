@@ -19,7 +19,7 @@ export class MigrationFeature implements LuKitFeature {
 
 		plugin.addCommand({
 			id: "migration-convert-bold",
-			name: "Konvertierung: Altes Format migrieren",
+			name: "Vorgang: Altes Format migrieren",
 			icon: LUKIT_ICON_ID,
 			callback: () => this.migrateCmd(),
 		});
@@ -33,7 +33,7 @@ export class MigrationFeature implements LuKitFeature {
 		return [
 			{
 				commandId: "migration-convert-bold",
-				displayName: "Konvertierung: Altes Format migrieren",
+				displayName: "Vorgang: Altes Format migrieren",
 				description: "Erkennt den Notiztyp automatisch und konvertiert das Altformat ins aktuelle. Zeigt vorher einen Bestätigungsdialog mit Änderungsumfang.",
 			},
 		];

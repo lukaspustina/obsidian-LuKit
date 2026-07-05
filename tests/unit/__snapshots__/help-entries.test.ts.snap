@@ -65,7 +65,7 @@ exports[`LuKitFeature.helpEntries() registry > matches the snapshot 1`] = `
   {
     "commandId": "migration-convert-bold",
     "description": "Erkennt den Notiztyp automatisch und konvertiert das Altformat ins aktuelle. Zeigt vorher einen Bestätigungsdialog mit Änderungsumfang.",
-    "displayName": "Konvertierung: Altes Format migrieren",
+    "displayName": "Vorgang: Altes Format migrieren",
   },
 ]
 `;
