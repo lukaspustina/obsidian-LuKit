@@ -48,6 +48,11 @@ exports[`LuKitFeature.helpEntries() registry > matches the snapshot 1`] = `
     "displayName": "Vorgang: Abschließen",
   },
   {
+    "commandId": "vorgang-merge",
+    "description": "Führt die aktive Notiz (Quelle) strukturbewusst in eine per Picker gewählte Zielnotiz über: Fakten und Nächste Schritte werden angehängt, h5-Sektionen samt TOC-Einträgen datumssortiert eingefügt, bereits verlinkte Sektionen als Duplikate übersprungen. Die Quelle wird zum Stub mit Verweis, erhält das Abgeschlossen-Tag und verliert note_type — sie wird NICHT umbenannt. Dokumentiert die Zusammenführung im Tagebuch.",
+    "displayName": "Vorgang: In anderen Vorgang zusammenführen",
+  },
+  {
     "commandId": "besprechung-add-summary",
     "description": "Besprechungs-Notiz wählen, Kernabschnitte extrahieren, an der Cursor-Position einfügen (in Vorgang/Person/Bestellung/Bewerbung-Notizen als verlinkter Abschnitt).",
     "displayName": "Besprechung: Zusammenfassung einfügen",

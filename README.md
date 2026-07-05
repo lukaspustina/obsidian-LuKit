@@ -28,6 +28,7 @@ Automates adding a new section to "Vorgang"-style notes. A Vorgang note has a `#
 - **Vorgang: Vorgang referenzieren** — Pick another section note (Vorgang/Person/Bestellung/Bewerbung; closed notes hidden) and insert a linked section into the active Vorgang: TOC bullet + `##### [[Target]], DD.MM.YYYY` with the cursor below for your own notes. One-way — the target note is untouched (Obsidian backlinks cover the reverse direction).
 - **Vorgang: Aktuelle Notiz umwandeln** — Turn the active note into a section note: pick the type, and the frontmatter gains the tag, `note_type: tasknote`, and `Created at` (file creation date); the title gets the type prefix (`<Typ> - <Name>` — a different type prefix is replaced, links update automatically). Existing frontmatter values win; the note body is untouched. Idempotent.
 - **Vorgang: Abschließen** — Close the active section note: sets the done tag (note disappears from all filing pickers and suggestions), removes `note_type` (disappears from TaskNotes), renames the file to `… - done` (links update automatically), and logs `- [[Name]] abgeschlossen` under today's diary header.
+- **Vorgang: In anderen Vorgang zusammenführen** — Merge the active note (source) into a picker-chosen target section note: Fakten and Nächste Schritte bullets are appended, h5 sections are inserted with new TOC entries in date order, and sections already linked in the target are skipped as duplicates. The source becomes a stub (`Zusammengeführt in [[Target]].`), gets the done tag, and loses `note_type` — it is NOT renamed (a stable path keeps incoming links and `filed_into` stamps valid). Logs `- [[Source]] → in [[Target]] zusammengeführt` under today's diary header.
 
 ### Besprechung
 
@@ -106,6 +107,7 @@ Controls the date format used in diary headers, Vorgang sections, and reminders.
 | **Vorgang: Vorgang referenzieren** | Insert a linked section referencing another section note (one-way, target untouched) |
 | **Vorgang: Aktuelle Notiz umwandeln** | Add tag, `note_type: tasknote`, and `Created at` to the active note's frontmatter |
 | **Vorgang: Abschließen** | Set done tag, remove `note_type`, rename to `… - done`, log closure in the diary |
+| **Vorgang: In anderen Vorgang zusammenführen** | Merge the active note into a chosen target Vorgang (facts + next steps + date-sorted sections, dedup), stub the source with the done tag, log in the diary |
 | **Besprechung: Zusammenfassung einfügen** | Pick a meeting note, extract key sections, insert at cursor (or as a linked section in Vorgang/Person/Bestellung/Bewerbung notes) |
 | **Besprechungen: Alle offenen ablegen** | Walk Besprechungen tagged with the pending tag, pick a target section note for each; files the summary and removes the pending tag |
 | **Besprechung: Aktuelle Notiz ablegen** | File the active Besprechung into a section note (Vorgang/Person/Bestellung/Bewerbung); same insertion + frontmatter stamping as 'Alle offenen ablegen' |

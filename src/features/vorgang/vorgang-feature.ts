@@ -2,7 +2,7 @@ import { Notice, TFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature, HelpEntry } from "../../types";
-import { addVorgangSection, addVorgangSectionLinked, applyTypePrefix, formatCreatedAtTimestamp, formatVorgangHeadingText } from "./vorgang-engine";
+import { addVorgangSection, addVorgangSectionLinked, applyTypePrefix, buildStubContent, formatCreatedAtTimestamp, formatVorgangHeadingText, mergeVorgangContent } from "./vorgang-engine";
 import { extractDateFromTitle } from "../../shared/date-format";
 import { formatDiaryEntry, addEntryUnderToday } from "../../shared/diary";
 import { getDiaryNotePath } from "../../shared/diary-settings";
@@ -47,6 +47,13 @@ export class VorgangFeature implements LuKitFeature {
 				void this.closeVorgangCmd();
 			},
 		});
+
+		plugin.addCommand({
+			id: "vorgang-merge",
+			name: "Vorgang: In anderen Vorgang zusammenführen",
+			icon: LUKIT_ICON_ID,
+			callback: () => this.mergeVorgangCmd(),
+		});
 	}
 
 	onunload(): void {
@@ -74,6 +81,11 @@ export class VorgangFeature implements LuKitFeature {
 				commandId: "vorgang-close",
 				displayName: "Vorgang: Abschließen",
 				description: 'Setzt das Abgeschlossen-Tag (Notiz verschwindet aus Pickern und Vorschlägen), entfernt note_type (verschwindet aus TaskNotes), benennt die Datei in „… - done" um und dokumentiert den Abschluss im Tagebuch. Wiedereröffnen = Tag entfernen.',
+			},
+			{
+				commandId: "vorgang-merge",
+				displayName: "Vorgang: In anderen Vorgang zusammenführen",
+				description: "Führt die aktive Notiz (Quelle) strukturbewusst in eine per Picker gewählte Zielnotiz über: Fakten und Nächste Schritte werden angehängt, h5-Sektionen samt TOC-Einträgen datumssortiert eingefügt, bereits verlinkte Sektionen als Duplikate übersprungen. Die Quelle wird zum Stub mit Verweis, erhält das Abgeschlossen-Tag und verliert note_type — sie wird NICHT umbenannt. Dokumentiert die Zusammenführung im Tagebuch.",
 			},
 		];
 	}
@@ -213,6 +225,93 @@ export class VorgangFeature implements LuKitFeature {
 
 		const locale = this.plugin.settings.dateLocale;
 		const entry = `- [[${file.basename}]] abgeschlossen`;
+		try {
+			await this.plugin.app.vault.process(diaryAbstract, (content) => {
+				const { newContent } = addEntryUnderToday(content, entry, locale, new Date());
+				return newContent;
+			});
+		} catch (e) {
+			new Notice("Tagebuch konnte nicht geschrieben werden: " + (e instanceof Error ? e.message : String(e)));
+		}
+	}
+
+	private mergeVorgangCmd(): void {
+		const file = this.plugin.app.workspace.getActiveFile();
+		if (!file) {
+			new Notice("Keine aktive Notiz geöffnet.");
+			return;
+		}
+		const tags = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter?.tags;
+		if (!frontmatterTagsInclude(tags, SECTION_NOTE_TAGS)) {
+			new Notice(`„${file.basename}“ ist keine Zielnotiz (Tag Vorgang/Person/Bestellung/Bewerbung fehlt).`);
+			return;
+		}
+		if (frontmatterTagsInclude(tags, this.plugin.settings.doneTag)) {
+			new Notice(`„${file.basename}“ ist bereits abgeschlossen.`);
+			return;
+		}
+		this.openMergeTargetPicker(file);
+	}
+
+	private openMergeTargetPicker(source: TFile): void {
+		new SectionNoteSuggestModal(this.plugin.app, SECTION_NOTE_TAGS, {
+			placeholder: `Ziel-Vorgang wählen, in den „${source.basename}“ zusammengeführt wird…`,
+			excludeTag: this.plugin.settings.doneTag,
+			excludePath: source.path,
+			onPick: (target) => {
+				void this.mergeInto(source, target);
+			},
+		}).open();
+	}
+
+	private async mergeInto(source: TFile, target: TFile): Promise<void> {
+		const locale = this.plugin.settings.dateLocale;
+		const sourceContent = await this.plugin.app.vault.read(source);
+
+		// 1) Ziel zuerst schreiben — scheitert dieser Schritt, bleibt die Quelle unangetastet.
+		let mergeResult: { newTargetContent: string; mergedSections: number; skippedDuplicates: number } | undefined;
+		try {
+			await this.plugin.app.vault.process(target, (targetContent) => {
+				mergeResult = mergeVorgangContent(sourceContent, targetContent, locale, new Date());
+				return mergeResult.newTargetContent;
+			});
+		} catch (e) {
+			new Notice("Merge fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
+
+		// 2) Quelle stubben: erst der Body, dann das Frontmatter (Abgeschlossen-Tag, note_type entfernen).
+		try {
+			await this.plugin.app.vault.process(source, (liveContent) => buildStubContent(liveContent, target.basename));
+			await this.plugin.app.fileManager.processFrontMatter(source, (fm) => {
+				addTagToFrontmatter(fm, this.plugin.settings.doneTag);
+				delete fm.note_type;
+			});
+		} catch (e) {
+			new Notice("Ziel aktualisiert, aber Quelle konnte nicht gestubbt werden: " + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
+
+		await this.addDiaryEntryForMerge(source, target);
+
+		const result = mergeResult!;
+		const sektionWord = result.mergedSections === 1 ? "Sektion" : "Sektionen";
+		const dupWord = result.skippedDuplicates === 1 ? "Duplikat" : "Duplikate";
+		new Notice(
+			`„${source.basename}“ → „${target.basename}“: ${result.mergedSections} ${sektionWord} übernommen, ${result.skippedDuplicates} ${dupWord} übersprungen.`,
+		);
+	}
+
+	// Dokumentiert die Zusammenführung unter dem heutigen Datum im Tagebuch; fehlender
+	// Pfad oder fehlende Notiz überspringt still (die Merge-Notice erscheint trotzdem).
+	private async addDiaryEntryForMerge(source: TFile, target: TFile): Promise<void> {
+		const diaryPath = getDiaryNotePath(this.plugin);
+		if (!diaryPath) return;
+		const diaryAbstract = this.plugin.app.vault.getAbstractFileByPath(diaryPath);
+		if (!(diaryAbstract instanceof TFile)) return;
+
+		const locale = this.plugin.settings.dateLocale;
+		const entry = `- [[${source.basename}]] → in [[${target.basename}]] zusammengeführt`;
 		try {
 			await this.plugin.app.vault.process(diaryAbstract, (content) => {
 				const { newContent } = addEntryUnderToday(content, entry, locale, new Date());
