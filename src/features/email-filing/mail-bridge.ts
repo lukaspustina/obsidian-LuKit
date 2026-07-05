@@ -89,6 +89,21 @@ export interface MailBridge {
 	getSelection(): Promise<SelectedMessage[]>;
 	/** Resolves each account's actual Sent mailbox name (run once at Detect time). */
 	detectSentMailboxes(): Promise<Record<string, string>>;
+	/**
+	 * Saves each named attachment of the message to its destPath (an absolute
+	 * filesystem path already resolved by the caller — the bridge does not know
+	 * the vault). Finds the message via lukitFindMessageAnywhere (inbox first,
+	 * then all mailboxes of the account, so the single-shot command's Sent
+	 * messages are covered too). Per-attachment try/catch; returns only the
+	 * attachmentNames that saved successfully — a not-found message or a
+	 * not-found attachment yields a shorter (possibly empty) list, never a
+	 * rejection. Rejects only on osascript-level errors.
+	 */
+	saveAttachments(
+		accountName: string,
+		messageId: string,
+		items: { attachmentName: string; destPath: string }[],
+	): Promise<string[]>;
 }
 
 // Runs a JXA script via `osascript -l JavaScript -e <script> -- <args…>`. All
@@ -149,6 +164,24 @@ function lukitFindInInbox(Mail, accountName, messageId) {
   // Single filtered query instead of scanning every message one at a time.
   const matches = box.messages.whose({ messageId: messageId })();
   return matches.length > 0 ? matches[0] : null;
+}
+function lukitFindMessageAnywhere(Mail, accountName, messageId) {
+  // Inbox first (the common case), then every mailbox of the account — the
+  // single-shot command also covers Sent messages. A single lookup per call,
+  // so scanning all mailboxes here is uncritical (unlike listInbox's bulk scan).
+  const inInbox = lukitFindInInbox(Mail, accountName, messageId);
+  if (inInbox) return inInbox;
+  const acct = lukitAccount(Mail, accountName);
+  if (!acct) return null;
+  let boxes = [];
+  try { boxes = acct.mailboxes(); } catch (e) { return null; }
+  for (let i = 0; i < boxes.length; i++) {
+    try {
+      const matches = boxes[i].messages.whose({ messageId: messageId })();
+      if (matches.length > 0) return matches[0];
+    } catch (e) {}
+  }
+  return null;
 }
 function lukitSentMailbox(Mail, accountName, preferredName) {
   const acct = lukitAccount(Mail, accountName);
@@ -414,6 +447,43 @@ function run() {
 }
 `;
 
+// Saves the named attachments of one message to their destPath. argv[2] is a
+// JSON array of {attachmentName, destPath}; destPath is already the full
+// absolute path (the bridge does not know the vault). Per-attachment
+// try/catch — one failing attachment (not found, or not yet downloaded from
+// an IMAP server) does not block the others. Returns the JSON array of
+// attachmentNames actually saved.
+const SAVE_ATTACHMENTS_JS =
+	JXA_HELPERS +
+	`
+function run(argv) {
+  const Mail = Application("Mail");
+  const accountName = argv[0], messageId = argv[1];
+  let items = [];
+  try { items = JSON.parse(argv[2]); } catch (e) { items = []; }
+  const m = lukitFindMessageAnywhere(Mail, accountName, messageId);
+  if (!m) return JSON.stringify([]);
+  let raw = [];
+  try { raw = m.mailAttachments(); } catch (e) { return JSON.stringify([]); }
+  const saved = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    try {
+      let att = null;
+      for (let j = 0; j < raw.length; j++) {
+        let name = "";
+        try { name = raw[j].name(); } catch (e) {}
+        if (name === item.attachmentName) { att = raw[j]; break; }
+      }
+      if (!att) continue;
+      att.save({ in: Path(item.destPath) });
+      saved.push(item.attachmentName);
+    } catch (e) {}
+  }
+  return JSON.stringify(saved);
+}
+`;
+
 // Parses Mail's "Display Name <addr@host>" sender into a display name, falling
 // back to the bare address when no display name is present.
 function parseSenderName(sender: string): string {
@@ -578,6 +648,16 @@ export function createOsascriptBridge(
 
 		async detectSentMailboxes(): Promise<Record<string, string>> {
 			return JSON.parse(await runJxa(DETECT_SENT_JS, [])) as Record<string, string>;
+		},
+
+		async saveAttachments(
+			accountName: string,
+			messageId: string,
+			items: { attachmentName: string; destPath: string }[],
+		): Promise<string[]> {
+			return JSON.parse(
+				await runJxa(SAVE_ATTACHMENTS_JS, [accountName, messageId, JSON.stringify(items)]),
+			) as string[];
 		},
 	};
 }

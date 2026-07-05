@@ -18,6 +18,9 @@ export interface EmailMeta {
 	messageUrl: string;
 }
 
+// Fallback name for attachments whose basename sanitizes to empty/dots-only.
+const ATTACHMENT_FALLBACK_NAME = "Anhang";
+
 // Auto-generated inline-image names: mail clients embed signature logos and
 // pasted images as imageNNN.<ext>. mimeType is unreliable via JXA (often throws
 // / comes back empty), so inline detection keys off this filename pattern, not
@@ -74,6 +77,65 @@ export function filterAttachments(all: MailAttachment[]): MailAttachment[] {
 	return all.filter((a) => !INLINE_IMAGE_NAME.test(a.name));
 }
 
+// Reduces an attacker/sender-controlled attachment name to its basename
+// (everything after the last "/" or "\"), so a saved destPath can never escape
+// _resources via a traversal segment. Empty or dots-only basenames (e.g. "..",
+// "docs/") fall back to ATTACHMENT_FALLBACK_NAME.
+function sanitizeAttachmentBasename(name: string): string {
+	const idx = Math.max(name.lastIndexOf("/"), name.lastIndexOf("\\"));
+	const basename = idx === -1 ? name : name.slice(idx + 1);
+	return /^\.*$/.test(basename) ? ATTACHMENT_FALLBACK_NAME : basename;
+}
+
+// Inserts a collision suffix (" 2", " 3", …) before the last "." of a
+// basename; no dot, or a dot at index 0 (e.g. ".gitignore"), appends the
+// suffix at the end instead.
+function withCollisionSuffix(basename: string, n: number): string {
+	const dot = basename.lastIndexOf(".");
+	if (dot <= 0) return `${basename} ${n}`;
+	return `${basename.slice(0, dot)} ${n}${basename.slice(dot)}`;
+}
+
+// Resolves attachment names against files already present in the target
+// _resources folder and against collisions within this same batch (positional
+// pairs, since a Map can't represent repeated originals). Sanitizes each name
+// to its basename first (path-traversal guard); comparison is case-insensitive
+// (APFS semantics), the resolved name keeps its own casing. Existing files are
+// never overwritten.
+export function resolveAttachmentFileNames(
+	existingNames: Set<string>,
+	attachmentNames: string[],
+): { original: string; resolved: string }[] {
+	const used = new Set<string>();
+	for (const name of existingNames) used.add(name.toLowerCase());
+
+	const result: { original: string; resolved: string }[] = [];
+	for (const original of attachmentNames) {
+		const basename = sanitizeAttachmentBasename(original);
+		let resolved = basename;
+		let n = 1;
+		while (used.has(resolved.toLowerCase())) {
+			n++;
+			resolved = withCollisionSuffix(basename, n);
+		}
+		used.add(resolved.toLowerCase());
+		result.push({ original, resolved });
+	}
+	return result;
+}
+
+// Renders the "Anhänge: …" line contents: names with a savedNames entry
+// become a wikilink to the saved filename, all others stay plain text
+// (original name) — mixed in one line, attachment order unchanged.
+function formatAttachmentsLine(attachments: MailAttachment[], savedNames?: Map<string, string>): string {
+	return attachments
+		.map((a) => {
+			const saved = savedNames?.get(a.name);
+			return saved !== undefined ? `[[${saved}]]` : a.name;
+		})
+		.join(", ");
+}
+
 // Builds the section name (no date suffix — the caller passes the date to
 // addVorgangSection) and the body lines to insert under the h5 heading.
 // `locale` is part of the contract for future use; the date is applied downstream.
@@ -82,6 +144,7 @@ export function formatEmailSection(
 	body: string,
 	attachments: MailAttachment[],
 	locale: DateLocale,
+	savedNames?: Map<string, string>,
 ): { sectionName: string; bodyLines: string[] } {
 	const sender = sanitizeSenderSubject(meta.senderName);
 	const subject = sanitizeSenderSubject(stripSubjectPrefixes(meta.subject));
@@ -92,7 +155,7 @@ export function formatEmailSection(
 		bodyLines.push(...body.split("\n"));
 	}
 	if (attachments.length > 0) {
-		bodyLines.push(`Anhänge: ${attachments.map((a) => a.name).join(", ")}`);
+		bodyLines.push(`Anhänge: ${formatAttachmentsLine(attachments, savedNames)}`);
 	}
 	return { sectionName, bodyLines };
 }
@@ -107,24 +170,35 @@ export interface ThreadSectionMessage {
 	body: string;
 	attachments: MailAttachment[];
 	messageUrl: string;
+	/** Original attachment name -> saved filename; only for successfully saved attachments. */
+	savedNames?: Map<string, string>;
+}
+
+// Extracts and decodes the Message-ID from a message://%3C…%3E link. No
+// regex match -> null. Match but decodeURIComponent throws (malformed
+// percent-escape) -> the raw captured id, not null.
+export function decodeMessageIdFromUrl(url: string): string | null {
+	const match = /message:\/\/%3C(.+?)%3E/i.exec(url);
+	if (!match) return null;
+	try {
+		return decodeURIComponent(match[1]);
+	} catch {
+		return match[1];
+	}
 }
 
 // Parses message:// links out of a Vorgang's content and returns the set of
 // already-filed Message-IDs, so a thread can be assembled without re-adding
 // messages already present. Links have the form message://%3C<id>%3E (angle
-// brackets percent-encoded by buildMessageUrl); the id is decoded with a guard.
+// brackets percent-encoded by buildMessageUrl); decoding goes through
+// decodeMessageIdFromUrl.
 export function extractFiledMessageIds(vorgangContent: string): Set<string> {
 	const ids = new Set<string>();
 	const re = /message:\/\/%3C(.+?)%3E/gi;
 	let match: RegExpExecArray | null;
 	while ((match = re.exec(vorgangContent)) !== null) {
-		let id = match[1];
-		try {
-			id = decodeURIComponent(id);
-		} catch {
-			// Malformed percent-escape — keep the raw captured id.
-		}
-		ids.add(id);
+		const id = decodeMessageIdFromUrl(match[0]);
+		if (id !== null) ids.add(id);
 	}
 	return ids;
 }
@@ -154,7 +228,7 @@ export function formatThreadSection(
 			bodyLines.push(...msg.body.split("\n"));
 		}
 		if (msg.attachments.length > 0) {
-			bodyLines.push(`Anhänge: ${msg.attachments.map((a) => a.name).join(", ")}`);
+			bodyLines.push(`Anhänge: ${formatAttachmentsLine(msg.attachments, msg.savedNames)}`);
 		}
 	}
 	return { sectionName, bodyLines };
