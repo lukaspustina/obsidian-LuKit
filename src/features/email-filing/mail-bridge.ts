@@ -175,12 +175,22 @@ function lukitArchiveBox(Mail, accountName, preferredName) {
   }
   // Auto-detect: Archive / Archiv (iCloud, Exchange) and Gmail's All Mail /
   // Alle Nachrichten — Gmail accounts have no "Archive" mailbox at all.
+  // Gmail nests its system mailboxes under "[Gmail]"; depending on the Mail
+  // version the scripting name is the leaf ("All Mail") or the full path
+  // ("[Gmail]/All Mail") — match on the last path segment to cover both.
   let names = [];
   try { names = [].concat(acct.mailboxes.name()); } catch (e) { return null; }
+  const leaf = function (n) { const parts = String(n).split("/"); return parts[parts.length - 1]; };
+  if (preferredName) {
+    const wanted = String(preferredName).toLowerCase();
+    for (let i = 0; i < names.length; i++) {
+      if (leaf(names[i]).toLowerCase() === wanted) { try { return acct.mailboxes[i]; } catch (e) {} }
+    }
+  }
   const patterns = [/^archive?$/i, /^archiv$/i, /^all mail$/i, /^alle nachrichten$/i];
   for (let p = 0; p < patterns.length; p++) {
     for (let i = 0; i < names.length; i++) {
-      if (patterns[p].test(names[i])) { try { return acct.mailboxes[i]; } catch (e) {} }
+      if (patterns[p].test(leaf(names[i]))) { try { return acct.mailboxes[i]; } catch (e) {} }
     }
   }
   return null;
