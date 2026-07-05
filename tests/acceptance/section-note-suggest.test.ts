@@ -23,6 +23,18 @@ function texts(modal: SectionNoteSuggestModal): string[] {
 	return modal.getItems().map((item) => modal.getItemText(item));
 }
 
+describe("SectionNoteSuggestModal excludePath", () => {
+	it("hides the excluded note (e.g. the active note when picking a reference target)", () => {
+		const app = appWithThreeNotes();
+		const modal = new SectionNoteSuggestModal(app as never, SECTION_TAGS, {
+			placeholder: "x",
+			onPick: () => undefined,
+			excludePath: "Vorgänge/Vorgang - B.md",
+		});
+		expect(texts(modal)).toEqual(["Vorgang - A", "Vorgang - C"]);
+	});
+});
+
 describe("SectionNoteSuggestModal done-tag filter", () => {
 	it("hides notes carrying the excludeTag from the list", () => {
 		const app = appWithThreeNotes();

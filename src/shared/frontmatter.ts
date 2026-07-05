@@ -1,3 +1,23 @@
+// Frontmatter-Tags, die eine Notiz zur Ablage-Zielnotiz machen — genutzt von
+// Besprechungs-/E-Mail-Filing und den Vorgang-Kommandos.
+export const SECTION_NOTE_TAGS: ReadonlySet<string> = new Set(["Vorgang", "Person", "Bestellung", "Bewerbung"]);
+
+// Mutates the frontmatter object in place to add the given tag (idempotent).
+export function addTagToFrontmatter(fm: Record<string, unknown>, tag: string): void {
+	const tags = fm.tags;
+	if (tags === undefined || tags === null) {
+		fm.tags = [tag];
+		return;
+	}
+	if (typeof tags === "string") {
+		if (tags !== tag) fm.tags = [tags, tag];
+		return;
+	}
+	if (Array.isArray(tags) && !(tags as unknown[]).includes(tag)) {
+		(tags as unknown[]).push(tag);
+	}
+}
+
 export function frontmatterTagsInclude(tags: unknown, target: string | ReadonlySet<string>): boolean {
 	const matches = typeof target === "string"
 		? (t: unknown) => t === target

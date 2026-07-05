@@ -22,6 +22,7 @@ import {
 	extractWikilinkTarget,
 } from "../../shared/note-structure";
 import { extractDateFromTitle, formatDate } from "../../shared/date-format";
+import { SECTION_NOTE_TAGS } from "../../shared/frontmatter";
 import { formatDiaryEntry, addEntryUnderToday } from "../../shared/diary";
 import { getDiaryNotePath } from "../../shared/diary-settings";
 
@@ -189,11 +190,9 @@ export class BesprechungFeature implements LuKitFeature {
 		return false;
 	}
 
-	private static readonly SECTION_NOTE_TAGS: ReadonlySet<string> = new Set(["Vorgang", "Person", "Bestellung", "Bewerbung"]);
-
 	private isSectionNote(file: TFile): boolean {
 		const tags = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter?.tags;
-		return frontmatterTagsInclude(tags, BesprechungFeature.SECTION_NOTE_TAGS);
+		return frontmatterTagsInclude(tags, SECTION_NOTE_TAGS);
 	}
 
 	private filePendingCmd(): void {
@@ -232,7 +231,7 @@ export class BesprechungFeature implements LuKitFeature {
 			const placeholder = `[${i + 1}/${pending.length}] „${besprechung.basename}" ablegen unter… (Esc = Überspringen)`;
 			new SectionNoteSuggestModal(
 				this.plugin.app,
-				BesprechungFeature.SECTION_NOTE_TAGS,
+				SECTION_NOTE_TAGS,
 				{
 					placeholder,
 					suggestions: this.suggestionsFor(besprechung),
@@ -282,7 +281,7 @@ export class BesprechungFeature implements LuKitFeature {
 
 		new SectionNoteSuggestModal(
 			this.plugin.app,
-			BesprechungFeature.SECTION_NOTE_TAGS,
+			SECTION_NOTE_TAGS,
 			{
 				placeholder: `„${active.basename}" ablegen unter…`,
 				suggestions: this.suggestionsFor(active),
@@ -349,7 +348,7 @@ export class BesprechungFeature implements LuKitFeature {
 			.getMarkdownFiles()
 			.filter((f) => {
 				const tags = this.plugin.app.metadataCache.getFileCache(f)?.frontmatter?.tags;
-				if (!frontmatterTagsInclude(tags, BesprechungFeature.SECTION_NOTE_TAGS)) return false;
+				if (!frontmatterTagsInclude(tags, SECTION_NOTE_TAGS)) return false;
 				return !done || !frontmatterTagsInclude(tags, done);
 			})
 			.map((f) => f.basename);

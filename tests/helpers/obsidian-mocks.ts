@@ -40,6 +40,8 @@ export interface MockMetadataCache {
 export interface MockFileManager {
 	processFrontMatter: (file: MockTFile, fn: (fm: Record<string, unknown>) => void) => Promise<void>;
 	frontmatter: Map<string, Record<string, unknown>>;
+	renameFile: (file: MockTFile, newPath: string) => Promise<void>;
+	renamedTo: string[];
 }
 
 export interface MockWorkspace {
@@ -204,13 +206,22 @@ export function createMockMetadataCache(): MockMetadataCache {
 
 export function createMockFileManager(metadataCache: MockMetadataCache): MockFileManager {
 	const frontmatter = new Map<string, Record<string, unknown>>();
+	const renamedTo: string[] = [];
 	return {
 		frontmatter,
+		renamedTo,
 		processFrontMatter: vi.fn(async (file: MockTFile, fn: (fm: Record<string, unknown>) => void): Promise<void> => {
 			const existing = frontmatter.get(file.path) ?? {};
 			fn(existing);
 			frontmatter.set(file.path, existing);
 			metadataCache.setFrontmatter(file.path, existing);
+		}),
+		// Mirrors Obsidian: the TFile object mutates in place on rename.
+		renameFile: vi.fn(async (file: MockTFile, newPath: string): Promise<void> => {
+			renamedTo.push(newPath);
+			file.path = newPath;
+			const base = newPath.split("/").pop() ?? newPath;
+			file.basename = base.endsWith(".md") ? base.slice(0, -3) : base;
 		}),
 	};
 }

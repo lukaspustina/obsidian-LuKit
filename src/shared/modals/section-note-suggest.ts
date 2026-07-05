@@ -45,6 +45,9 @@ export interface SectionNoteSuggestOptions {
 	// Notes carrying this frontmatter tag are hidden from the list (closed
 	// Vorgänge). Empty/absent disables the filter.
 	excludeTag?: string;
+	// A single note path to hide (e.g. the active note when picking a
+	// reference target — self-references make no sense).
+	excludePath?: string;
 	// When set, a read-only scrollable panel with this text is shown above the
 	// search field (e.g. an email preview to read before picking a target).
 	previewText?: string;
@@ -76,6 +79,7 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 	}
 
 	private isCandidate(file: TFile): boolean {
+		if (this.options.excludePath !== undefined && file.path === this.options.excludePath) return false;
 		const tags = this.app.metadataCache.getFileCache(file)?.frontmatter?.tags;
 		if (!frontmatterTagsInclude(tags, this.sectionTags)) return false;
 		const done = this.options.excludeTag;

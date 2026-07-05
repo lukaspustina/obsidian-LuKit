@@ -57,6 +57,13 @@ function findH5InsertIndex(
 	return -1;
 }
 
+// Zeitstempel im Format des Vault-Templates ("YYYY-MM-DD HH:mm:ss") für das
+// Frontmatter-Feld "Created at" beim Umwandeln einer Notiz.
+export function formatCreatedAtTimestamp(date: Date): string {
+	const p = (n: number): string => String(n).padStart(2, "0");
+	return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())} ${p(date.getHours())}:${p(date.getMinutes())}:${p(date.getSeconds())}`;
+}
+
 export function addVorgangSection(
 	content: string,
 	name: string,

@@ -23,20 +23,13 @@ import { mineVorgangFilings, minedFilingsToFiledRecords, isCacheStale } from "./
 import { addVorgangSection } from "../vorgang/vorgang-engine";
 import { suggestFilingTargets, type FiledRecord } from "../besprechung/besprechung-suggest-engine";
 import { collectBesprechungFiledRecords } from "../besprechung/besprechung-feature";
-import { frontmatterTagsInclude } from "../../shared/frontmatter";
+import { SECTION_NOTE_TAGS, frontmatterTagsInclude } from "../../shared/frontmatter";
 import { SectionNoteSuggestModal } from "../../shared/modals/section-note-suggest";
 import {
 	EmailPreviewModal,
 	type PreviewMessage,
 	type PreviewMessageResult,
 } from "./email-preview-modal";
-
-const SECTION_NOTE_TAGS: ReadonlySet<string> = new Set([
-	"Vorgang",
-	"Person",
-	"Bestellung",
-	"Bewerbung",
-]);
 
 // minScore must sit below NAME_MATCH_WEIGHT (0.4) so name-match-only ranking
 // (empty corpus) surfaces suggestions.

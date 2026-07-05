@@ -33,6 +33,21 @@ exports[`LuKitFeature.helpEntries() registry > matches the snapshot 1`] = `
     "displayName": "Vorgang: Abschnitt hinzufügen",
   },
   {
+    "commandId": "vorgang-reference",
+    "description": "Zielnotiz per Picker wählen; fügt in den aktiven Vorgang eine verlinkte Sektion (TOC-Eintrag + h5 mit [[Wikilink]]) ein — Cursor darunter für eigene Notizen. Die Zielnotiz bleibt unangetastet.",
+    "displayName": "Vorgang: Vorgang referenzieren",
+  },
+  {
+    "commandId": "vorgang-convert",
+    "description": "Macht die aktive Notiz zur Zielnotiz: Typ wählen (Vorgang/Person/Bestellung/Bewerbung), ergänzt im Frontmatter das Tag, note_type: tasknote und Created at (Datei-Erstelldatum). Der Notiz-Inhalt bleibt unangetastet; idempotent.",
+    "displayName": "Vorgang: Aktuelle Notiz umwandeln",
+  },
+  {
+    "commandId": "vorgang-close",
+    "description": "Setzt das Abgeschlossen-Tag (Notiz verschwindet aus Pickern und Vorschlägen), entfernt note_type (verschwindet aus TaskNotes), benennt die Datei in „… - done" um und dokumentiert den Abschluss im Tagebuch. Wiedereröffnen = Tag entfernen.",
+    "displayName": "Vorgang: Abschließen",
+  },
+  {
     "commandId": "besprechung-add-summary",
     "description": "Besprechungs-Notiz wählen, Kernabschnitte extrahieren, an der Cursor-Position einfügen (in Vorgang/Person/Bestellung/Bewerbung-Notizen als verlinkter Abschnitt).",
     "displayName": "Besprechung: Zusammenfassung einfügen",
