@@ -43,3 +43,13 @@ describe("formatCreatedAtTimestamp", () => {
 		expect(formatCreatedAtTimestamp(new Date(2026, 6, 5, 9, 3, 7))).toBe("2026-07-05 09:03:07");
 	});
 });
+
+describe("applyTypePrefix", () => {
+	it("prepends a missing prefix, keeps a correct one, replaces a different one", async () => {
+		const { applyTypePrefix } = await import("../../src/features/vorgang/vorgang-engine");
+		const { SECTION_NOTE_TAGS } = await import("../../src/shared/frontmatter");
+		expect(applyTypePrefix("Lose Notiz", "Vorgang", SECTION_NOTE_TAGS)).toBe("Vorgang - Lose Notiz");
+		expect(applyTypePrefix("Vorgang - X", "Vorgang", SECTION_NOTE_TAGS)).toBe("Vorgang - X");
+		expect(applyTypePrefix("Person - X", "Vorgang", SECTION_NOTE_TAGS)).toBe("Vorgang - X");
+	});
+});

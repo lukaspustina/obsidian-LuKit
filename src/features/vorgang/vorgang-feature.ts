@@ -2,7 +2,7 @@ import { Notice, TFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature, HelpEntry } from "../../types";
-import { addVorgangSection, addVorgangSectionLinked, formatCreatedAtTimestamp, formatVorgangHeadingText } from "./vorgang-engine";
+import { addVorgangSection, addVorgangSectionLinked, applyTypePrefix, formatCreatedAtTimestamp, formatVorgangHeadingText } from "./vorgang-engine";
 import { extractDateFromTitle } from "../../shared/date-format";
 import { formatDiaryEntry, addEntryUnderToday } from "../../shared/diary";
 import { getDiaryNotePath } from "../../shared/diary-settings";
@@ -68,7 +68,7 @@ export class VorgangFeature implements LuKitFeature {
 			{
 				commandId: "vorgang-convert",
 				displayName: "Vorgang: Aktuelle Notiz umwandeln",
-				description: "Macht die aktive Notiz zur Zielnotiz: Typ wählen (Vorgang/Person/Bestellung/Bewerbung), ergänzt im Frontmatter das Tag, note_type: tasknote und Created at (Datei-Erstelldatum). Der Notiz-Inhalt bleibt unangetastet; idempotent.",
+				description: "Macht die aktive Notiz zur Zielnotiz: Typ wählen (Vorgang/Person/Bestellung/Bewerbung), ergänzt im Frontmatter das Tag, note_type: tasknote und Created at (Datei-Erstelldatum) und gleicht das Titel-Präfix an (<Typ> - <Name>: fehlendes Präfix wird vorangestellt, ein anderes Typ-Präfix ersetzt). Der Notiz-Inhalt bleibt unangetastet; idempotent.",
 			},
 			{
 				commandId: "vorgang-close",
@@ -151,6 +151,12 @@ export class VorgangFeature implements LuKitFeature {
 					fm["Created at"] = formatCreatedAtTimestamp(new Date(file.stat.ctime));
 				}
 			});
+			// Titel-Präfix an den gewählten Typ angleichen ("<Typ> - <Name>").
+			const newBasename = applyTypePrefix(file.basename, tag, SECTION_NOTE_TAGS);
+			if (newBasename !== file.basename) {
+				const parent = file.path.slice(0, file.path.length - file.basename.length - 3);
+				await this.plugin.app.fileManager.renameFile(file, `${parent}${newBasename}.md`);
+			}
 			new Notice(`„${file.basename}" ist jetzt als ${tag} getaggt.`);
 		} catch (e) {
 			new Notice("Umwandeln fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)));

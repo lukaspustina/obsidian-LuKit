@@ -58,14 +58,17 @@ describe("VorgangFeature.insertReference", () => {
 });
 
 describe("VorgangFeature.convertNote", () => {
-	it("adds tag, note_type and Created at without touching existing values", async () => {
+	it("adds tag, note_type and Created at without touching existing values, and prefixes the title", async () => {
 		const active = createMockTFile("Notizen/Lose Notiz.md", { ctime: new Date(2026, 6, 1, 8, 30, 0).getTime() });
 		const { app, feature } = setup(active);
+		const originalPath = active.path;
 		app.fileManager.frontmatter.set(active.path, { Author: "Max Mustermann" });
 
 		await (feature as unknown as { convertNote: (f: MockTFile, tag: string) => Promise<void> }).convertNote(active, "Vorgang");
 
-		const fm = app.fileManager.frontmatter.get(active.path);
+		expect(app.fileManager.renamedTo).toEqual(["Notizen/Vorgang - Lose Notiz.md"]);
+		expect(active.basename).toBe("Vorgang - Lose Notiz");
+		const fm = app.fileManager.frontmatter.get(originalPath);
 		expect(fm?.tags).toEqual(["Vorgang"]);
 		expect(fm?.note_type).toBe("tasknote");
 		expect(fm?.["Created at"]).toBe("2026-07-01 08:30:00");
@@ -73,8 +76,8 @@ describe("VorgangFeature.convertNote", () => {
 		expect(lastNotice()).toContain("als Vorgang getaggt");
 	});
 
-	it("is idempotent — existing note_type and Created at win", async () => {
-		const active = createMockTFile("Notizen/Alt.md");
+	it("is idempotent — existing note_type, Created at, and correct prefix win", async () => {
+		const active = createMockTFile("Notizen/Vorgang - Alt.md");
 		const { app, feature } = setup(active);
 		app.fileManager.frontmatter.set(active.path, { tags: ["Vorgang"], note_type: "tasknote", "Created at": "2025-01-01 10:00:00" });
 
@@ -83,6 +86,16 @@ describe("VorgangFeature.convertNote", () => {
 		const fm = app.fileManager.frontmatter.get(active.path);
 		expect(fm?.tags).toEqual(["Vorgang"]);
 		expect(fm?.["Created at"]).toBe("2025-01-01 10:00:00");
+		expect(app.fileManager.renamedTo).toEqual([]);
+	});
+
+	it("replaces a different type prefix instead of stacking", async () => {
+		const active = createMockTFile("Notizen/Person - Erika Beispiel.md");
+		const { app, feature } = setup(active);
+
+		await (feature as unknown as { convertNote: (f: MockTFile, tag: string) => Promise<void> }).convertNote(active, "Vorgang");
+
+		expect(app.fileManager.renamedTo).toEqual(["Notizen/Vorgang - Erika Beispiel.md"]);
 	});
 });
 

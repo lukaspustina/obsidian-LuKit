@@ -59,6 +59,19 @@ function findH5InsertIndex(
 
 // Zeitstempel im Format des Vault-Templates ("YYYY-MM-DD HH:mm:ss") für das
 // Frontmatter-Feld "Created at" beim Umwandeln einer Notiz.
+// Wendet das Typ-Präfix ("<Typ> - ") auf einen Notiz-Titel an: fehlendes
+// Präfix wird vorangestellt, ein anderes Zielnotiz-Präfix ersetzt, das
+// richtige bleibt unverändert.
+export function applyTypePrefix(basename: string, tag: string, allTags: ReadonlySet<string>): string {
+	if (basename.startsWith(`${tag} - `)) return basename;
+	for (const other of allTags) {
+		if (basename.startsWith(`${other} - `)) {
+			return `${tag} - ${basename.slice(other.length + 3)}`;
+		}
+	}
+	return `${tag} - ${basename}`;
+}
+
 export function formatCreatedAtTimestamp(date: Date): string {
 	const p = (n: number): string => String(n).padStart(2, "0");
 	return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())} ${p(date.getHours())}:${p(date.getMinutes())}:${p(date.getSeconds())}`;
