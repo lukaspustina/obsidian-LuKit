@@ -35,6 +35,24 @@ describe("SectionNoteSuggestModal excludePath", () => {
 	});
 });
 
+describe("SectionNoteSuggestModal create-new sentinel", () => {
+	it("shows the create entry only when onCreateNew is provided", () => {
+		const app = appWithThreeNotes();
+		const withCallback = new SectionNoteSuggestModal(app as never, SECTION_TAGS, {
+			placeholder: "x",
+			onPick: () => undefined,
+			onCreateNew: () => undefined,
+		});
+		expect(texts(withCallback)).toContain("＋ Neuen Vorgang anlegen…");
+
+		const without = new SectionNoteSuggestModal(app as never, SECTION_TAGS, {
+			placeholder: "x",
+			onPick: () => undefined,
+		});
+		expect(texts(without)).not.toContain("＋ Neuen Vorgang anlegen…");
+	});
+});
+
 describe("SectionNoteSuggestModal done-tag filter", () => {
 	it("hides notes carrying the excludeTag from the list", () => {
 		const app = appWithThreeNotes();

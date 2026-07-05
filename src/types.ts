@@ -39,6 +39,9 @@ export interface LuKitSettings {
 	// Frontmatter-Tag abgeschlossener Vorgänge — gefiltert aus Ablage-Pickern
 	// und Vorschlägen (leer = deaktiviert).
 	doneTag: string;
+	// Kommando-ID, die einen neuen Vorgang anlegt (z. B. eine QuickAdd-Choice).
+	// Leer = der "Neuen Vorgang anlegen"-Eintrag erscheint nicht in den Pickern.
+	quickAddVorgangCommandId: string;
 	workDiary: WorkDiarySettings;
 	besprechung: BesprechungSettings;
 	emailFiling: EmailFilingSettings;
@@ -50,6 +53,7 @@ export const DEFAULT_SETTINGS: LuKitSettings = {
 	dateLocale: "de",
 	firstRunNoticeShown: false,
 	doneTag: "Done",
+	quickAddVorgangCommandId: "",
 	workDiary: {
 		diaryNotePath: "",
 	},

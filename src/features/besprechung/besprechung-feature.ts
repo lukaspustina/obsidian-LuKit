@@ -25,6 +25,7 @@ import { extractDateFromTitle, formatDate } from "../../shared/date-format";
 import { SECTION_NOTE_TAGS } from "../../shared/frontmatter";
 import { formatDiaryEntry, addEntryUnderToday } from "../../shared/diary";
 import { getDiaryNotePath } from "../../shared/diary-settings";
+import { createSectionNoteViaCommand } from "../../shared/quick-create";
 
 export class BesprechungFeature implements LuKitFeature {
 	id = "besprechung";
@@ -227,6 +228,9 @@ export class BesprechungFeature implements LuKitFeature {
 				new Notice(`Ablage beendet: ${summary()}`);
 				return;
 			}
+			present();
+		};
+		const present = (pin?: string): void => {
 			const besprechung = pending[i];
 			const placeholder = `[${i + 1}/${pending.length}] „${besprechung.basename}" ablegen unter… (Esc = Überspringen)`;
 			new SectionNoteSuggestModal(
@@ -234,7 +238,8 @@ export class BesprechungFeature implements LuKitFeature {
 				SECTION_NOTE_TAGS,
 				{
 					placeholder,
-					suggestions: this.suggestionsFor(besprechung),
+					suggestions: pin ? [pin, ...this.suggestionsFor(besprechung)] : this.suggestionsFor(besprechung),
+					onCreateNew: this.createNewHandler((basename) => present(basename)),
 					dropHint: "Tag entfernen",
 					excludeTag: this.plugin.settings.doneTag,
 					onPick: (vorgang) => {
@@ -279,21 +284,38 @@ export class BesprechungFeature implements LuKitFeature {
 			return;
 		}
 
-		new SectionNoteSuggestModal(
-			this.plugin.app,
-			SECTION_NOTE_TAGS,
-			{
-				placeholder: `„${active.basename}" ablegen unter…`,
-				suggestions: this.suggestionsFor(active),
-				excludeTag: this.plugin.settings.doneTag,
-				onPick: (vorgang) => {
-					void this.fileBesprechungIntoVorgang(active, vorgang);
+		const openPicker = (pin?: string): void => {
+			new SectionNoteSuggestModal(
+				this.plugin.app,
+				SECTION_NOTE_TAGS,
+				{
+					placeholder: `„${active.basename}" ablegen unter…`,
+					suggestions: pin ? [pin, ...this.suggestionsFor(active)] : this.suggestionsFor(active),
+					onCreateNew: this.createNewHandler((basename) => openPicker(basename)),
+					excludeTag: this.plugin.settings.doneTag,
+					onPick: (vorgang) => {
+						void this.fileBesprechungIntoVorgang(active, vorgang);
+					},
+					onDrop: () => {
+						void this.dropPending(active);
+					},
 				},
-				onDrop: () => {
-					void this.dropPending(active);
-				},
-			},
-		).open();
+			).open();
+		};
+		openPicker();
+	}
+
+	// Baut den „Neuen Vorgang anlegen"-Callback: führt das konfigurierte
+	// Kommando aus, wartet auf die indexierte Notiz und öffnet den Picker
+	// erneut — mit der neuen Notiz gepinnt (undefined bei Abbruch).
+	private createNewHandler(reopen: (basename?: string) => void): (() => void) | undefined {
+		const commandId = this.plugin.settings.quickAddVorgangCommandId;
+		if (!commandId) return undefined;
+		return () => {
+			void createSectionNoteViaCommand(this.plugin.app, commandId).then((created) => {
+				reopen(created?.basename);
+			});
+		};
 	}
 
 	private findPendingBesprechungen(): TFile[] {

@@ -24,6 +24,7 @@ import { addVorgangSection } from "../vorgang/vorgang-engine";
 import { suggestFilingTargets, type FiledRecord } from "../besprechung/besprechung-suggest-engine";
 import { collectBesprechungFiledRecords } from "../besprechung/besprechung-feature";
 import { SECTION_NOTE_TAGS, frontmatterTagsInclude } from "../../shared/frontmatter";
+import { createSectionNoteViaCommand } from "../../shared/quick-create";
 import { SectionNoteSuggestModal } from "../../shared/modals/section-note-suggest";
 import {
 	EmailPreviewModal,
@@ -140,6 +141,24 @@ export class EmailFilingFeature implements LuKitFeature {
 		return s.sentMailboxes[accountName] ?? s.defaultSentMailbox;
 	}
 
+	// Baut den „Neuen Vorgang anlegen"-Callback für die Picker: führt das
+	// konfigurierte Kommando aus, wartet auf die indexierte Notiz und öffnet
+	// den Picker fürs selbe Element erneut — mit der neuen Notiz gepinnt.
+	private createNewHandler(represent: () => void, representPinned: (basename: string) => void): (() => void) | undefined {
+		const commandId = this.plugin.settings.quickAddVorgangCommandId;
+		if (!commandId) return undefined;
+		return () => {
+			void createSectionNoteViaCommand(this.plugin.app, commandId).then((created) => {
+				if (created) {
+					this.walkCandidates.push(created.basename);
+					representPinned(created.basename);
+				} else {
+					represent();
+				}
+			});
+		};
+	}
+
 	// Synchronous entry point: sets the guard before any await so a second
 	// invocation in the same tick is rejected.
 	startWalk(): void {
@@ -203,7 +222,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		return this.plugin.settings.emailFiling.order === "newest" ? [...metas].reverse() : metas;
 	}
 
-	private presentMessage(metas: RawMailMessageMeta[], i: number): void {
+	private presentMessage(metas: RawMailMessageMeta[], i: number, pin?: string): void {
 		if (i >= metas.length) {
 			const parts: string[] = [];
 			if (this.autoSkippedCount > 0) parts.push(`${this.autoSkippedCount} automatisch übersprungen (gleicher Thread)`);
@@ -214,10 +233,10 @@ export class EmailFilingFeature implements LuKitFeature {
 			this.walkInProgress = false;
 			return;
 		}
-		void this.presentMessageAsync(metas, i);
+		void this.presentMessageAsync(metas, i, pin);
 	}
 
-	private async presentMessageAsync(metas: RawMailMessageMeta[], i: number): Promise<void> {
+	private async presentMessageAsync(metas: RawMailMessageMeta[], i: number, pin?: string): Promise<void> {
 		const meta = metas[i];
 		// Already filed + archived as a sibling of an earlier thread filing — skip
 		// silently (not left behind, so not counted as auto-skipped).
@@ -271,7 +290,8 @@ export class EmailFilingFeature implements LuKitFeature {
 		new SectionNoteSuggestModal(this.plugin.app, SECTION_NOTE_TAGS, {
 			placeholder: `[${i + 1}/${metas.length}] „${meta.subject}" ablegen unter… (Esc = Überspringen)`,
 			previewText: `Von: ${meta.senderName}\nBetreff: ${meta.subject}\n\n${body || "(kein Textinhalt)"}`,
-			suggestions: this.suggestionsFor(meta),
+			suggestions: pin ? [pin, ...this.suggestionsFor(meta)] : this.suggestionsFor(meta),
+			onCreateNew: this.createNewHandler(() => this.presentMessage(metas, i), (basename) => this.presentMessage(metas, i, basename)),
 			skipLabel: "↪ Überspringen (im Posteingang lassen)",
 			dropLabel: "✕ Nicht ablegen (nur archivieren)",
 			dropHint: "Nur archivieren",
@@ -607,7 +627,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		this.presentSelected(ordered, 0);
 	}
 
-	private presentSelected(sel: SelectedMessage[], i: number): void {
+	private presentSelected(sel: SelectedMessage[], i: number, pin?: string): void {
 		if (i >= sel.length) {
 			new Notice(`Ausgewählte E-Mails abgelegt (${sel.length}).`);
 			this.walkInProgress = false;
@@ -619,7 +639,10 @@ export class EmailFilingFeature implements LuKitFeature {
 		new SectionNoteSuggestModal(this.plugin.app, SECTION_NOTE_TAGS, {
 			placeholder: `[${i + 1}/${sel.length}] „${m.subject}" ablegen unter… (ESC = Stopp)`,
 			previewText: `${m.direction === "in" ? "Von" : "An"}: ${m.partyName}\nBetreff: ${m.subject}\n\n${body || "(kein Textinhalt)"}`,
-			suggestions: this.suggestionsForTitle(`${stripSubjectPrefixes(m.subject)} ${m.partyName}`),
+			suggestions: pin
+				? [pin, ...this.suggestionsForTitle(`${stripSubjectPrefixes(m.subject)} ${m.partyName}`)]
+				: this.suggestionsForTitle(`${stripSubjectPrefixes(m.subject)} ${m.partyName}`),
+			onCreateNew: this.createNewHandler(() => this.presentSelected(sel, i), (basename) => this.presentSelected(sel, i, basename)),
 			dropLabel: "✕ Nicht ablegen",
 			dropHint: "Nicht ablegen",
 			excludeTag: this.plugin.settings.doneTag,

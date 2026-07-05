@@ -2,11 +2,13 @@ import { App, FuzzySuggestModal, Notice, TFile } from "obsidian";
 import { frontmatterTagsInclude } from "../frontmatter";
 
 const SKIP_LABEL = "↪ Besprechung überspringen";
+const CREATE_LABEL = "＋ Neuen Vorgang anlegen…";
 const DROP_LABEL = "✕ Nicht ablegen (nur Tag entfernen)";
 const OPEN_LABEL = "→ Stopp und in neuem Tab öffnen";
 const SKIP_SENTINEL: unique symbol = Symbol("skip");
 const DROP_SENTINEL: unique symbol = Symbol("drop");
 const OPEN_SENTINEL: unique symbol = Symbol("open");
+const CREATE_SENTINEL: unique symbol = Symbol("create");
 
 // A suggested note pinned above the full list. Wraps the TFile so getItemText
 // can decorate it without affecting the same file's plain row.
@@ -14,7 +16,7 @@ interface PinnedItem {
 	__pinned: true;
 	file: TFile;
 }
-type Item = TFile | PinnedItem | typeof SKIP_SENTINEL | typeof DROP_SENTINEL | typeof OPEN_SENTINEL;
+type Item = TFile | PinnedItem | typeof SKIP_SENTINEL | typeof DROP_SENTINEL | typeof OPEN_SENTINEL | typeof CREATE_SENTINEL;
 
 function isPinned(item: Item): item is PinnedItem {
 	return typeof item === "object" && item !== null && "__pinned" in item;
@@ -28,6 +30,9 @@ export interface SectionNoteSuggestOptions {
 	onSkip?: () => void;
 	onDrop?: () => void;
 	onOpenSource?: () => void;
+	// Legt über das konfigurierte Kommando (z. B. QuickAdd) eine neue Zielnotiz
+	// an; der Eintrag erscheint nur, wenn der Callback gesetzt ist.
+	onCreateNew?: () => void;
 	onCancel?: () => void;
 	// Ordered list of suggested note basenames pinned above the sentinels and
 	// the full list. Basenames that do not resolve to a current candidate file
@@ -177,6 +182,7 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 		if (this.options.onSkip) sentinels.push(SKIP_SENTINEL);
 		if (this.options.onDrop) sentinels.push(DROP_SENTINEL);
 		if (this.options.onOpenSource) sentinels.push(OPEN_SENTINEL);
+		if (this.options.onCreateNew) sentinels.push(CREATE_SENTINEL);
 		return [...pinnedItems, ...sentinels, ...rest];
 	}
 
@@ -184,6 +190,7 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 		if (item === SKIP_SENTINEL) return this.options.skipLabel ?? SKIP_LABEL;
 		if (item === DROP_SENTINEL) return this.options.dropLabel ?? DROP_LABEL;
 		if (item === OPEN_SENTINEL) return this.options.openLabel ?? OPEN_LABEL;
+		if (item === CREATE_SENTINEL) return CREATE_LABEL;
 		if (isPinned(item)) return `★ ${item.file.basename} (Vorschlag)`;
 		return item.basename;
 	}
@@ -193,6 +200,7 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 		if (item === SKIP_SENTINEL) this.options.onSkip?.();
 		else if (item === DROP_SENTINEL) this.options.onDrop?.();
 		else if (item === OPEN_SENTINEL) this.options.onOpenSource?.();
+		else if (item === CREATE_SENTINEL) this.options.onCreateNew?.();
 		else if (isPinned(item)) this.options.onPick(item.file);
 		else this.options.onPick(item);
 	}

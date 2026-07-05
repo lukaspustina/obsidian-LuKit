@@ -28,6 +28,7 @@ export class Notice {
 export class TFile {
 	path = "";
 	basename = "";
+	extension = "md";
 	stat = { mtime: 0, ctime: 0 };
 }
 // Recording element stub: captures created texts/children so modal render

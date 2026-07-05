@@ -47,6 +47,7 @@ describe("mergeSettings", () => {
 			dateLocale: "iso" as const,
 			firstRunNoticeShown: true,
 			doneTag: "Erledigt",
+			quickAddVorgangCommandId: "quickadd:choice:test",
 			workDiary: { diaryNotePath: "Diary.md" },
 			besprechung: {
 				folderPath: "Meetings",

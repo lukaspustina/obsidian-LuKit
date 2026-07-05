@@ -45,6 +45,19 @@ export class LuKitSettingTab extends PluginSettingTab {
 					}),
 			);
 
+		new Setting(containerEl)
+			.setName("Kommando für neuen Vorgang")
+			.setDesc('Kommando-ID, die einen neuen Vorgang anlegt (z. B. QuickAdd-Choice); die Ablage-Picker bieten dann „Neuen Vorgang anlegen" an (leer = ausgeblendet)')
+			.addText((text) =>
+				text
+					.setPlaceholder("quickadd:choice:…")
+					.setValue(this.plugin.settings.quickAddVorgangCommandId)
+					.onChange(async (value) => {
+						this.plugin.settings.quickAddVorgangCommandId = value.trim();
+						await this.plugin.saveSettings();
+					}),
+			);
+
 		for (const feature of this.plugin.features) {
 			if (feature.renderSettings) {
 				feature.renderSettings(containerEl, this.plugin);
