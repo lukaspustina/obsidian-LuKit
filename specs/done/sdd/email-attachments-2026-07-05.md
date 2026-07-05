@@ -1,6 +1,7 @@
 # SDD: E-Mail-Anhänge im Vault ablegen
 
-Status: Ready for Implementation
+Status: Done
+Finished: 2026-07-05
 Original: specs/sdd/email-attachments.md
 Refined: 2026-07-05
 
