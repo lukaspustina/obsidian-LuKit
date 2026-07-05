@@ -1,6 +1,7 @@
 # SDD: Vorgang-Merge — zwei Vorgänge strukturbewusst zusammenführen
 
-Status: Ready for Implementation
+Status: Done
+Finished: 2026-07-05
 Original: specs/sdd/vorgang-merge.md
 Refined: 2026-07-05
 
