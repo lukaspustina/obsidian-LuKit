@@ -32,18 +32,26 @@ export class TFile {
 	stat = { mtime: 0, ctime: 0 };
 }
 // Recording element stub: captures created texts/children so modal render
-// output can be asserted headlessly (e.g. the triage meta line).
-export function __stubEl(): any {
+// output can be asserted headlessly (e.g. the triage meta line). Records
+// tag/cls per child and event listeners (fire via __fireEvent) so checkbox
+// interactions can be simulated without a DOM.
+export function __stubEl(tag = "div", cls?: string): any {
 	const el: any = {
+		tag,
+		cls: cls ?? "",
+		style: {},
 		texts: [] as string[],
 		children: [] as any[],
+		__listeners: {} as Record<string, ((...args: any[]) => void)[]>,
 		empty: () => { el.children.length = 0; el.texts.length = 0; },
 		addClass: () => undefined,
-		addEventListener: () => undefined,
+		addEventListener: (type: string, fn: (...args: any[]) => void) => {
+			(el.__listeners[type] ??= []).push(fn);
+		},
 		appendText: (t: string) => { el.texts.push(t); },
 		setText: (t: string) => { el.texts.push(t); },
-		createEl: (_tag: string, opts?: any) => {
-			const child = __stubEl();
+		createEl: (childTag: string, opts?: any) => {
+			const child = __stubEl(childTag, opts && typeof opts.cls === "string" ? opts.cls : undefined);
 			if (opts && typeof opts.text === "string") child.texts.push(opts.text);
 			el.children.push(child);
 			return child;
@@ -52,6 +60,12 @@ export function __stubEl(): any {
 		createSpan: (opts?: any) => el.createEl("span", opts),
 	};
 	return el;
+}
+
+// Fires all listeners registered for `type` on a stub element (e.g. "change"
+// after flipping a checkbox's .checked in a test).
+export function __fireEvent(el: any, type: string): void {
+	for (const fn of el.__listeners?.[type] ?? []) fn();
 }
 
 // Collects all recorded texts of an element tree (depth-first).
