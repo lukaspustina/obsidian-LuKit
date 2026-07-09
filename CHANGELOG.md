@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-07-09
+
+### Added
+- **Per-attachment checkboxes in the email preview** — every attachment gets its own checkbox with smart preselection: documents are checked, images only from 500 KB (footer logos and signature icons start unchecked). Unchecked attachments are neither saved to `_resources/` nor listed in the `Anhänge:` line; excluding a whole message greys out its attachment checkboxes. The read-only attachment line in the preview is replaced by the checkbox list — names stay non-editable (93c412e, f10ba26, 40ace64, 4829099).
+
 ## [1.18.0] - 2026-07-05
 
 ### Added
