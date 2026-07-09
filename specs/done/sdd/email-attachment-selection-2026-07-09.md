@@ -1,6 +1,7 @@
 # SDD: E-Mail-Anhänge per Checkbox auswählen (Delta zu email-attachments)
 
-Status: Ready for Implementation
+Status: Done
+Finished: 2026-07-09
 
 Original: specs/sdd/email-attachment-selection.md
 Refined: 2026-07-09
