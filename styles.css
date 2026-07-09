@@ -63,9 +63,15 @@
 }
 
 .lukit-email-preview-atts {
+	margin: var(--size-4-1) 0 0;
+}
+
+.lukit-email-preview-attachment {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
 	font-size: var(--font-smaller);
 	color: var(--text-muted);
-	margin: var(--size-4-1) 0 0;
 }
 
 .lukit-email-preview {

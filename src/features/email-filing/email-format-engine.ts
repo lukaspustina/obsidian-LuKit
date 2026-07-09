@@ -68,6 +68,45 @@ export function threadKey(subject: string): string {
 	return stripSubjectPrefixes(subject).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+// Preselection threshold for image attachments (bytes, inclusive): images at
+// or above this size are checked by default (likely a real photo), smaller
+// ones are unchecked (likely a footer/signature graphic).
+export const IMAGE_PRESELECT_MIN_BYTES = 500_000;
+
+// Extensions recognized as images for the mimeType-empty fallback. Deliberately
+// separate from INLINE_IMAGE_NAME (which detects auto-generated inline-image
+// filenames, not "is this an image").
+const IMAGE_EXTENSIONS = new Set([
+	"jpg",
+	"jpeg",
+	"png",
+	"gif",
+	"webp",
+	"heic",
+	"heif",
+	"bmp",
+	"tiff",
+	"svg",
+	"avif",
+	"jfif",
+]);
+
+function isImageAttachment(att: MailAttachment): boolean {
+	if (att.mimeType.toLowerCase().startsWith("image/")) return true;
+	if (att.mimeType !== "") return false;
+	const dot = att.name.lastIndexOf(".");
+	if (dot === -1) return false;
+	return IMAGE_EXTENSIONS.has(att.name.slice(dot + 1).toLowerCase());
+}
+
+// Determines the default checkbox state for an attachment in the preview
+// modal: documents are always checked; images are checked only when large
+// enough to plausibly be a real photo (unknown size counts as small).
+export function preselectAttachment(att: MailAttachment): boolean {
+	if (!isImageAttachment(att)) return true;
+	return att.size >= IMAGE_PRESELECT_MIN_BYTES;
+}
+
 // Drops client-embedded inline images (signature logos, pasted images),
 // identified by their auto-generated imageNNN.<ext> name. Real attachments —
 // including images with meaningful names — are kept. Biased to under-filter: a

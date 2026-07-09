@@ -1,20 +1,24 @@
 import { App, Modal } from "obsidian";
 
 // One message row in the preview: a read-only header (date · party · direction),
-// an editable body, and an optional read-only attachment line. Headers and
-// attachment lines are re-emitted verbatim on commit so the message:// links
-// (used by dedup and recovery) can never be broken by editing.
+// an editable body, and a list of attachments with a checkbox each (name
+// read-only). Headers and attachment names are re-emitted verbatim on commit
+// so the message:// links (used by dedup and recovery) can never be broken by
+// editing.
 export interface PreviewMessage {
 	header: string;
 	body: string;
-	attachmentsLine: string | null;
+	attachments: { name: string; preselected: boolean }[];
 }
 
-// Per-message result: whether to include the message in the written section and
-// its (possibly edited) body. Same index order as the input messages.
+// Per-message result: whether to include the message in the written section,
+// its (possibly edited) body, and which of its attachments (positional to
+// PreviewMessage.attachments) stayed checked. Same index order as the input
+// messages; attachmentsIncluded is [] for a message without attachments.
 export interface PreviewMessageResult {
 	included: boolean;
 	body: string;
+	attachmentsIncluded: boolean[];
 }
 
 // Shows an assembled thread as one row per message — each with an include/exclude
@@ -56,6 +60,7 @@ export class EmailPreviewModal extends Modal {
 
 		const checkboxes: HTMLInputElement[] = [];
 		const textareas: HTMLTextAreaElement[] = [];
+		const attachmentCheckboxes: HTMLInputElement[][] = [];
 
 		for (const msg of this.messages) {
 			const row = contentEl.createEl("div", { cls: "lukit-email-preview-msg" });
@@ -72,13 +77,26 @@ export class EmailPreviewModal extends Modal {
 			textarea.style.width = "100%";
 			textareas.push(textarea);
 
-			if (msg.attachmentsLine) {
-				row.createEl("p", { cls: "lukit-email-preview-atts", text: msg.attachmentsLine });
+			const msgAttachmentCheckboxes: HTMLInputElement[] = [];
+			attachmentCheckboxes.push(msgAttachmentCheckboxes);
+			if (msg.attachments.length > 0) {
+				const attsContainer = row.createEl("div", { cls: "lukit-email-preview-atts" });
+				for (const att of msg.attachments) {
+					const attRow = attsContainer.createEl("label", { cls: "lukit-email-preview-attachment" });
+					const attCheckbox = attRow.createEl("input");
+					attCheckbox.type = "checkbox";
+					attCheckbox.checked = att.preselected;
+					attRow.createEl("span", { text: att.name });
+					msgAttachmentCheckboxes.push(attCheckbox);
+				}
 			}
 
-			// Excluding a message dims and disables its body editor.
+			// Excluding a message dims and disables its body editor and its
+			// attachment checkboxes (checked state untouched, so re-including it
+			// restores the previous selection).
 			checkbox.addEventListener("change", () => {
 				textarea.disabled = !checkbox.checked;
+				for (const attCheckbox of msgAttachmentCheckboxes) attCheckbox.disabled = !checkbox.checked;
 			});
 		}
 
@@ -88,6 +106,7 @@ export class EmailPreviewModal extends Modal {
 				this.messages.map((_, i) => ({
 					included: checkboxes[i].checked,
 					body: textareas[i].value,
+					attachmentsIncluded: attachmentCheckboxes[i].map((cb) => cb.checked),
 				})),
 			);
 			this.close();

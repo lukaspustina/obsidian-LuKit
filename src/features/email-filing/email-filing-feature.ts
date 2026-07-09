@@ -16,6 +16,7 @@ import {
 	threadKey,
 	resolveAttachmentFileNames,
 	decodeMessageIdFromUrl,
+	preselectAttachment,
 	type EmailMeta,
 	type MailAttachment,
 	type ThreadSectionMessage,
@@ -378,16 +379,16 @@ export class EmailFilingFeature implements LuKitFeature {
 		};
 	}
 
-	// Read-only preview rows: header (date · party · direction) and attachment line
-	// are locked; only the body is editable. The message:// link stays in the
-	// underlying message and is re-emitted verbatim on commit.
+	// Read-only preview rows: header (date · party · direction) and attachment
+	// names are locked; only the body and the per-attachment checkboxes are
+	// editable. The message:// link stays in the underlying message and is
+	// re-emitted verbatim on commit.
 	private toPreviewMessages(messages: ThreadSectionMessage[]): PreviewMessage[] {
 		const locale = this.plugin.settings.dateLocale;
 		return messages.map((msg) => ({
 			header: `${formatDate(new Date(msg.dateSent), locale)} — ${sanitizeSenderSubject(msg.partyName)} (${msg.direction === "in" ? "eingegangen" : "gesendet"})`,
 			body: msg.body,
-			attachmentsLine:
-				msg.attachments.length > 0 ? `Anhänge: ${msg.attachments.map((a) => a.name).join(", ")}` : null,
+			attachments: msg.attachments.map((a) => ({ name: a.name, preselected: preselectAttachment(a) })),
 		}));
 	}
 
