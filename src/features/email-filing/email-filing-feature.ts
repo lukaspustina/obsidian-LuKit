@@ -393,14 +393,18 @@ export class EmailFilingFeature implements LuKitFeature {
 	}
 
 	// Maps per-message preview results back onto the assembled messages: keeps the
-	// included ones (in order) with their edited body, drops the excluded ones.
+	// included ones (in order) with their edited body and their checked attachments
+	// (filtered positionally against attachmentsIncluded), drops the excluded ones.
 	private applyPreviewResults(
 		messages: ThreadSectionMessage[],
 		results: PreviewMessageResult[],
 	): ThreadSectionMessage[] {
 		const out: ThreadSectionMessage[] = [];
 		results.forEach((r, i) => {
-			if (r.included) out.push({ ...messages[i], body: r.body });
+			if (!r.included) return;
+			const msg = messages[i];
+			const attachments = msg.attachments.filter((_, j) => r.attachmentsIncluded[j] === true);
+			out.push({ ...msg, body: r.body, attachments });
 		});
 		return out;
 	}
