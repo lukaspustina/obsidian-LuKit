@@ -126,6 +126,23 @@ describe("extractDateFromTitle — locale mismatch", () => {
 	});
 });
 
+describe("extractDateFromTitle — Unicode-Leerzeichen", () => {
+	// Beim Einfügen aus PDF/Mail (oder durch macOS-Autoersetzung) landet nach
+	// dem Komma oft ein geschütztes Leerzeichen — optisch unsichtbar, brach
+	// aber die Datums-Erkennung (Merge sortierte solche Sektionen als datumslos).
+	it("parses a date after a non-breaking space (U+00A0)", () => {
+		expect(extractDateFromTitle("Bericht, 13.05.2023", "de")).toEqual(new Date(2023, 4, 13));
+	});
+
+	it("parses a date after a narrow no-break space (U+202F)", () => {
+		expect(extractDateFromTitle("Bericht, 13.05.2023", "de")).toEqual(new Date(2023, 4, 13));
+	});
+
+	it("parses a date whose title also contains earlier NBSPs", () => {
+		expect(extractDateFromTitle("Bericht A, Teil 2, 13.05.2023", "de")).toEqual(new Date(2023, 4, 13));
+	});
+});
+
 describe("isDateLocale", () => {
 	it("returns true for valid locale values", () => {
 		expect(isDateLocale("de")).toBe(true);

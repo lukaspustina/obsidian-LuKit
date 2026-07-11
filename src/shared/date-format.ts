@@ -56,9 +56,13 @@ export function parseDateString(str: string, locale: DateLocale): Date | null {
 }
 
 export function extractDateFromTitle(title: string, locale: DateLocale): Date | null {
-	const lastComma = title.lastIndexOf(", ");
+	// Unsichtbare Unicode-Leerzeichen (NBSP & Co. — beim Einfügen aus PDF/Mail
+	// entstanden oder von macOS ersetzt) würden das ", "-Muster sonst still
+	// verfehlen; die Sektion gälte dann z. B. beim Merge als datumslos.
+	const normalized = title.replace(/[\u00A0\u2007\u2009\u202F]/g, " ");
+	const lastComma = normalized.lastIndexOf(", ");
 	if (lastComma === -1) return null;
-	const candidate = title.slice(lastComma + 2).trim();
+	const candidate = normalized.slice(lastComma + 2).trim();
 	return parseDateString(candidate, locale);
 }
 
