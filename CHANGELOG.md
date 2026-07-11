@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-07-11
+
+### Added
+- **Editable section title in the email preview** — a prefilled text input lets you adjust the generated section name before filing; a blank input falls back to the generated one (9aae478).
+- **„Ablegen und Öffnen"** — third button in the email preview: files the thread and opens the target note in the current window; in the inbox walk this ends the walk so the opened note stays visible (9aae478).
+
 ## [1.19.0] - 2026-07-09
 
 ### Added
