@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.1] - 2026-07-11
+
+### Fixed
+- Date detection now normalizes invisible Unicode spaces (non-breaking space & co., pasted from PDFs/emails or substituted by macOS) before matching the `", DD.MM.YYYY"` suffix — previously such sections were treated as dateless: the merge sorted them at the merge date instead of chronologically and appended a bogus second date to their TOC anchors (be41632).
+
 ## [1.20.0] - 2026-07-11
 
 ### Added
