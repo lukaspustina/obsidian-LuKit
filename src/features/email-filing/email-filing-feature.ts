@@ -321,15 +321,27 @@ export class EmailFilingFeature implements LuKitFeature {
 						this.plugin.app,
 						vorgang.basename,
 						`Betreff: ${meta.subject} · ${assembled.messages.length} Nachricht(en)`,
+						assembled.sectionName,
 						this.toPreviewMessages(assembled.messages),
-						(results) => {
+						(results, outcome) => {
 							void this.commitThread(
 								meta,
-								assembled,
+								{ ...assembled, sectionName: outcome.sectionName },
 								this.applyPreviewResults(assembled.messages, results),
 								vorgang,
 							)
-								.then(() => this.presentMessage(metas, i + 1))
+								.then(() => {
+									if (outcome.openAfterFiling) {
+										// „Ablegen und Öffnen" beendet den Walk — die Notiz
+										// im aktuellen Fenster wäre sonst sofort vom nächsten
+										// Picker verdeckt.
+										this.openFiledNote(vorgang);
+										new Notice("E-Mail-Ablage beendet — Notiz geöffnet.");
+										this.walkInProgress = false;
+										return;
+									}
+									this.presentMessage(metas, i + 1);
+								})
 								.catch((e) => {
 									this.logBridgeError(e);
 									new Notice("Ablage fehlgeschlagen — E-Mail wird erneut angezeigt.");
@@ -746,15 +758,24 @@ export class EmailFilingFeature implements LuKitFeature {
 						this.plugin.app,
 						vorgang.basename,
 						`Betreff: ${m.subject} · ${assembled.messages.length} Nachricht(en)`,
+						assembled.sectionName,
 						this.toPreviewMessages(assembled.messages),
-						(results) => {
+						(results, outcome) => {
 							void this.commitSelectedThread(
 								m,
-								assembled,
+								{ ...assembled, sectionName: outcome.sectionName },
 								this.applyPreviewResults(assembled.messages, results),
 								vorgang,
 							)
-								.then(() => this.presentSelected(sel, i + 1))
+								.then(() => {
+									if (outcome.openAfterFiling) {
+										this.openFiledNote(vorgang);
+										new Notice("Ablage beendet — Notiz geöffnet.");
+										this.walkInProgress = false;
+										return;
+									}
+									this.presentSelected(sel, i + 1);
+								})
 								.catch((e) => {
 									this.logBridgeError(e);
 									new Notice("Ablage fehlgeschlagen — Nachricht wird erneut angezeigt.");
@@ -902,6 +923,12 @@ export class EmailFilingFeature implements LuKitFeature {
 
 	private openMessage(meta: EmailMeta): void {
 		this.openUrl(meta.messageUrl);
+	}
+
+	// „Ablegen und Öffnen": öffnet die Zielnotiz im aktuellen Fenster (kein
+	// neuer Tab).
+	private openFiledNote(vorgang: TFile): void {
+		void this.plugin.app.workspace.getLeaf(false).openFile(vorgang);
 	}
 
 	private titleFor(meta: RawMailMessageMeta): string {

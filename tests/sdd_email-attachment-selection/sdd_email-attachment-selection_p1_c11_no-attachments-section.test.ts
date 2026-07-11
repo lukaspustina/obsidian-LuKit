@@ -27,6 +27,7 @@ describe("SDD email-attachment-selection p1 c11", () => {
 			{} as never,
 			"Ziel",
 			"sub",
+			"E-Mail-Thread: Test",
 			messages,
 			(results) => {
 				captured = results;

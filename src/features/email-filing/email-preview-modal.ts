@@ -21,6 +21,14 @@ export interface PreviewMessageResult {
 	attachmentsIncluded: boolean[];
 }
 
+// Thread-weite Bestätigung: der (ggf. editierte) Abschnittstitel und ob nach
+// dem Ablegen die Zielnotiz im aktuellen Fenster geöffnet werden soll
+// („Ablegen und Öffnen" — beendet im Walk den Durchlauf).
+export interface PreviewOutcome {
+	sectionName: string;
+	openAfterFiling: boolean;
+}
+
 // Shows an assembled thread as one row per message — each with an include/exclude
 // checkbox and an editable body textarea; the header + attachment line are
 // read-only. onConfirm receives per-message results (order preserved); onCancel
@@ -28,8 +36,9 @@ export interface PreviewMessageResult {
 export class EmailPreviewModal extends Modal {
 	private readonly targetNoteName: string;
 	private readonly subtitle: string;
+	private readonly sectionName: string;
 	private readonly messages: PreviewMessage[];
-	private readonly onConfirm: (results: PreviewMessageResult[]) => void;
+	private readonly onConfirm: (results: PreviewMessageResult[], outcome: PreviewOutcome) => void;
 	private readonly onCancelCb: () => void;
 	private confirmed = false;
 
@@ -37,13 +46,15 @@ export class EmailPreviewModal extends Modal {
 		app: App,
 		targetNoteName: string,
 		subtitle: string,
+		sectionName: string,
 		messages: PreviewMessage[],
-		onConfirm: (results: PreviewMessageResult[]) => void,
+		onConfirm: (results: PreviewMessageResult[], outcome: PreviewOutcome) => void,
 		onCancel: () => void,
 	) {
 		super(app);
 		this.targetNoteName = targetNoteName;
 		this.subtitle = subtitle;
+		this.sectionName = sectionName;
 		this.messages = messages;
 		this.onConfirm = onConfirm;
 		this.onCancelCb = onCancel;
@@ -57,6 +68,14 @@ export class EmailPreviewModal extends Modal {
 		contentEl.empty();
 		contentEl.createEl("h3", { text: `E-Mail ablegen → ${this.targetNoteName}` });
 		contentEl.createEl("p", { text: this.subtitle });
+
+		// Editierbarer Abschnittstitel: der generierte Name ist der Vorschlag,
+		// leerer Input fällt beim Bestätigen auf ihn zurück.
+		const sectionRow = contentEl.createEl("label", { cls: "lukit-email-preview-section" });
+		sectionRow.createEl("span", { text: "Abschnittstitel: " });
+		const sectionInput = sectionRow.createEl("input");
+		sectionInput.type = "text";
+		sectionInput.value = this.sectionName;
 
 		const checkboxes: HTMLInputElement[] = [];
 		const textareas: HTMLTextAreaElement[] = [];
@@ -100,7 +119,7 @@ export class EmailPreviewModal extends Modal {
 			});
 		}
 
-		const submit = (): void => {
+		const submit = (openAfterFiling: boolean): void => {
 			this.confirmed = true;
 			this.onConfirm(
 				this.messages.map((_, i) => ({
@@ -108,13 +127,19 @@ export class EmailPreviewModal extends Modal {
 					body: textareas[i].value,
 					attachmentsIncluded: attachmentCheckboxes[i].map((cb) => cb.checked),
 				})),
+				{
+					sectionName: sectionInput.value.trim() === "" ? this.sectionName : sectionInput.value.trim(),
+					openAfterFiling,
+				},
 			);
 			this.close();
 		};
 
 		const buttons = contentEl.createEl("div", { cls: "lukit-email-preview-buttons" });
 		const confirmBtn = buttons.createEl("button", { text: "Ablegen", cls: "mod-cta" });
-		confirmBtn.addEventListener("click", submit);
+		confirmBtn.addEventListener("click", () => submit(false));
+		const openBtn = buttons.createEl("button", { text: "Ablegen und Öffnen" });
+		openBtn.addEventListener("click", () => submit(true));
 		const cancelBtn = buttons.createEl("button", { text: "Abbrechen" });
 		cancelBtn.addEventListener("click", () => {
 			this.close();
@@ -126,12 +151,12 @@ export class EmailPreviewModal extends Modal {
 			const active = this.contentEl.ownerDocument.activeElement;
 			if (active instanceof HTMLTextAreaElement) return true;
 			evt.preventDefault();
-			submit();
+			submit(false);
 			return false;
 		});
 		this.scope.register(["Mod"], "Enter", (evt) => {
 			evt.preventDefault();
-			submit();
+			submit(false);
 			return false;
 		});
 	}

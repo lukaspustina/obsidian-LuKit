@@ -25,6 +25,7 @@ describe("SDD email-attachment-selection p1 c9", () => {
 			{} as never,
 			"Ziel",
 			"sub",
+			"E-Mail-Thread: Test",
 			messages,
 			() => undefined,
 			() => undefined,

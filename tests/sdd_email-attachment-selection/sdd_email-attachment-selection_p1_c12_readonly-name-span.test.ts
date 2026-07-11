@@ -23,6 +23,7 @@ describe("SDD email-attachment-selection p1 c12", () => {
 			{} as never,
 			"Zieltitel",
 			"Untertitel",
+			"E-Mail-Thread: Test",
 			messages,
 			() => undefined,
 			() => undefined,
