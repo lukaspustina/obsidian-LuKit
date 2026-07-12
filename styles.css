@@ -62,6 +62,22 @@
 	margin-bottom: var(--size-4-1);
 }
 
+.lukit-email-preview-section {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-2);
+}
+
+.lukit-email-preview-section span {
+	white-space: nowrap;
+}
+
+.lukit-email-preview-section input {
+	flex: 1;
+	width: 100%;
+}
+
 .lukit-email-preview-atts {
 	margin: var(--size-4-1) 0 0;
 }
