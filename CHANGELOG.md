@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.2] - 2026-07-12
+
+### Fixed
+- The section title input in the email preview now stretches to the full modal width, matching the body preview (19c084a).
+
 ## [1.20.1] - 2026-07-11
 
 ### Fixed
