@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-07-24
+
+### Added
+- **Vorschau in der Besprechungen-Ablage** — „Alle offenen ablegen" zeigt pro Besprechung die extrahierte Zusammenfassung im Peek-Panel des Zielnotiz-Pickers (⌘P), mit einem Auszug der Notiz als Fallback, falls keine der konfigurierten Sections gefunden wird (fbc3e61).
+
 ## [1.20.2] - 2026-07-12
 
 ### Fixed
