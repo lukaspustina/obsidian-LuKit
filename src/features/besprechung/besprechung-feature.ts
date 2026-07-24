@@ -6,6 +6,7 @@ import type { LuKitFeature, HelpEntry } from "../../types";
 import {
 	formatBesprechungSummary,
 	composeBesprechungInsertion,
+	buildBesprechungFilingPreview,
 	extractCreatedDate,
 	frontmatterTagsInclude,
 	removeTagFromFrontmatter,
@@ -209,43 +210,57 @@ export class BesprechungFeature implements LuKitFeature {
 		const present = (pin?: string): void => {
 			const besprechung = pending[i];
 			const placeholder = `[${i + 1}/${pending.length}] „${besprechung.basename}" ablegen unter… (Esc = Überspringen)`;
-			new SectionNoteSuggestModal(
-				this.plugin.app,
-				SECTION_NOTE_TAGS,
-				{
-					placeholder,
-					suggestions: pin ? [pin, ...this.suggestionsFor(besprechung)] : this.suggestionsFor(besprechung),
-					onCreateNew: this.createNewHandler((basename) => present(basename)),
-					dropHint: "Tag entfernen",
-					excludeTag: this.plugin.settings.doneTag,
-					onPick: (vorgang) => {
-						i++;
-						counts.filed++;
-						void this.fileBesprechungIntoVorgang(besprechung, vorgang).then(next);
+			void this.buildFilingPreviewText(besprechung).then((previewText) => {
+				new SectionNoteSuggestModal(
+					this.plugin.app,
+					SECTION_NOTE_TAGS,
+					{
+						placeholder,
+						previewText,
+						suggestions: pin ? [pin, ...this.suggestionsFor(besprechung)] : this.suggestionsFor(besprechung),
+						onCreateNew: this.createNewHandler((basename) => present(basename)),
+						dropHint: "Tag entfernen",
+						excludeTag: this.plugin.settings.doneTag,
+						onPick: (vorgang) => {
+							i++;
+							counts.filed++;
+							void this.fileBesprechungIntoVorgang(besprechung, vorgang).then(next);
+						},
+						onSkip: () => {
+							i++;
+							counts.skipped++;
+							next();
+						},
+						onDrop: () => {
+							i++;
+							counts.dropped++;
+							void this.dropPending(besprechung).then(next);
+						},
+						onOpenSource: () => {
+							this.filingWalkActive = false;
+							void this.plugin.app.workspace.getLeaf("tab").openFile(besprechung);
+							new Notice(`Ablage gestoppt bei „${besprechung.basename}": ${summary()}, ${pending.length - i} offen`);
+						},
+						onCancel: () => {
+							this.filingWalkActive = false;
+							new Notice(`Ablage gestoppt: ${summary()}, ${pending.length - i} offen`);
+						},
 					},
-					onSkip: () => {
-						i++;
-						counts.skipped++;
-						next();
-					},
-					onDrop: () => {
-						i++;
-						counts.dropped++;
-						void this.dropPending(besprechung).then(next);
-					},
-					onOpenSource: () => {
-						this.filingWalkActive = false;
-						void this.plugin.app.workspace.getLeaf("tab").openFile(besprechung);
-						new Notice(`Ablage gestoppt bei „${besprechung.basename}": ${summary()}, ${pending.length - i} offen`);
-					},
-					onCancel: () => {
-						this.filingWalkActive = false;
-						new Notice(`Ablage gestoppt: ${summary()}, ${pending.length - i} offen`);
-					},
-				},
-			).open();
+				).open();
+			});
 		};
 		next();
+	}
+
+	// Reads the besprechung once per stop and builds its filing-preview panel
+	// text; any read failure degrades to no preview so the picker still opens.
+	private async buildFilingPreviewText(besprechung: TFile): Promise<string | undefined> {
+		try {
+			const content = await this.plugin.app.vault.read(besprechung);
+			return buildBesprechungFilingPreview(content, this.plugin.settings.besprechung.sectionHeadings);
+		} catch {
+			return undefined;
+		}
 	}
 
 	private fileActiveBesprechungCmd(): void {

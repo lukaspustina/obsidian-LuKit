@@ -94,6 +94,8 @@ export interface BesprechungSummary {
 	missing: string[];
 }
 
+const FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
+
 export function formatBesprechungSummary(
 	content: string,
 	sectionHeadings: string[] = ["Nächste Schritte", "Zusammenfassung"],
@@ -123,4 +125,23 @@ export function composeBesprechungInsertion(
 	if (summary.missing.length === 0) return summary.body;
 	const link = `→ See full notes: [[${besprechungBasename}]] (missing: ${summary.missing.join(", ")})`;
 	return summary.body === "" ? link : `${summary.body}\n\n${link}`;
+}
+
+// Builds the read-only preview panel text for the filing walk/picker: the
+// extracted summary when any configured section was found, otherwise a plain
+// excerpt of the note so the preview is never empty.
+export function buildBesprechungFilingPreview(
+	content: string,
+	sectionHeadings: string[],
+	excerptLineCount = 15,
+): string {
+	const summary = formatBesprechungSummary(content, sectionHeadings);
+	if (summary.body !== "") return summary.body;
+	const excerpt = content
+		.replace(FRONTMATTER, "")
+		.split("\n")
+		.slice(0, excerptLineCount)
+		.join("\n")
+		.trim();
+	return `(Keine der konfigurierten Sections gefunden — Auszug:)\n\n${excerpt}`;
 }

@@ -75,7 +75,7 @@ describe("BesprechungFeature filing suggestions — modal wiring", () => {
 		expect((constructed[0].suggestions as string[])[0]).toBe("Vorgang - Informationssicherheit");
 	});
 
-	it("recomputes suggestions per besprechung in the pending walk", () => {
+	it("recomputes suggestions per besprechung in the pending walk", async () => {
 		const app = createMockApp({});
 		const pending = createMockTFile("Besprechungen/Besprechung - Compliance & IT, 30.06.2026.md", {
 			basename: "Besprechung - Compliance & IT, 30.06.2026",
@@ -103,9 +103,53 @@ describe("BesprechungFeature filing suggestions — modal wiring", () => {
 
 		const { plugin } = makeFeature(app);
 		plugin.commands.get("besprechung-file-pending")?.callback?.();
+		// The walk now reads the besprechung to build the preview panel text
+		// before opening the picker — flush that async read.
+		await Promise.resolve();
+		await Promise.resolve();
 
 		expect(constructed).toHaveLength(1);
 		expect((constructed[0].suggestions as string[])[0]).toBe("Vorgang - Informationssicherheit");
+	});
+
+	it("passes the besprechung's filing preview text to the pending-walk picker", async () => {
+		const app = createMockApp({});
+		const pending = createMockTFile("Besprechungen/Besprechung - Compliance & IT, 30.06.2026.md", {
+			basename: "Besprechung - Compliance & IT, 30.06.2026",
+			ctime: 100,
+		});
+		app.vault.register(pending, "### Nächste Schritte\n- Vertrag pruefen\n### Zusammenfassung\n- Alles besprochen");
+		app.metadataCache.setFrontmatter(pending.path, { tags: ["Besprechung", "todo"] });
+
+		const { plugin } = makeFeature(app);
+		plugin.commands.get("besprechung-file-pending")?.callback?.();
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(constructed).toHaveLength(1);
+		expect(constructed[0].previewText).toBe(
+			"**Nächste Schritte**\n- Vertrag pruefen\n\n**Zusammenfassung**\n- Alles besprochen",
+		);
+	});
+
+	it("falls back to an excerpt preview when the besprechung has none of the configured sections", async () => {
+		const app = createMockApp({});
+		const pending = createMockTFile("Besprechungen/Besprechung - Notes, 30.06.2026.md", {
+			basename: "Besprechung - Notes, 30.06.2026",
+			ctime: 100,
+		});
+		app.vault.register(pending, "Free-form notes without a matching heading.");
+		app.metadataCache.setFrontmatter(pending.path, { tags: ["Besprechung", "todo"] });
+
+		const { plugin } = makeFeature(app);
+		plugin.commands.get("besprechung-file-pending")?.callback?.();
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(constructed).toHaveLength(1);
+		expect(constructed[0].previewText).toBe(
+			"(Keine der konfigurierten Sections gefunden — Auszug:)\n\nFree-form notes without a matching heading.",
+		);
 	});
 
 	it("degrades to empty suggestions and warns when corpus-gathering throws", () => {

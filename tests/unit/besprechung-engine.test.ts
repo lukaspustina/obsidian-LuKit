@@ -4,6 +4,7 @@ import {
 	extractCreatedDate,
 	formatBesprechungSummary,
 	composeBesprechungInsertion,
+	buildBesprechungFilingPreview,
 	frontmatterTagsInclude,
 	removeTagFromFrontmatter,
 	markFiledInFrontmatter,
@@ -426,6 +427,32 @@ describe("composeBesprechungInsertion", () => {
 	it("returns empty string when body and missing are both empty", () => {
 		const result = composeBesprechungInsertion({ body: "", missing: [] }, NAME);
 		expect(result).toBe("");
+	});
+});
+
+describe("buildBesprechungFilingPreview", () => {
+	it("returns the formatted summary when a configured section is found", () => {
+		const content = "### Nächste Schritte\n- Step 1\n### Zusammenfassung\n- Summary";
+		const preview = buildBesprechungFilingPreview(content, ["Nächste Schritte", "Zusammenfassung"]);
+		expect(preview).toBe("**Nächste Schritte**\n- Step 1\n\n**Zusammenfassung**\n- Summary");
+	});
+
+	it("falls back to a plain excerpt when no configured section is found", () => {
+		const content = ["Line 1", "Line 2", "Line 3"].join("\n");
+		const preview = buildBesprechungFilingPreview(content, ["Nächste Schritte", "Zusammenfassung"]);
+		expect(preview).toBe("(Keine der konfigurierten Sections gefunden — Auszug:)\n\nLine 1\nLine 2\nLine 3");
+	});
+
+	it("strips frontmatter from the excerpt fallback", () => {
+		const content = ["---", "title: Meeting", "---", "Line 1", "Line 2"].join("\n");
+		const preview = buildBesprechungFilingPreview(content, ["Nächste Schritte"]);
+		expect(preview).toBe("(Keine der konfigurierten Sections gefunden — Auszug:)\n\nLine 1\nLine 2");
+	});
+
+	it("truncates the excerpt to the given line count", () => {
+		const content = Array.from({ length: 20 }, (_, i) => `Line ${i + 1}`).join("\n");
+		const preview = buildBesprechungFilingPreview(content, ["Nächste Schritte"], 3);
+		expect(preview).toBe("(Keine der konfigurierten Sections gefunden — Auszug:)\n\nLine 1\nLine 2\nLine 3");
 	});
 });
 
