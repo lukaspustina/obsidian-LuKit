@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-07-29
+
+### Added
+- **Entscheidungen aus Besprechungen in Vorgängen protokollieren** — Überschriften aus der neuen Einstellung „Entscheidungs-Überschriften" (Standard: `Entscheidungen`) werden zusätzlich unter `# Fakten und Pointer` der Zielnotiz als gruppiertes Bullet mit Datum und Besprechungs-Link protokolliert. Neue Blöcke stehen über älteren, aber unter den manuell gepflegten Fakten; erneutes Ablegen derselben Besprechung erzeugt keinen zweiten Block (db2666b, 8c78417, c56047e).
+- **Optionale Abschnitts-Überschriften** — Überschriften aus „Entscheidungs-Überschriften" gelten als optional: fehlen sie in einer Besprechung, erscheint keine `(missing: …)`-Zeile mehr. Granola liefert `# Entscheidungen` nur bei tatsächlich getroffenen Entscheidungen (db2666b).
+- **Legacy-Header `# Fakten`** — auch noch nicht migrierte Vorgänge bekommen ihr Entscheidungs-Log; bei Notizen mit beiden Headern gewinnt `# Fakten und Pointer` (8e535d1).
+
 ## [1.21.0] - 2026-07-24
 
 ### Added
