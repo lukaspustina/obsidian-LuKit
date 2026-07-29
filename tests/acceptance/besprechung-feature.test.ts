@@ -231,6 +231,61 @@ describe("BesprechungFeature.insertBesprechungSummary — section note path", ()
 		expect(updatedDiary).toContain("Vorgang - X");
 	});
 
+	// SDD besprechung-entscheidungen, Phase 3 — Editor-Pfad: Fakten-Block plus
+	// Cursor-Korrektur um die oberhalb eingefügten Zeilen.
+	it("logs decisions under Fakten und Pointer and keeps the cursor in the h5 section", async () => {
+		const besprechung = createMockTFile("Besprechungen/Acme Kickoff.md");
+		const vorgang = createMockTFile("Vorgänge/Vorgang - Acme.md");
+
+		const vorgangContent = [
+			"---",
+			"tags:",
+			"  - Vorgang",
+			"---",
+			"",
+			"# Fakten und Pointer",
+			"- Bestandsfakt",
+			"",
+			"# Inhalt",
+			"",
+		].join("\n");
+
+		const app = createMockApp({});
+		app.vault.register(besprechung, "# Entscheidungen\n- Variante B\n");
+		app.vault.register(vorgang, vorgangContent);
+		app.metadataCache.setFrontmatter(vorgang.path, { tags: ["Vorgang"] });
+
+		const editor = createMockEditor(vorgangContent);
+		app.workspace.activeEditor = { editor };
+		app.workspace.activeFile = vorgang;
+
+		const settings = makeTestSettings({
+			besprechung: {
+				...makeTestSettings().besprechung,
+				sectionHeadings: ["Entscheidungen"],
+				decisionHeadings: ["Entscheidungen"],
+			},
+		});
+		const plugin = createMockPlugin(settings, app);
+		const feature = new BesprechungFeature();
+		feature.onload(asLuKitPlugin(plugin));
+
+		await (feature as unknown as { insertBesprechungSummary: (b: typeof besprechung) => Promise<void> }).insertBesprechungSummary(
+			besprechung,
+		);
+
+		const written = editor.getValue();
+		expect(written).toContain("- Entscheidungen ");
+		expect(written).toContain("    - Variante B");
+		expect(written).toContain("##### [[Acme Kickoff]]");
+		expect(written.indexOf("- Bestandsfakt")).toBeLessThan(written.indexOf("- Entscheidungen "));
+
+		// The cursor must sit inside the new h5 section, not in the Fakten block.
+		const outLines = written.split("\n");
+		const h5At = outLines.findIndex((l) => l.startsWith("##### [[Acme Kickoff]]"));
+		expect(editor.cursorPos.line).toBeGreaterThan(h5At);
+	});
+
 	it("stamps filed_into/filed_at on the besprechung like the filing flow", async () => {
 		const besprechung = createMockTFile("Besprechungen/Foo.md");
 		const vorgang = createMockTFile("Vorgänge/Vorgang - X.md");
