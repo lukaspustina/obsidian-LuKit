@@ -28,6 +28,13 @@ describe("mergeSettings", () => {
 		expect(merged.besprechung.pendingOrder).toBe(DEFAULT_SETTINGS.besprechung.pendingOrder);
 	});
 
+	it("defaults decisionHeadings for settings saved before the field existed", () => {
+		const merged = mergeSettings({
+			besprechung: { folderPath: "Meetings" } as Partial<LuKitSettingsLike>["besprechung"],
+		} as Parameters<typeof mergeSettings>[0]);
+		expect(merged.besprechung.decisionHeadings).toEqual(["Entscheidungen"]);
+	});
+
 	it("falls back to default and warns when dateLocale is invalid", () => {
 		const merged = mergeSettings({ dateLocale: "fr" } as Parameters<typeof mergeSettings>[0]);
 		expect(merged.dateLocale).toBe("de");

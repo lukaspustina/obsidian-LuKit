@@ -582,3 +582,76 @@ describe("markFiledInFrontmatter", () => {
 		expect(fm.tags).toEqual(["x"]);
 	});
 });
+
+describe("formatBesprechungSummary — optionalHeadings (SDD besprechung-entscheidungen, Phase 1)", () => {
+	const withZusammenfassung = [
+		"# Zusammenfassung",
+		"- Alles besprochen",
+	].join("\n");
+
+	it("omits an optional heading from missing when the section is absent", () => {
+		const result = formatBesprechungSummary(
+			withZusammenfassung,
+			["Entscheidungen", "Zusammenfassung"],
+			["Entscheidungen"],
+		);
+		expect(result.missing).toEqual([]);
+	});
+
+	it("still reports non-optional headings as missing", () => {
+		const result = formatBesprechungSummary(
+			"# Entscheidungen\n- Variante B",
+			["Entscheidungen", "Zusammenfassung"],
+			["Entscheidungen"],
+		);
+		expect(result.missing).toEqual(["Zusammenfassung"]);
+	});
+
+	it("names only the non-optional heading in the see-full-notes line", () => {
+		const summary = formatBesprechungSummary(
+			"# Agenda\n- nichts",
+			["Entscheidungen", "Zusammenfassung"],
+			["Entscheidungen"],
+		);
+		const insertion = composeBesprechungInsertion(summary, "Besprechung Acme");
+		expect(insertion).toContain("(missing: Zusammenfassung)");
+		expect(insertion).not.toContain("Entscheidungen");
+	});
+
+	it("extracts an optional heading normally when it is present", () => {
+		const content = [
+			"# Entscheidungen",
+			"- Variante B",
+			"# Zusammenfassung",
+			"- Alles besprochen",
+		].join("\n");
+		const result = formatBesprechungSummary(
+			content,
+			["Entscheidungen", "Zusammenfassung"],
+			["Entscheidungen"],
+		);
+		expect(result.missing).toEqual([]);
+		expect(result.body).toBe("**Entscheidungen**\n- Variante B\n\n**Zusammenfassung**\n- Alles besprochen");
+	});
+
+	it("ignores a heading that is only in optionalHeadings and not in sectionHeadings", () => {
+		const content = "# Entscheidungen\n- Variante B";
+		const result = formatBesprechungSummary(content, ["Zusammenfassung"], ["Entscheidungen"]);
+		expect(result.body).toBe("");
+		expect(result.missing).toEqual(["Zusammenfassung"]);
+	});
+
+	it("treats an empty optionalHeadings list as no optional headings", () => {
+		const result = formatBesprechungSummary(withZusammenfassung, ["Entscheidungen", "Zusammenfassung"], []);
+		expect(result.missing).toEqual(["Entscheidungen"]);
+	});
+
+	it("keeps the preview free of a missing-line for an absent optional heading", () => {
+		const preview = buildBesprechungFilingPreview(
+			withZusammenfassung,
+			["Entscheidungen", "Zusammenfassung"],
+		);
+		expect(preview).not.toContain("missing");
+		expect(preview).toContain("**Zusammenfassung**");
+	});
+});
