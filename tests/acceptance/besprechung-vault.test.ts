@@ -118,7 +118,13 @@ describe("BesprechungFeature.fileBesprechungIntoVorgang — Entscheidungs-Log", 
 		besprechungContent: string,
 		vorgangContent: string,
 		settings = settingsMitEntscheidungen(),
-	): Promise<{ vorgang: string; modifyCalls: number }> => {
+		// Anzahl der Ablage-Durchläufe — >1 prüft den alreadyLinked-Guard.
+		runs = 1,
+	): Promise<{
+		vorgang: string;
+		modifyCalls: number;
+		besprechungFrontmatter: Record<string, unknown> | undefined;
+	}> => {
 		const besprechung = createMockTFile("Besprechungen/Acme Kickoff.md");
 		const vorgang = createMockTFile("Vorgänge/Vorgang - Acme.md");
 
@@ -127,6 +133,9 @@ describe("BesprechungFeature.fileBesprechungIntoVorgang — Entscheidungs-Log", 
 		app.vault.register(vorgang, vorgangContent);
 		app.metadataCache.setFrontmatter(besprechung.path, { tags: ["Besprechung", "todo"] });
 		app.metadataCache.setFrontmatter(vorgang.path, { tags: ["Vorgang"] });
+		// processFrontMatter liest aus fileManager.frontmatter — in Obsidian ist das
+		// dieselbe Quelle wie der metadataCache, im Mock nicht.
+		app.fileManager.frontmatter.set(besprechung.path, { tags: ["Besprechung", "todo"] });
 
 		let modifyCalls = 0;
 		const realModify = app.vault.modify;
@@ -139,13 +148,19 @@ describe("BesprechungFeature.fileBesprechungIntoVorgang — Entscheidungs-Log", 
 		const feature = new BesprechungFeature();
 		feature.onload(asLuKitPlugin(plugin));
 
-		await (
-			feature as unknown as {
-				fileBesprechungIntoVorgang: (b: typeof besprechung, v: typeof vorgang) => Promise<void>;
-			}
-		).fileBesprechungIntoVorgang(besprechung, vorgang);
+		for (let i = 0; i < runs; i++) {
+			await (
+				feature as unknown as {
+					fileBesprechungIntoVorgang: (b: typeof besprechung, v: typeof vorgang) => Promise<void>;
+				}
+			).fileBesprechungIntoVorgang(besprechung, vorgang);
+		}
 
-		return { vorgang: app.vault.files.get(vorgang.path) ?? "", modifyCalls };
+		return {
+			vorgang: app.vault.files.get(vorgang.path) ?? "",
+			modifyCalls,
+			besprechungFrontmatter: app.fileManager.frontmatter.get(besprechung.path),
+		};
 	};
 
 	it("writes the h5 section and the Fakten block in a single modify call", async () => {
@@ -158,6 +173,27 @@ describe("BesprechungFeature.fileBesprechungIntoVorgang — Entscheidungs-Log", 
 		expect(vorgang).toContain("    - Migration auf Variante B");
 		expect(vorgang).toContain("    - Budget bleibt bei Q3");
 		expect(modifyCalls).toBe(1);
+	});
+
+	// SDD Phase 3, Szenario 2: der Stempel muss auch dann greifen, wenn zusätzlich
+	// ein Fakten-Block geschrieben wurde.
+	it("stamps filed_into/filed_at and removes the pending tag alongside the Fakten block", async () => {
+		const { vorgang, besprechungFrontmatter } = await fileInto(BESPRECHUNG_MIT_ENTSCHEIDUNGEN, VORGANG);
+
+		expect(vorgang).toContain("- Entscheidungen ");
+		expect(besprechungFrontmatter?.filed_into).toBe("[[Vorgang - Acme]]");
+		expect(besprechungFrontmatter?.filed_at).toBeTruthy();
+		expect(besprechungFrontmatter?.tags).toEqual(["Besprechung"]);
+	});
+
+	// SDD Phase 3, Szenario 4: der bestehende alreadyLinked-Guard umschließt den
+	// gesamten Write, also auch den Fakten-Append.
+	it("writes nothing on a second filing of the same besprechung — no duplicate Fakten block", async () => {
+		const { vorgang, modifyCalls } = await fileInto(BESPRECHUNG_MIT_ENTSCHEIDUNGEN, VORGANG, undefined, 2);
+
+		expect(modifyCalls).toBe(1);
+		expect(vorgang.split("- Entscheidungen ").length - 1).toBe(1);
+		expect(vorgang.split("##### [[Acme Kickoff]]").length - 1).toBe(1);
 	});
 
 	it("keeps the manual fact above the decisions block", async () => {

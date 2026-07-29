@@ -11,6 +11,7 @@ import {
 	ensureVorgangSkeleton,
 	appendDecisionsToFakten,
 } from "../../src/features/vorgang/vorgang-engine";
+import { extractDecisionLines } from "../../src/features/besprechung/besprechung-engine";
 import { formatDate, extractDateFromTitle } from "../../src/shared/date-format";
 
 describe("formatDate", () => {
@@ -776,6 +777,19 @@ describe("appendDecisionsToFakten (SDD besprechung-entscheidungen, Phase 2)", ()
 		const alt = out.indexOf("- Entscheidungen 01.07.2026 ([[Besprechung Alt]])");
 		expect(neu).toBeGreaterThan(out.indexOf("- Fakt eins"));
 		expect(neu).toBeLessThan(alt);
+	});
+
+	// Zwei konfigurierte Entscheidungs-Überschriften ergeben eine flache Liste und
+	// daraus genau ein Eltern-Bullet — nicht eines pro Überschrift.
+	it("emits exactly one parent bullet for decisions gathered from two headings", () => {
+		const content = ["# Entscheidungen", "- Deutsch eins", "# Decisions", "- English one"].join("\n");
+		const gathered = extractDecisionLines(content, ["Entscheidungen", "Decisions"]);
+		const result = appendDecisionsToFakten(vorgang(["- Fakt"]), "Besprechung Acme", gathered, "de", date);
+
+		expect(result.content.split("- Entscheidungen ").length - 1).toBe(1);
+		expect(result.content).toContain("    - Deutsch eins");
+		expect(result.content).toContain("    - English one");
+		expect(result.insertedLines).toBe(3);
 	});
 
 	it("adds one extra indent level to already-indented decision lines", () => {
