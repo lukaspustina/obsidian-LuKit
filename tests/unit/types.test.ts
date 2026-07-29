@@ -59,6 +59,7 @@ describe("mergeSettings", () => {
 			besprechung: {
 				folderPath: "Meetings",
 				sectionHeadings: ["Action Items"],
+				decisionHeadings: ["Decisions"],
 				pendingTag: "open",
 				pendingOrder: "newest" as const,
 				selfNameStopwords: ["Mustermann"],

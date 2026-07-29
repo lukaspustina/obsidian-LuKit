@@ -13,6 +13,11 @@ export type PendingOrder = "oldest" | "newest";
 export interface BesprechungSettings {
 	folderPath: string;
 	sectionHeadings: string[];
+	// Überschriften, die als Entscheidungen gelten: optional (fehlen sie, gilt
+	// das nicht als "missing") und zusätzlich als Log unter
+	// "# Fakten und Pointer" der Zielnotiz protokolliert. Unabhängig von
+	// sectionHeadings — eine Überschrift kann in nur einer der beiden stehen.
+	decisionHeadings: string[];
 	pendingTag: string;
 	pendingOrder: PendingOrder;
 	selfNameStopwords: string[];
@@ -60,6 +65,7 @@ export const DEFAULT_SETTINGS: LuKitSettings = {
 	besprechung: {
 		folderPath: "",
 		sectionHeadings: ["Nächste Schritte", "Zusammenfassung"],
+		decisionHeadings: ["Entscheidungen"],
 		pendingTag: "todo",
 		pendingOrder: "oldest",
 		selfNameStopwords: [],

@@ -96,9 +96,14 @@ export interface BesprechungSummary {
 
 const FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
 
+// `optionalHeadings` sind Überschriften, deren Fehlen nicht gemeldet wird —
+// Granola emittiert z. B. "# Entscheidungen" nur, wenn es welche gab, und eine
+// "(missing: Entscheidungen)"-Zeile unter jeder entscheidungsfreien Besprechung
+// wäre reines Rauschen.
 export function formatBesprechungSummary(
 	content: string,
 	sectionHeadings: string[] = ["Nächste Schritte", "Zusammenfassung"],
+	optionalHeadings: string[] = [],
 ): BesprechungSummary {
 	const parts: string[] = [];
 	const missing: string[] = [];
@@ -107,7 +112,7 @@ export function formatBesprechungSummary(
 		const body = extractSection(content, heading);
 		if (body) {
 			parts.push(`**${heading}**\n${removeBlankAdjacentToLabel(body)}`);
-		} else {
+		} else if (!optionalHeadings.includes(heading)) {
 			missing.push(heading);
 		}
 	}

@@ -107,6 +107,7 @@ export class BesprechungFeature implements LuKitFeature {
 
 	private async insertBesprechungSummary(besprechungFile: TFile): Promise<void> {
 		const headings = this.plugin.settings.besprechung.sectionHeadings;
+		const decisionHeadings = this.plugin.settings.besprechung.decisionHeadings;
 
 		let besprechungContent: string;
 		try {
@@ -116,7 +117,7 @@ export class BesprechungFeature implements LuKitFeature {
 			return;
 		}
 		const summary = composeBesprechungInsertion(
-			formatBesprechungSummary(besprechungContent, headings),
+			formatBesprechungSummary(besprechungContent, headings, decisionHeadings),
 			besprechungFile.basename,
 		);
 
@@ -369,6 +370,7 @@ export class BesprechungFeature implements LuKitFeature {
 
 	private async fileBesprechungIntoVorgang(besprechung: TFile, vorgang: TFile): Promise<void> {
 		const headings = this.plugin.settings.besprechung.sectionHeadings;
+		const decisionHeadings = this.plugin.settings.besprechung.decisionHeadings;
 		const locale = this.plugin.settings.dateLocale;
 		const pendingTag = this.plugin.settings.besprechung.pendingTag;
 
@@ -380,7 +382,7 @@ export class BesprechungFeature implements LuKitFeature {
 			return;
 		}
 		const summary = composeBesprechungInsertion(
-			formatBesprechungSummary(besprechungContent, headings),
+			formatBesprechungSummary(besprechungContent, headings, decisionHeadings),
 			besprechung.basename,
 		);
 

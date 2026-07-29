@@ -40,6 +40,24 @@ export function renderBesprechungSettings(
 		);
 
 	new Setting(containerEl)
+		.setName("Entscheidungs-Überschriften")
+		.setDesc(
+			'Kommagetrennte Überschriften, die Entscheidungen enthalten. Fehlen sie in einer Besprechung, wird das nicht als fehlend gemeldet; ihr Inhalt wird zusätzlich unter „Fakten und Pointer" der Zielnotiz protokolliert.'
+		)
+		.addText((text) =>
+			text
+				.setPlaceholder("Entscheidungen")
+				.setValue(plugin.settings.besprechung.decisionHeadings.join(", "))
+				.onChange(async (value) => {
+					plugin.settings.besprechung.decisionHeadings = value
+						.split(",")
+						.map((s) => s.trim())
+						.filter((s) => s.length > 0);
+					await plugin.saveSettings();
+				})
+		);
+
+	new Setting(containerEl)
 		.setName("Offen-Tag")
 		.setDesc('Frontmatter-Tag für noch nicht abgelegte Besprechungen (genutzt von „Alle offenen ablegen")')
 		.addText((text) =>
