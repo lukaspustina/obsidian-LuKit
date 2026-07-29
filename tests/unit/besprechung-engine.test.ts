@@ -5,6 +5,7 @@ import {
 	formatBesprechungSummary,
 	composeBesprechungInsertion,
 	buildBesprechungFilingPreview,
+	extractDecisionLines,
 	frontmatterTagsInclude,
 	removeTagFromFrontmatter,
 	markFiledInFrontmatter,
@@ -653,5 +654,87 @@ describe("formatBesprechungSummary — optionalHeadings (SDD besprechung-entsche
 		);
 		expect(preview).not.toContain("missing");
 		expect(preview).toContain("**Zusammenfassung**");
+	});
+});
+
+describe("extractDecisionLines (SDD besprechung-entscheidungen, Phase 2)", () => {
+	it("returns the bullets of the decisions section, blank lines discarded", () => {
+		const content = [
+			"# Entscheidungen",
+			"- Migration auf Variante B",
+			"",
+			"- Budget bleibt bei Q3",
+			"- Kickoff verschoben",
+			"# Zusammenfassung",
+			"- egal",
+		].join("\n");
+		expect(extractDecisionLines(content, ["Entscheidungen"])).toEqual([
+			"- Migration auf Variante B",
+			"- Budget bleibt bei Q3",
+			"- Kickoff verschoben",
+		]);
+	});
+
+	it("normalizes a non-bullet line to a bullet", () => {
+		const content = "# Entscheidungen\nMigration auf Variante B";
+		expect(extractDecisionLines(content, ["Entscheidungen"])).toEqual(["- Migration auf Variante B"]);
+	});
+
+	it("keeps a prose line between two bullets instead of truncating there", () => {
+		const content = [
+			"# Entscheidungen",
+			"- Erstens",
+			"Zwischenbemerkung ohne Bullet",
+			"- Zweitens",
+		].join("\n");
+		expect(extractDecisionLines(content, ["Entscheidungen"])).toEqual([
+			"- Erstens",
+			"- Zwischenbemerkung ohne Bullet",
+			"- Zweitens",
+		]);
+	});
+
+	it("preserves an asterisk bullet marker", () => {
+		const content = "# Entscheidungen\n* Variante B";
+		expect(extractDecisionLines(content, ["Entscheidungen"])).toEqual(["* Variante B"]);
+	});
+
+	it("preserves the relative indentation of sub-bullets", () => {
+		const content = [
+			"# Entscheidungen",
+			"- Variante B",
+			"    - weil günstiger",
+		].join("\n");
+		expect(extractDecisionLines(content, ["Entscheidungen"])).toEqual([
+			"- Variante B",
+			"    - weil günstiger",
+		]);
+	});
+
+	it("concatenates several configured headings in setting order", () => {
+		const content = [
+			"# Decisions",
+			"- English one",
+			"# Entscheidungen",
+			"- Deutsch eins",
+		].join("\n");
+		expect(extractDecisionLines(content, ["Entscheidungen", "Decisions"])).toEqual([
+			"- Deutsch eins",
+			"- English one",
+		]);
+	});
+
+	it("returns an empty list for an empty decisionHeadings setting", () => {
+		const content = "# Entscheidungen\n- Variante B";
+		expect(extractDecisionLines(content, [])).toEqual([]);
+	});
+
+	it("returns an empty list when the section is absent", () => {
+		expect(extractDecisionLines("# Zusammenfassung\n- x", ["Entscheidungen"])).toEqual([]);
+	});
+
+	it("returns an empty list for a present but empty section", () => {
+		const content = ["# Entscheidungen", "", "# Zusammenfassung", "- x"].join("\n");
+		expect(extractDecisionLines(content, ["Entscheidungen"])).toEqual([]);
 	});
 });

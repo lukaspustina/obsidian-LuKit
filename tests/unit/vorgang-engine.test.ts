@@ -9,6 +9,7 @@ import {
 	addVorgangSection,
 	addVorgangSectionLinked,
 	ensureVorgangSkeleton,
+	appendDecisionsToFakten,
 } from "../../src/features/vorgang/vorgang-engine";
 import { formatDate, extractDateFromTitle } from "../../src/shared/date-format";
 
@@ -715,5 +716,117 @@ describe("ensureVorgangSkeleton", () => {
 
 	it("produces the bare skeleton for a completely empty note", () => {
 		expect(ensureVorgangSkeleton("", "de", date)).toBe("# Fakten und Pointer\n\n# Nächste Schritte\n\n# Inhalt\n");
+	});
+});
+
+describe("appendDecisionsToFakten (SDD besprechung-entscheidungen, Phase 2)", () => {
+	const date = new Date(2026, 6, 29); // 29.07.2026
+	const lines = ["- Variante B", "- Budget bleibt bei Q3"];
+
+	const vorgang = (fakten: string[]): string =>
+		[
+			"---",
+			"tags:",
+			"  - Vorgang",
+			"---",
+			"",
+			"# Fakten und Pointer",
+			...fakten,
+			"",
+			"# Nächste Schritte",
+			"- offen",
+			"",
+			"# Inhalt",
+			"- [[#Status, 29.07.2026]]",
+			"",
+			"##### Status, 29.07.2026",
+			"- aa",
+		].join("\n");
+
+	it("appends a grouped block at the end of the Fakten section", () => {
+		const result = appendDecisionsToFakten(vorgang(["- Fakt eins", "- Fakt zwei"]), "Besprechung Acme", lines, "de", date);
+		const out = result.content.split("\n");
+		const faktenAt = out.indexOf("# Fakten und Pointer");
+		const parentAt = out.indexOf("- Entscheidungen 29.07.2026 ([[Besprechung Acme]])");
+		const naechsteAt = out.indexOf("# Nächste Schritte");
+		expect(parentAt).toBeGreaterThan(out.indexOf("- Fakt zwei"));
+		expect(parentAt).toBeLessThan(naechsteAt);
+		expect(faktenAt).toBeLessThan(parentAt);
+		expect(out[parentAt + 1]).toBe("    - Variante B");
+		expect(out[parentAt + 2]).toBe("    - Budget bleibt bei Q3");
+		expect(result.insertedLines).toBe(3);
+	});
+
+	it("leaves manual facts and the following section untouched", () => {
+		const result = appendDecisionsToFakten(vorgang(["- Fakt eins"]), "Besprechung Acme", lines, "de", date);
+		expect(result.content).toContain("- Fakt eins");
+		expect(result.content).toContain("# Nächste Schritte\n- offen");
+		expect(result.content).toContain("##### Status, 29.07.2026\n- aa");
+	});
+
+	it("inserts a new block directly above an existing decisions block", () => {
+		const existing = [
+			"- Fakt eins",
+			"- Entscheidungen 01.07.2026 ([[Besprechung Alt]])",
+			"    - Alte Entscheidung",
+		];
+		const result = appendDecisionsToFakten(vorgang(existing), "Besprechung Neu", lines, "de", date);
+		const out = result.content.split("\n");
+		const neu = out.indexOf("- Entscheidungen 29.07.2026 ([[Besprechung Neu]])");
+		const alt = out.indexOf("- Entscheidungen 01.07.2026 ([[Besprechung Alt]])");
+		expect(neu).toBeGreaterThan(out.indexOf("- Fakt eins"));
+		expect(neu).toBeLessThan(alt);
+	});
+
+	it("adds one extra indent level to already-indented decision lines", () => {
+		const nested = ["- Variante B", "    - weil günstiger"];
+		const result = appendDecisionsToFakten(vorgang(["- Fakt"]), "Besprechung Acme", nested, "de", date);
+		expect(result.content).toContain("    - Variante B");
+		expect(result.content).toContain("        - weil günstiger");
+	});
+
+	it("is idempotent for a besprechung already in the decisions log", () => {
+		const content = vorgang([
+			"- Fakt",
+			"- Entscheidungen 01.07.2026 ([[Besprechung Acme]])",
+			"    - Alte Entscheidung",
+		]);
+		const result = appendDecisionsToFakten(content, "Besprechung Acme", lines, "de", date);
+		expect(result.content).toBe(content);
+		expect(result.insertedLines).toBe(0);
+	});
+
+	it("still inserts when a manual bullet links the same besprechung without the prefix", () => {
+		const content = vorgang(["- Siehe [[Besprechung Acme]] für Details"]);
+		const result = appendDecisionsToFakten(content, "Besprechung Acme", lines, "de", date);
+		expect(result.content).toContain("- Entscheidungen 29.07.2026 ([[Besprechung Acme]])");
+		expect(result.insertedLines).toBe(3);
+	});
+
+	it("is a no-op when the Fakten section is missing", () => {
+		const content = ["---", "tags: []", "---", "", "# Inhalt", "", "##### Status, 29.07.2026", "- aa"].join("\n");
+		const result = appendDecisionsToFakten(content, "Besprechung Acme", lines, "de", date);
+		expect(result.content).toBe(content);
+		expect(result.insertedLines).toBe(0);
+	});
+
+	it("is a no-op for an empty decision line list", () => {
+		const content = vorgang(["- Fakt"]);
+		const result = appendDecisionsToFakten(content, "Besprechung Acme", [], "de", date);
+		expect(result.content).toBe(content);
+		expect(result.insertedLines).toBe(0);
+	});
+
+	it("uses the locale date format and keeps the fixed Entscheidungen label", () => {
+		const result = appendDecisionsToFakten(vorgang(["- Fakt"]), "Meeting Acme", lines, "en", date);
+		expect(result.content).toContain("- Entscheidungen 07/29/2026 ([[Meeting Acme]])");
+	});
+
+	it("handles an empty Fakten section", () => {
+		const result = appendDecisionsToFakten(vorgang([]), "Besprechung Acme", lines, "de", date);
+		const out = result.content.split("\n");
+		const parentAt = out.indexOf("- Entscheidungen 29.07.2026 ([[Besprechung Acme]])");
+		expect(parentAt).toBe(out.indexOf("# Fakten und Pointer") + 1);
+		expect(parentAt).toBeLessThan(out.indexOf("# Nächste Schritte"));
 	});
 });
