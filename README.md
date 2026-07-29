@@ -38,13 +38,25 @@ When some configured sections are absent from the meeting note, the available on
 
 When the active note is tagged `Vorgang`, `Person`, `Bestellung`, or `Bewerbung`, the summary is inserted as a linked h5 section under `# Inhalt` (with TOC bullet) instead of at the cursor.
 
+**Decisions log:** headings listed under *Entscheidungs-Überschriften* (default: `Entscheidungen`) are treated specially. They are optional — a meeting note without them does not get a `(missing: …)` line — and their content is additionally logged under the target note's `# Fakten und Pointer` as one grouped bullet:
+
+```markdown
+# Fakten und Pointer
+- Bestandsfakt
+- Entscheidungen 29.07.2026 ([[Besprechung Acme Kickoff]])
+    - Migration auf Variante B
+    - Budget bleibt bei Q3
+```
+
+The block goes above older decision blocks (newest first) but below your manually maintained facts, so a Vorgang gains a lookup-able decision history without digging through the chronological h5 sections. Nothing is logged when the target note has no `# Fakten und Pointer` section (structure creation is `Vorgang: Aktuelle Notiz umwandeln`'s job), and re-filing the same meeting note never duplicates a block. Already-filed meeting notes are not back-filled.
+
 **Commands:**
 
 - **Besprechung: Zusammenfassung einfügen** — Pick a meeting note from the configured folder, extract the key sections, and insert at the cursor position (or as a linked section if the active note is a Vorgang/Person/Bestellung/Bewerbung; in that case the besprechung is also stamped with `filed_into`/`filed_at` so it feeds the suggestion corpus).
 - **Besprechungen: Alle offenen ablegen** — For each Besprechung tagged with the configured pending tag (default: `todo`), pick a target Vorgang/Person/Bestellung/Bewerbung. The picker pins the most likely target(s) to the top as `★ <name> (Vorschlag)` rows, ranked from past `filed_into` routings and the besprechung's title — recurring meetings and 1:1s usually land their target first; the full list stays below and the suggestion is always overridable. The summary is filed into the picked note, the pending tag is removed, and the Besprechung gets `filed_into: "[[Vorgang]]"` and `filed_at: <ISO>` stamps in its frontmatter (so future automation can learn from past routings). Picker also offers: `↪ Besprechung überspringen` (leave it pending, advance), `✕ Nicht ablegen (nur Tag entfernen)`, and `→ Stopp und in neuem Tab öffnen` (for cases needing manual review). Keyboard: Enter files into the highlighted note, **Esc (or click outside) = Skip**, **⌘. = Stop**, **⌘N = Don't file**; the shortcuts are shown in the modal's hint bar. The `＋ Neuen Vorgang anlegen…` entry (when the QuickAdd command setting is configured) creates a Vorgang mid-walk and reopens the picker with it pinned. Processing order (oldest or newest first by creation time) is configurable.
 - **Besprechung: Aktuelle Notiz ablegen** — Same as above (including the pinned suggestions), but operates on the active Besprechung instead of iterating the pending backlog. Active note must have `Besprechung` in its frontmatter `tags`; the command files into the picked target regardless of pending-tag state, so it works for back-filling untagged besprechungen too. Picker offers Pick + `✕ Don't file`; ESC cancels.
 
-**Setup:** Set the Besprechung folder path, section headings, pending tag, and pending order in Settings > LuKit. Section headings are comma-separated (e.g. `Nächste Schritte, Zusammenfassung, Agenda`).
+**Setup:** Set the Besprechung folder path, section headings, decision headings, pending tag, and pending order in Settings > LuKit. Both heading lists are comma-separated (e.g. `Entscheidungen, Nächste Schritte, Zusammenfassung`). To get decisions into both the h5 section and the decisions log, list the heading in *both* fields — the two settings are independent by design.
 
 ### Migration
 

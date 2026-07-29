@@ -647,13 +647,15 @@ describe("formatBesprechungSummary — optionalHeadings (SDD besprechung-entsche
 		expect(result.missing).toEqual(["Entscheidungen"]);
 	});
 
-	it("keeps the preview free of a missing-line for an absent optional heading", () => {
+	// The preview renders only `summary.body` — it never composes a
+	// "(missing: …)" line, which is why it takes no optionalHeadings param.
+	// This pins that body-only contract.
+	it("renders body only, so an absent optional heading is invisible in the preview", () => {
 		const preview = buildBesprechungFilingPreview(
 			withZusammenfassung,
 			["Entscheidungen", "Zusammenfassung"],
 		);
-		expect(preview).not.toContain("missing");
-		expect(preview).toContain("**Zusammenfassung**");
+		expect(preview).toBe("**Zusammenfassung**\n- Alles besprochen");
 	});
 });
 

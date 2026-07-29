@@ -180,6 +180,16 @@ describe("BesprechungFeature.fileBesprechungIntoVorgang — Entscheidungs-Log", 
 		expect(vorgang).toContain("**Entscheidungen**");
 	});
 
+	// The shipped default: decisionHeadings has "Entscheidungen", sectionHeadings
+	// does not. Decisions land in the Fakten log only (Requirement 13).
+	it("logs decisions but omits them from the h5 body under default headings", async () => {
+		const { vorgang } = await fileInto(BESPRECHUNG_MIT_ENTSCHEIDUNGEN, VORGANG, makeTestSettings());
+		expect(vorgang).toContain("    - Migration auf Variante B");
+		expect(vorgang).toContain("- Entscheidungen ");
+		expect(vorgang).not.toContain("**Entscheidungen**");
+		expect(vorgang).toContain("**Nächste Schritte**");
+	});
+
 	it("does not log decisions when decisionHeadings is empty", async () => {
 		const settings = makeTestSettings({
 			besprechung: {

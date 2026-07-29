@@ -280,10 +280,14 @@ describe("BesprechungFeature.insertBesprechungSummary — section note path", ()
 		expect(written).toContain("##### [[Acme Kickoff]]");
 		expect(written.indexOf("- Bestandsfakt")).toBeLessThan(written.indexOf("- Entscheidungen "));
 
-		// The cursor must sit inside the new h5 section, not in the Fakten block.
+		// The cursor must sit on the line right below the h5 section's body, not
+		// be shifted off by the Fakten block inserted above it. Asserting the
+		// preceding line's content pins the correction: dropping insertedLines
+		// lands the cursor two lines too high.
 		const outLines = written.split("\n");
 		const h5At = outLines.findIndex((l) => l.startsWith("##### [[Acme Kickoff]]"));
 		expect(editor.cursorPos.line).toBeGreaterThan(h5At);
+		expect(outLines[editor.cursorPos.line - 1]).toBe("- Variante B");
 	});
 
 	it("stamps filed_into/filed_at on the besprechung like the filing flow", async () => {

@@ -22,6 +22,8 @@ Weil Granola die Section nur bei tatsächlich getroffenen Entscheidungen emittie
   2. `fileBesprechungIntoVorgang` (Walk „Alle offenen ablegen" + Single-Shot „Aktuelle Notiz ablegen", via `vault.modify`)
 - Beide Pfade transformieren einen kompletten Content-String → das Fakten-Routing kann als reiner Engine-Transform implementiert und in beiden Pfaden identisch angewandt werden.
 - E-Mail-Ablage ist ausdrücklich **nicht** betroffen (E-Mails haben keine Entscheidungs-Section).
+- Besprechungs-Basenames werden — wie an allen bestehenden Wikilink-Call-Sites (`addVorgangSectionLinked`, TOC-Einträge) — roh in `[[…]]` eingebettet. Die Annahme, dass ein Basename kein `]]` und keinen Zeilenumbruch enthält, gilt hier genauso; sie wird bewusst nicht neu abgesichert (systemisches Muster, keine Regression dieses Features).
+- `mergeSettings` (`src/types.ts:84`) spreizt `DEFAULT_SETTINGS.besprechung` vor den gespeicherten Werten — ein Settings-Blob ohne `decisionHeadings` fällt automatisch auf den Default zurück. Es ist **keine** Migrationslogik zu schreiben.
 
 ## Requirements
 
@@ -66,6 +68,10 @@ Der Fakten-Append läuft **nach** `addVorgangSectionLinked` auf dessen Ergebnis-
 
 `extractDecisionLines` iteriert `decisionHeadings` in **Setting-Reihenfolge** (analog zu `formatBesprechungSummary` für `sectionHeadings`), sammelt die Zeilen aller gematchten Sections in dieser Reihenfolge in **eine flache Liste**, und die Ablage erzeugt daraus **genau ein** Eltern-Bullet pro Filing — nie eines pro Überschrift.
 
+Die Extraktion selbst läuft über den bestehenden `extractSection(content, heading)` aus `besprechung-engine.ts:18-62` — **ohne** das `bulletsOnly`-Flag. Mit `bulletsOnly = true` bricht `extractSection` an der ersten Nicht-Bullet-Zeile ab; das würde Requirement 6 (Prosa-Zeilen zu Bullets *konvertieren*) unterlaufen und einen gemischten Body stillschweigend abschneiden. `extractSection` liefert `null` sowohl bei fehlender als auch bei nach Trim leerer Section — für Requirements 2 und 12 ist beides identisch zu behandeln („nicht vorhanden"), also ist diese Nicht-Unterscheidbarkeit hier korrekt und kein Grund für einen eigenen Scanner.
+
+**Prior art für die Section-Grenzen:** `vorgang-engine.ts` enthält bereits `sliceSectionBody(lines, header)` (`vorgang-engine.ts:213-222`) und `mergeH1Section(content, header, newLines, createAfterHeader)` (`vorgang-engine.ts:262-302`); beide bestimmen die Grenzen einer h1-Section über den Boundary-Scan `/^#{1,5} /` bis zur nächsten Überschrift. `appendDecisionsToFakten` nutzt dasselbe Muster für die Grenzen von `# Fakten und Pointer` — der Scan ist **nicht neu herzuleiten**. Die Funktion bleibt dennoch eigenständig, weil sie in zwei Punkten bewusst von `mergeH1Section` abweicht: Platzierung oberhalb des ersten bestehenden Entscheidungsblocks statt Append am Section-Ende (Requirement 7), und No-Op statt Create-if-missing bei fehlender Section (Requirement 8).
+
 Das Datum im Eltern-Bullet ist immer derselbe `date`-Wert, der für dieselbe Ablage bereits an `addVorgangSectionLinked` übergeben wird — h5-Header und Fakten-Bullet stimmen dadurch immer überein. Der Engine parst das Datum nie selbst aus dem Besprechungs-Content.
 
 ## File & Module Structure
@@ -79,7 +85,8 @@ Das Datum im Eltern-Bullet ist immer derselbe `date`-Wert, der für dieselbe Abl
 | `src/features/besprechung/besprechung-feature.ts` | beide Ablage-Pfade verdrahten, `decisionHeadings` durchreichen |
 | `tests/unit/besprechung-engine.test.ts` | optionale Überschriften, `extractDecisionLines` |
 | `tests/unit/vorgang-engine.test.ts` | `appendDecisionsToFakten` (Platzierung, Einrückung, Idempotenz, fehlende Section, mehrere Überschriften, leere `decisionHeadings`) |
-| `tests/acceptance/besprechung-*.test.ts` | Ende-zu-Ende: Ablage schreibt h5 **und** Fakten-Block in einem Write |
+| `tests/acceptance/besprechung-vault.test.ts` | Ende-zu-Ende Walk/Single-Shot (`vault.modify`): schreibt h5 **und** Fakten-Block in einem Write |
+| `tests/acceptance/besprechung-feature.test.ts` | Ende-zu-Ende Editor-Pfad (`insertBesprechungSummary`): Fakten-Block + korrigierte Cursor-Position |
 | `CLAUDE.md`, `README.md` | neues Setting + Verhalten dokumentieren |
 
 ## Data Models
@@ -108,12 +115,15 @@ export function formatBesprechungSummary(
 ): BesprechungSummary;
 
 /** Sammelt die Zeilen aller `decisionHeadings`-Sections in Setting-Reihenfolge
- *  zu einer flachen Liste (siehe Architecture). Leerzeilen verworfen,
- *  Nicht-Bullet-Zeilen zu `- <Text>` normalisiert. */
+ *  zu einer flachen Liste (siehe Architecture). Nutzt `extractSection` ohne
+ *  `bulletsOnly`. Leerzeilen verworfen, Nicht-Bullet-Zeilen zu `- <Text>`
+ *  normalisiert. */
 export function extractDecisionLines(
 	content: string,
 	decisionHeadings: string[],
 ): string[];
+
+// buildBesprechungFilingPreview bleibt unverändert — siehe AMENDMENT unten.
 ```
 
 ```ts
@@ -143,7 +153,7 @@ export function appendDecisionsToFakten(
 
 ## Phase 1 — Optionale Überschriften + Setting
 
-`decisionHeadings` in `types.ts` + `DEFAULT_SETTINGS` + Settings-UI (Parsing exakt wie `sectionHeadings`, siehe Requirement 1). `formatBesprechungSummary` bekommt einen dritten Parameter `optionalHeadings`; darin enthaltene Überschriften landen bei Nichtvorhandensein nicht in `missing`. Beide Ablage-Pfade und `buildBesprechungFilingPreview` reichen `decisionHeadings` als `optionalHeadings` durch.
+`decisionHeadings` in `types.ts` + `DEFAULT_SETTINGS` + Settings-UI (Parsing exakt wie `sectionHeadings`, siehe Requirement 1). `formatBesprechungSummary` bekommt einen dritten Parameter `optionalHeadings`; darin enthaltene Überschriften landen bei Nichtvorhandensein nicht in `missing`. Beide Ablage-Pfade reichen `decisionHeadings` als `optionalHeadings` durch.
 
 Nach dieser Phase kann der Nutzer `Entscheidungen` zu `sectionHeadings` hinzufügen, ohne dass entscheidungsfreie Besprechungen eine `(missing: Entscheidungen)`-Zeile bekommen.
 
@@ -156,6 +166,8 @@ Phase complete when: `npm run test` grün, `npm run build` grün, und ein Vorgan
 - GIVEN eine Besprechung **mit** `# Entscheidungen` WHEN `formatBesprechungSummary` läuft THEN enthält der Body weiterhin einen `**Entscheidungen**`-Block in der Reihenfolge von `sectionHeadings` (unverändert).
 - GIVEN eine Überschrift steht in `decisionHeadings`, aber nicht in `sectionHeadings` WHEN `formatBesprechungSummary` läuft THEN wird sie nicht in den h5-Body extrahiert und nicht als `missing` gemeldet (siehe Requirement 13 — das Fakten-Log-Routing in Phase 2/3 bleibt davon unberührt).
 - GIVEN Default-Settings WHEN das Plugin lädt THEN ist `decisionHeadings === ["Entscheidungen"]`.
+- GIVEN ein gespeichertes Settings-Blob ohne `decisionHeadings` WHEN `mergeSettings` läuft THEN ist `decisionHeadings === ["Entscheidungen"]` und nicht `undefined`.
+- GIVEN eine Besprechung ohne `# Entscheidungen` WHEN `buildBesprechungFilingPreview` läuft THEN besteht die Vorschau ausschließlich aus dem Body (die Funktion rendert `missing` nie — siehe AMENDMENT).
 
 ## Phase 2 — Engine: Entscheidungs-Extraktion und Fakten-Append
 
@@ -167,6 +179,8 @@ Phase complete when: `npm run test` grün mit vollständiger Branch-Abdeckung be
 
 - GIVEN eine Besprechung mit `# Entscheidungen` und drei Bullets WHEN `extractDecisionLines` läuft THEN liefert sie drei Zeilen, Leerzeilen verworfen.
 - GIVEN ein Entscheidungs-Body mit einer nicht-Bullet-Zeile WHEN `extractDecisionLines` läuft THEN ist die Zeile als `- <Text>` normalisiert.
+- GIVEN ein Entscheidungs-Body, in dem eine Prosa-Zeile **zwischen** zwei Bullets steht WHEN `extractDecisionLines` läuft THEN sind alle drei Zeilen enthalten (kein Abbruch an der Prosa-Zeile — Nachweis, dass `extractSection` ohne `bulletsOnly` aufgerufen wird).
+- GIVEN eine vorhandene, aber leere `# Entscheidungen`-Section WHEN `extractDecisionLines` läuft THEN liefert sie `[]` (identisch zur fehlenden Section).
 - GIVEN `decisionHeadings = ["Entscheidungen","Decisions"]` und eine Besprechung mit beiden Sections WHEN `extractDecisionLines` läuft THEN sind die Zeilen beider Sections in Setting-Reihenfolge in einer flachen Liste enthalten, und `appendDecisionsToFakten` erzeugt daraus genau **ein** Eltern-Bullet.
 - GIVEN `decisionHeadings = []` WHEN `extractDecisionLines` läuft THEN liefert sie `[]`, und `appendDecisionsToFakten` mit dieser leeren Liste liefert byte-identischen Content und `insertedLines: 0`.
 - GIVEN ein Entscheidungs-Body mit einem eingerückten Unterbullet WHEN `appendDecisionsToFakten` läuft THEN hat das Unterbullet im Ergebnis 8 Leerzeichen (eine Ebene mehr als das Eltern-Bullet-Kind).
@@ -204,6 +218,10 @@ Phase complete when: `npm run test` grün (inkl. neuer Acceptance-Tests), `npm r
 - **Fehlende `# Fakten und Pointer` wird nicht erzeugt**: Struktur anzulegen ist Aufgabe von `vorgang-convert`/`ensureVorgangSkeleton`. Eine Ablage soll keine Notizstruktur erfinden; die Entscheidungen sind über die h5-Sektion ohnehin nicht verloren.
 - **Fakten-Log-Routing unabhängig von `sectionHeadings`**: eine Überschrift, die nur in `decisionHeadings` konfiguriert ist, wird trotzdem im Fakten-Log protokolliert, auch wenn sie nicht im h5-Body erscheint. Kein Cross-Check zwischen den beiden Settings — die zwei Settings steuern zwei unabhängige Ziele (h5-Body vs. Fakten-Log) bewusst getrennt.
 - **`appendDecisionsToFakten` liefert `{ content, insertedLines }` statt bloßem `string`**: der editorbasierte Pfad braucht die Zeilenanzahl zur Korrektur von `cursorLineIndex`; eine Diff-Berechnung über Zeilenanzahlen vor/nach wäre fragil, sobald die Funktion je unrelated Whitespace normalisiert.
+- **`appendDecisionsToFakten` als eigene Funktion statt Wrapper um `mergeH1Section`**: `mergeH1Section` hängt immer am Section-Ende an und legt die Section bei Bedarf an — beides widerspricht Requirements 7 und 8. Der Boundary-Scan wird dennoch von dort übernommen und nicht neu erfunden.
+- **`extractDecisionLines` baut auf `extractSection` ohne `bulletsOnly` auf** statt auf einem eigenen Zeilen-Scanner: gleiche Heading-Matching-Semantik wie `formatBesprechungSummary` (nötig, wenn eine Überschrift in beiden Settings steht), und `bulletsOnly = true` würde Requirement 6 unterlaufen.
+- **`buildBesprechungFilingPreview` bekommt KEINEN `optionalHeadings`-Parameter** (AMENDMENT, in der Implementierung korrigiert): die Funktion liest `summary.missing` nie — sie gibt ausschließlich `summary.body` oder einen Roh-Auszug zurück. Eine `(missing: …)`-Zeile ist in der Vorschau strukturell unmöglich, der Parameter hätte also keinen Leser (YAGNI / keine spekulativen Parameter). Der Validate-Lauf hatte hier eine missing-Zeile in der Vorschau unterstellt, die es nicht gibt.
+- **Cursor-Korrektur setzt die Skelett-Reihenfolge voraus** (AMENDMENT): `cursorLineIndex + insertedLines` stimmt, solange `# Fakten und Pointer` vor den h5-Sektionen steht — was `ensureVorgangSkeleton` immer erzeugt. Stünde eine h5-Sektion physisch oberhalb der Fakten-Section, läge der Cursor um `insertedLines` zu tief. Rein kosmetisch, keine Inhaltskorruption; bewusst nicht abgesichert.
 - **E-Mail-Ablage bleibt außen vor**: E-Mails haben keine Entscheidungs-Section; ein Routing dorthin hätte keinen Auslöser. Nutzerentscheidung.
 - **Kein Backfill für bereits abgelegte Besprechungen**: der bestehende `alreadyLinked`-Guard auf h5-Ebene blockiert bei erneuter Ablage den gesamten Vorgangs-Write, auch wenn `decisionHeadings` erst danach konfiguriert wurde. Das ist eine bekannte, akzeptierte Konsequenz (konsistent mit „kein Backfill" in Out of Scope) — der Guard wird nicht speziell behandelt.
 

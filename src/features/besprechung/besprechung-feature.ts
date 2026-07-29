@@ -7,6 +7,7 @@ import {
 	formatBesprechungSummary,
 	composeBesprechungInsertion,
 	buildBesprechungFilingPreview,
+	extractDecisionLines,
 	extractCreatedDate,
 	frontmatterTagsInclude,
 	removeTagFromFrontmatter,
@@ -16,7 +17,7 @@ import { suggestFilingTargets, type FiledRecord } from "./besprechung-suggest-en
 import { renderBesprechungSettings } from "./besprechung-settings";
 import { FolderNoteSuggestModal } from "../../shared/modals/folder-note-suggest";
 import { SectionNoteSuggestModal } from "../../shared/modals/section-note-suggest";
-import { addVorgangSectionLinked } from "../vorgang/vorgang-engine";
+import { addVorgangSectionLinked, appendDecisionsToFakten } from "../vorgang/vorgang-engine";
 import {
 	tocAlreadyLinks,
 	extractWikilinkTarget,
@@ -145,8 +146,17 @@ export class BesprechungFeature implements LuKitFeature {
 				date,
 				summary.split("\n"),
 			);
-			activeEditor.setValue(newContent);
-			const pos = { line: cursorLineIndex, ch: 0 };
+			const logged = appendDecisionsToFakten(
+				newContent,
+				besprechungFile.basename,
+				extractDecisionLines(besprechungContent, decisionHeadings),
+				locale,
+				date,
+			);
+			activeEditor.setValue(logged.content);
+			// Der Fakten-Block sitzt oberhalb der neuen h5-Sektion, verschiebt
+			// deren Zeilen also nach unten.
+			const pos = { line: cursorLineIndex + logged.insertedLines, ch: 0 };
 			activeEditor.setCursor(pos);
 			activeEditor.scrollIntoView({ from: pos, to: pos }, true);
 			await this.addDiaryEntryForBesprechung(activeFile, besprechungFile.basename, date);
@@ -408,7 +418,14 @@ export class BesprechungFeature implements LuKitFeature {
 					date,
 					summary.split("\n"),
 				);
-				await this.plugin.app.vault.modify(vorgang, newContent);
+				const logged = appendDecisionsToFakten(
+					newContent,
+					besprechung.basename,
+					extractDecisionLines(besprechungContent, decisionHeadings),
+					locale,
+					date,
+				);
+				await this.plugin.app.vault.modify(vorgang, logged.content);
 				await this.addDiaryEntryForBesprechung(vorgang, besprechung.basename, date);
 			}
 			// Step 1: stamp filed_into/filed_at on the besprechung. If this fails,
