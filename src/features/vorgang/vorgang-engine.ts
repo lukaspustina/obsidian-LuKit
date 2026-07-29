@@ -301,6 +301,67 @@ function mergeH1Section(
 	return lines.join("\n");
 }
 
+const FAKTEN_HEADER = "# Fakten und Pointer";
+// Fixed concept label for the decisions log — deliberately not derived from the
+// configured heading name, so a renamed source heading does not fragment the log.
+const DECISION_BULLET_PREFIX = "- Entscheidungen ";
+
+// Appends a besprechung's decisions as one grouped bullet under
+// "# Fakten und Pointer": a parent bullet linking the besprechung, with each
+// decision as a sub-bullet. The block goes above the first existing decision
+// block (so the log reads newest-first like # Inhalt does) but below manually
+// maintained facts. Deliberately diverges from mergeH1Section, which appends at
+// the section end and creates the section when missing: a missing Fakten
+// section is a no-op here — creating structure is ensureVorgangSkeleton's job.
+export function appendDecisionsToFakten(
+	content: string,
+	besprechungBasename: string,
+	decisionLines: string[],
+	locale: DateLocale,
+	date: Date,
+): { content: string; insertedLines: number } {
+	if (decisionLines.length === 0) return { content, insertedLines: 0 };
+
+	const lines = content.split("\n");
+	const headerIndex = lines.findIndex((l) => l.trim() === FAKTEN_HEADER);
+	if (headerIndex === -1) return { content, insertedLines: 0 };
+
+	let rangeEnd = lines.length;
+	for (let i = headerIndex + 1; i < lines.length; i++) {
+		if (/^#{1,5} /.test(lines[i])) {
+			rangeEnd = i;
+			break;
+		}
+	}
+
+	const link = `([[${besprechungBasename}]])`;
+	let firstDecisionIndex = -1;
+	for (let i = headerIndex + 1; i < rangeEnd; i++) {
+		if (!lines[i].startsWith(DECISION_BULLET_PREFIX)) continue;
+		// Same besprechung already logged — nothing to add.
+		if (lines[i].includes(link)) return { content, insertedLines: 0 };
+		if (firstDecisionIndex === -1) firstDecisionIndex = i;
+	}
+
+	let insertAt: number;
+	if (firstDecisionIndex !== -1) {
+		insertAt = firstDecisionIndex;
+	} else {
+		let lastNonEmpty = headerIndex;
+		for (let i = headerIndex + 1; i < rangeEnd; i++) {
+			if (lines[i].trim() !== "") lastNonEmpty = i;
+		}
+		insertAt = lastNonEmpty + 1;
+	}
+
+	const block = [
+		`${DECISION_BULLET_PREFIX}${formatDate(date, locale)} ${link}`,
+		...decisionLines.map((l) => `    ${l}`),
+	];
+	lines.splice(insertAt, 0, ...block);
+	return { content: lines.join("\n"), insertedLines: block.length };
+}
+
 // Merges a source Vorgang's Fakten/Nächste-Schritte bullets and h5 sections
 // into a target Vorgang's content. Pure — mergeDate is passed in so dateless
 // source sections resolve deterministically.

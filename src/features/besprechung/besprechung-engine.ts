@@ -120,6 +120,25 @@ export function formatBesprechungSummary(
 	return { body: parts.join("\n\n"), missing };
 }
 
+// Collects the lines of every configured decision section into one flat list,
+// in `decisionHeadings` order. Uses extractSection without `bulletsOnly` so a
+// prose line between bullets is kept (and normalized below) instead of
+// truncating the rest of the section.
+export function extractDecisionLines(content: string, decisionHeadings: string[]): string[] {
+	const lines: string[] = [];
+	for (const heading of decisionHeadings) {
+		const body = extractSection(content, heading);
+		if (body === null) continue;
+		for (const line of body.split("\n")) {
+			if (line.trim() === "") continue;
+			const indent = line.slice(0, line.length - line.trimStart().length);
+			const text = line.trimStart();
+			lines.push(/^[-*] /.test(text) ? line : `${indent}- ${text}`);
+		}
+	}
+	return lines;
+}
+
 // Composes the final insertion text. When some configured sections are missing,
 // appends a "see source" line with a wikilink so the user can open the
 // besprechung to read what wasn't extracted.
