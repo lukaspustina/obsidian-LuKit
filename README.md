@@ -48,7 +48,7 @@ When the active note is tagged `Vorgang`, `Person`, `Bestellung`, or `Bewerbung`
     - Budget bleibt bei Q3
 ```
 
-The block goes above older decision blocks (newest first) but below your manually maintained facts, so a Vorgang gains a lookup-able decision history without digging through the chronological h5 sections. Nothing is logged when the target note has no `# Fakten und Pointer` section (structure creation is `Vorgang: Aktuelle Notiz umwandeln`'s job), and re-filing the same meeting note never duplicates a block. Already-filed meeting notes are not back-filled.
+The block goes above older decision blocks (newest first) but below your manually maintained facts, so a Vorgang gains a lookup-able decision history without digging through the chronological h5 sections. Both `# Fakten und Pointer` and the legacy `# Fakten` heading are accepted as the log's home (the canonical one wins if a note has both), so notes that haven't been through Migration yet still get their log. Nothing is logged when the target note has neither heading (structure creation is `Vorgang: Aktuelle Notiz umwandeln`'s job), and re-filing the same meeting note never duplicates a block. Already-filed meeting notes are not back-filled.
 
 **Commands:**
 

@@ -38,7 +38,7 @@ Weil Granola die Section nur bei tatsächlich getroffenen Entscheidungen emittie
 5. Das System bewahrt die relative Verschachtelung der Zeilen des Entscheidungs-Bodys: bereits eingerückte Zeilen erhalten zusätzlich eine Ebene (4 Leerzeichen).
 6. Das System wandelt nicht-Bullet-Zeilen des Entscheidungs-Bodys in Bullets um; Zeilen, die bereits mit `-` oder `*` beginnen, behalten ihre Marker; Leerzeilen werden verworfen.
 7. Das System fügt einen neuen Entscheidungsblock **oberhalb des ersten bereits vorhandenen Entscheidungsblocks** innerhalb von `# Fakten und Pointer` ein; existiert keiner, wird am Ende der Section angehängt. Manuell gepflegte Fakten bleiben dadurch oben stehen, die Entscheidungsblöcke selbst sind reverse-chronologisch.
-8. Das System hängt keinen Entscheidungsblock an, wenn `# Fakten und Pointer` im Ziel-Vorgang fehlt; die Entscheidungen landen in diesem Fall ausschließlich in der h5-Sektion.
+8. Das System hängt keinen Entscheidungsblock an, wenn im Ziel-Vorgang **keiner** der akzeptierten Fakten-Header existiert; die Entscheidungen landen in diesem Fall ausschließlich in der h5-Sektion. Akzeptiert werden `# Fakten und Pointer` (kanonisch) und `# Fakten` (Legacy-Name, den `migration-engine.ts` auf den kanonischen umbenennt); enthält eine Notiz beide, gewinnt der kanonische.
 9. Das System hängt keinen zweiten Entscheidungsblock für dieselbe Besprechung an, wenn unter `# Fakten und Pointer` bereits eine Zeile existiert, die **beide** Bedingungen erfüllt: sie beginnt mit dem literalen Präfix `- Entscheidungen ` **und** enthält `([[<Besprechungs-Basename>]])` (Idempotenz). Eine manuell geschriebene Zeile, die dieselbe Besprechung verlinkt, aber nicht mit diesem Präfix beginnt, blockiert **nicht**.
 10. Das System schreibt Vorgangs-Content pro Ablage in genau einem Schreibvorgang (`vault.modify` bzw. `editor.setValue`) — h5-Sektion und Fakten-Block werden im selben Content-Transform erzeugt.
 11. Das System lässt die E-Mail-Ablage (`email-filing`) unverändert.
@@ -143,7 +143,7 @@ export function appendDecisionsToFakten(
 
 | Failure | Trigger | Behaviour | User-visible |
 |---|---|---|---|
-| `# Fakten und Pointer` fehlt | Vorgang ohne Skelett | Fakten-Append wird übersprungen (`insertedLines: 0`), h5-Sektion wird normal geschrieben | nein (bewusst still) |
+| Kein Fakten-Header (`# Fakten und Pointer` / `# Fakten`) | Vorgang ohne Skelett | Fakten-Append wird übersprungen (`insertedLines: 0`), h5-Sektion wird normal geschrieben | nein (bewusst still) |
 | Entscheidungs-Section leer/fehlt | Besprechung ohne Entscheidungen | kein Fakten-Block, kein `missing`-Eintrag | nein |
 | Besprechung bereits im Fakten-Log | erneute Ablage derselben Besprechung (Präfix-Match Req 9) | Append wird übersprungen (`insertedLines: 0`) | nein |
 | `decisionHeadings = []` | Nutzer hat Setting geleert | `extractDecisionLines` liefert `[]`, Fakten-Append No-Op | nein |
@@ -188,7 +188,9 @@ Phase complete when: `npm run test` grün mit vollständiger Branch-Abdeckung be
 - GIVEN ein Vorgang mit einem bestehenden Entscheidungsblock einer anderen Besprechung WHEN `appendDecisionsToFakten` läuft THEN steht der neue Block direkt oberhalb des bestehenden.
 - GIVEN ein Vorgang, dessen Fakten-Section bereits eine Zeile enthält, die mit `- Entscheidungen ` beginnt und `([[<Besprechung>]])` enthält, WHEN `appendDecisionsToFakten` für dieselbe Besprechung läuft THEN ist der Content byte-identisch und `insertedLines === 0`.
 - GIVEN ein Vorgang, dessen Fakten-Section eine manuell geschriebene Zeile enthält, die `[[<Besprechung>]]` verlinkt, aber **nicht** mit `- Entscheidungen ` beginnt (z. B. `- Siehe [[Besprechung]]`), WHEN `appendDecisionsToFakten` für dieselbe Besprechung mit nicht-leeren `decisionLines` läuft THEN wird der neue Block **trotzdem** eingefügt (kein False-Positive-Block).
-- GIVEN ein Vorgang ohne `# Fakten und Pointer` WHEN `appendDecisionsToFakten` läuft THEN ist der Content byte-identisch und `insertedLines === 0`.
+- GIVEN ein Vorgang ohne jeden Fakten-Header WHEN `appendDecisionsToFakten` läuft THEN ist der Content byte-identisch und `insertedLines === 0`.
+- GIVEN ein Vorgang mit dem Legacy-Header `# Fakten` WHEN `appendDecisionsToFakten` läuft THEN landet der Block in dieser Section.
+- GIVEN ein Vorgang mit **beiden** Fakten-Headern WHEN `appendDecisionsToFakten` läuft THEN gewinnt `# Fakten und Pointer`.
 - GIVEN `decisionLines` ist leer WHEN `appendDecisionsToFakten` läuft THEN ist der Content byte-identisch und `insertedLines === 0`.
 - GIVEN `locale = "en"` WHEN `appendDecisionsToFakten` läuft THEN nutzt das Eltern-Bullet das englische Datumsformat, und das Bullet-Label lautet weiterhin `Entscheidungen` (Requirement 14).
 

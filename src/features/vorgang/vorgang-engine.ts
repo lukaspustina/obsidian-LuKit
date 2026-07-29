@@ -301,7 +301,10 @@ function mergeH1Section(
 	return lines.join("\n");
 }
 
-const FAKTEN_HEADER = "# Fakten und Pointer";
+// Kanonischer Header zuerst; „# Fakten" ist der Legacy-Name, den
+// migration-engine.ts auf „Fakten und Pointer" umbenennt — noch nicht
+// migrierte Notizen sollen das Entscheidungs-Log trotzdem bekommen.
+const FAKTEN_HEADERS = ["# Fakten und Pointer", "# Fakten"];
 // Fixed concept label for the decisions log — deliberately not derived from the
 // configured heading name, so a renamed source heading does not fragment the log.
 const DECISION_BULLET_PREFIX = "- Entscheidungen ";
@@ -323,7 +326,11 @@ export function appendDecisionsToFakten(
 	if (decisionLines.length === 0) return { content, insertedLines: 0 };
 
 	const lines = content.split("\n");
-	const headerIndex = lines.findIndex((l) => l.trim() === FAKTEN_HEADER);
+	let headerIndex = -1;
+	for (const header of FAKTEN_HEADERS) {
+		headerIndex = lines.findIndex((l) => l.trim() === header);
+		if (headerIndex !== -1) break;
+	}
 	if (headerIndex === -1) return { content, insertedLines: 0 };
 
 	let rangeEnd = lines.length;

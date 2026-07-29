@@ -817,6 +817,49 @@ describe("appendDecisionsToFakten (SDD besprechung-entscheidungen, Phase 2)", ()
 		expect(result.insertedLines).toBe(3);
 	});
 
+	// Legacy-Notizen, die die Migration noch nicht angefasst hat, tragen den alten
+	// Header „# Fakten" (migration-engine mappt ihn auf „# Fakten und Pointer").
+	it("accepts the legacy # Fakten header", () => {
+		const legacy = [
+			"---",
+			"tags:",
+			"  - Vorgang",
+			"---",
+			"",
+			"# Fakten",
+			"- Bestandsfakt",
+			"",
+			"# Inhalt",
+			"",
+		].join("\n");
+		const result = appendDecisionsToFakten(legacy, "Besprechung Acme", lines, "de", date);
+		const out = result.content.split("\n");
+		const parentAt = out.indexOf("- Entscheidungen 29.07.2026 ([[Besprechung Acme]])");
+
+		expect(parentAt).toBeGreaterThan(out.indexOf("- Bestandsfakt"));
+		expect(parentAt).toBeLessThan(out.indexOf("# Inhalt"));
+		expect(result.insertedLines).toBe(3);
+	});
+
+	it("prefers # Fakten und Pointer when a note carries both headers", () => {
+		const both = [
+			"# Fakten und Pointer",
+			"- kanonisch",
+			"",
+			"# Fakten",
+			"- legacy",
+			"",
+			"# Inhalt",
+			"",
+		].join("\n");
+		const result = appendDecisionsToFakten(both, "Besprechung Acme", lines, "de", date);
+		const out = result.content.split("\n");
+		const parentAt = out.indexOf("- Entscheidungen 29.07.2026 ([[Besprechung Acme]])");
+
+		expect(parentAt).toBeGreaterThan(out.indexOf("- kanonisch"));
+		expect(parentAt).toBeLessThan(out.indexOf("# Fakten"));
+	});
+
 	it("is a no-op when the Fakten section is missing", () => {
 		const content = ["---", "tags: []", "---", "", "# Inhalt", "", "##### Status, 29.07.2026", "- aa"].join("\n");
 		const result = appendDecisionsToFakten(content, "Besprechung Acme", lines, "de", date);
