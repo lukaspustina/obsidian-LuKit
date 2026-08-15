@@ -1,8 +1,25 @@
 # SDD: Email Filing (Apple Mail → Vorgang)
 
-Status: Ready for Implementation
+Status: Done
+Finished: 2026-08-15
 Original: specs/sdd/email-filing.md
 Refined: 2026-06-30
+
+## Closing note (2026-08-15) — the pending smoke test, and what answered it
+
+The implementation report closed as `all-shipped (Phase 3 bridge code-complete; live Mail smoke
+test pending)`. The pending item was the JXA Mail object model — `Mail.inbox.messages()`,
+`mailbox().account()`, `Mail.move`, attachment properties — which is best-effort against a live
+account and could not be verified from the implementation session.
+
+It was never formally run, and it is not being waved through. Six weeks of use answered it
+instead, and two commits are the proof, because their defects are only reachable through the live
+bridge: `7b3bb35` ("match archive mailbox by last path segment") and `feeb463` ("resolve Gmail
+archive mailbox via fallback search"). Five further feature commits build on the bridge, and three
+releases have shipped since (`v1.20.0` … `v1.22.0`, 2026-07-29). Suite green at archival — 760
+tests, 162 files.
+
+The honest reading: the bridge is exercised in production, not that a checklist was completed.
 
 ## Overview
 

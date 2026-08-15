@@ -1,8 +1,13 @@
 # SDD: Dev-Review Remediation (Two-Phase)
 
-**Status**: Ready for Implementation
+**Status**: Done
+**Finished**: 2026-04-30
 **Original**: specs/sdd/dev-review-remediation.md
 **Refined**: 2026-04-28
+
+*Date stamp and status added 2026-08-15 (backlog entry C7). The file was archived on 2026-04-30 —
+that is the date used — but the move never renamed it or corrected its header, so it sat in
+`specs/done/sdd/` still reading "Ready for Implementation".*
 
 ---
 

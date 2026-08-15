@@ -1,9 +1,15 @@
 # SDD: Email Filing — Conversations & Sent Messages (v2 addendum)
 
-Status: Ready for Implementation
+Status: Done
+Finished: 2026-08-15
 Original: specs/sdd/email-filing-conversations.md
 Refined: 2026-06-30
-Extends: specs/sdd/email-filing.md (Phases 1–4, implemented)
+Extends: specs/done/sdd/email-filing-2026-08-15.md (Phases 1–4, implemented)
+
+Archived late, alongside the SDD it extends. Its report closed as `all-shipped (osascript bridge
+methods code-complete; live smoke test pending)` — the same pending item, answered the same way:
+see the closing note in `specs/done/sdd/email-filing-2026-08-15.md`. Suite green at archival —
+760 tests, 162 files.
 
 ## Overview
 

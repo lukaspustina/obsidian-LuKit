@@ -1,8 +1,12 @@
 # SDD: Entscheidungen aus Besprechungen in Vorgänge routen
 
-Status: Ready for Implementation
+Status: Done
+Finished: 2026-08-15
 Original: specs/sdd/besprechung-entscheidungen.md
 Refined: 2026-07-29
+
+Archived late. Its implementation report recorded all phases shipped, no blockers, no amendments,
+nothing deferred; nothing ever moved the file. Suite green at archival — 760 tests, 162 files.
 
 ## Overview
 
