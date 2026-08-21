@@ -1,0 +1,8 @@
+# Test-shaped paths that are not part of the runnable suite.
+#
+# Nothing under src/ is a test: vitest.config.ts collects `tests/**/*.test.ts`
+# and nothing else. The declaration is needed because the ADLC classifier reads
+# a `.ts` file as a test when it contains `test(` at a word boundary, and
+# `RegExp.prototype.test(x)` is exactly that shape — three engines were refuted
+# as "provably not collected" for calling a regex (2026-08-21).
+src/*
