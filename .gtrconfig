@@ -1,0 +1,8 @@
+# git-gtr team config — worktree setup. Requires `git gtr trust` once per clone.
+#
+# A fresh worktree carries no gitignored files, so it has no node_modules and
+# neither `just lint` nor `just test` can run there. `just install` is the
+# repository's own declared setup step; calling it rather than restating `npm ci`
+# keeps the two from drifting.
+[hooks]
+	postCreate = just install

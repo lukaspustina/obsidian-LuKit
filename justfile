@@ -20,8 +20,26 @@ adlc-verify: lint test
 # rather than refuting a change, and `build` type-checks anyway.
 check: lint test build
 
+# The suite. The second reporter prints one `ADLC-RAN <path>` line per executed
+# test file (ADR 0003): vitest has no introspection flag the gate can ask, so the
+# runner reports what it ran and `adlc attest` scrapes it.
 test: deps
-    npm run test
+    npx vitest run --reporter=default --reporter=./tests/helpers/adlc-ran-reporter.ts
+
+# Coverage as a single figure. `adlc code-metrics` takes the LAST percentage in
+# the output, so the v8 text table cannot be used — its last row is one file, not
+# the total. json-summary plus one printed line is the whole point.
+# The thresholds in vitest.config.ts make a run below them exit 1, and the figure
+# still has to be printed — `adlc code-metrics` reads a percentage whatever the
+# exit code, but only if the recipe gets that far. So: keep the exit code, print
+# the figure first.
+test-cov: deps
+    #!/usr/bin/env bash
+    set -uo pipefail
+    npx vitest run --coverage.enabled --coverage.reporter=json-summary
+    rc=$?
+    node -e 'console.log(require("./coverage/coverage-summary.json").total.lines.pct + "%")'
+    exit $rc
 
 # node_modules is a real prerequisite and the Makefile never said so; it also
 # called `tsc` bare, which only worked where node_modules/.bin was already on

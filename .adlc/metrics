@@ -1,0 +1,6 @@
+# Which metrics this project collects, and the command that produces each.
+#
+# `just test-cov` prints exactly one percentage — the v8 text table would offer
+# a dozen and adlc code-metrics takes the last one, which is a single file's row.
+coverage: just test-cov      # vitest v8, thresholds in vitest.config.ts (lines 80)
+complexity: -                # no standard complexity tool for TypeScript

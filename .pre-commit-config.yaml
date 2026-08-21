@@ -1,0 +1,22 @@
+# Tier-0 gate — cheap refutations, before the ADLC gate.
+#
+# Invoked by the global dotfiles hook as `prek run`, never via `prek install`:
+# under a global core.hooksPath that takes the hook path for itself and demotes
+# the real gate.
+#
+# One hook only. `just lint` and `just test` stay out — the ADLC gate runs both
+# on push, and this repository's reason for a local scan is the data it handles:
+# it operates on personal notes, and CLAUDE.md's no-PII rule is a rule about
+# what must never reach a commit.
+repos:
+  - repo: local
+    hooks:
+      # Layered beside the global hook's own secret scan, not as a replacement:
+      # two scanners with different rule sets, the cheap one first. `protect
+      # --staged` reads the index, so it judges what is being committed rather
+      # than what is lying in the tree.
+      - id: gitleaks
+        name: gitleaks (secret scan over the staged index)
+        entry: gitleaks protect --staged --no-banner --redact
+        language: system
+        pass_filenames: false
