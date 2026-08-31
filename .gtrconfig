@@ -5,4 +5,4 @@
 # repository's own declared setup step; calling it rather than restating `npm ci`
 # keeps the two from drifting.
 [hooks]
-	postCreate = just install
+	postCreate = just adlc-setup

@@ -93,3 +93,8 @@ release version:
     git tag -a {{version}} -m "{{version}}"
     git push origin master {{version}}
     gh release create {{version}} main.js manifest.json styles.css --title "{{version}}" --generate-notes
+
+# What prepares a fresh checkout. A worktree has no .venv or node_modules and
+# `git worktree add` runs nothing, so the ADLC wave runs this in each checkout it
+# creates. Delegates rather than restating: a second spelling would be free to drift.
+adlc-setup: install
