@@ -34,3 +34,9 @@ npm-debug.log*
 
 # Test coverage
 coverage/
+
+# adlc attest writes this alongside .adlc/attest.json, but the ADLC-shipped
+# .adlc/.gitignore only lists attest.json — without this line every attest
+# leaves the tree dirty and adlc verify-gate can never go green.
+# Proper fix belongs in pdt-adlc's .adlc/.gitignore.
+.adlc/attest.json.sig
