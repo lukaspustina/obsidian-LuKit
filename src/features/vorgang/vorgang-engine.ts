@@ -9,6 +9,7 @@ import {
 	tocAlreadyLinks,
 	extractWikilinkTarget,
 } from "../../shared/note-structure";
+import { extractNextStepsBody } from "./intake-engine";
 
 export { findInhaltSectionIndex, findInhaltBulletRange, formatLinkedBullet };
 
@@ -388,6 +389,46 @@ export function appendDecisionsToFakten(
 	return { content: lines.join("\n"), insertedLines: block.length };
 }
 
+// Kept as a local literal rather than shared with intake-engine's identical
+// constant: intake-engine already imports NEXT_STEP_HEADERS from here, and
+// exporting the boundary back would close an import cycle over one string.
+const INTAKE_BOUNDARY = "#### Unsortiert";
+
+// The source's intake lines: everything below its "#### Unsortiert" boundary,
+// verbatim and without surrounding blanks. Empty when the source has no
+// next-steps section or no boundary — then there is nothing to carry over.
+function sliceIntakeLines(content: string): string[] {
+	const body = extractNextStepsBody(content);
+	const boundary = body.findIndex((l) => l.trim() === INTAKE_BOUNDARY);
+	if (boundary === -1) return [];
+	const intake = trimTrailingEmptyLines(body.slice(boundary + 1));
+	while (intake.length > 0 && intake[0].trim() === "") intake.shift();
+	return intake;
+}
+
+// Appends intakeLines after the target's last existing intake line, creating
+// "# Nächste Schritte" and/or "#### Unsortiert" first when either is missing.
+// Indices are computed over the body extractNextStepsBody returns, so source
+// and target share one notion of where the section ends — sliceSectionBody's
+// h4 cut-off stops at the boundary itself and cannot see the intake.
+function appendIntakeLines(content: string, intakeLines: string[]): string {
+	const lines = content.split("\n");
+	const headerIndex = findSectionIndex(lines, NEXT_STEP_HEADERS[0]);
+	if (headerIndex === -1) {
+		return mergeH1Section(content, NEXT_STEP_HEADERS[0], [INTAKE_BOUNDARY, ...intakeLines], "# Fakten und Pointer");
+	}
+
+	const body = extractNextStepsBody(content);
+	const boundary = body.findIndex((l) => l.trim() === INTAKE_BOUNDARY);
+	let lastNonEmpty = boundary;
+	for (let i = boundary + 1; i < body.length; i++) {
+		if (body[i].trim() !== "") lastNonEmpty = i;
+	}
+	const block = boundary === -1 ? [INTAKE_BOUNDARY, ...intakeLines] : intakeLines;
+	lines.splice(headerIndex + 1 + lastNonEmpty + 1, 0, ...block);
+	return lines.join("\n");
+}
+
 // Merges a source Vorgang's Fakten/Nächste-Schritte bullets and h5 sections
 // into a target Vorgang's content. Pure — mergeDate is passed in so dateless
 // source sections resolve deterministically.
@@ -409,6 +450,16 @@ export function mergeVorgangContent(
 	const nsBody = sliceSectionBody(sourceLines, "# Nächste Schritte").filter((l) => l.trim() !== "");
 	if (nsBody.length > 0) {
 		working = mergeH1Section(working, "# Nächste Schritte", nsBody, "# Fakten und Pointer");
+	}
+
+	// A raw splice, deliberately not a parse/build round trip: a hand-edited
+	// group — an emptied "- Warte auf:", an odd indent — crosses the merge
+	// byte-for-byte instead of being silently reformatted. The curated bullets
+	// above went through mergeH1Section, whose h4 cut-off lands them above the
+	// boundary, so the two never cross.
+	const intakeLines = sliceIntakeLines(sourceContent);
+	if (intakeLines.length > 0) {
+		working = appendIntakeLines(working, intakeLines);
 	}
 
 	const sections = parseH5Sections(sourceLines, locale);

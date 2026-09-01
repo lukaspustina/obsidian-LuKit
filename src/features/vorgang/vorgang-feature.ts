@@ -7,8 +7,10 @@ import { extractDateFromTitle } from "../../shared/date-format";
 import { formatDiaryEntry, addEntryUnderToday } from "../../shared/diary";
 import { getDiaryNotePath } from "../../shared/diary-settings";
 import { SECTION_NOTE_TAGS, addTagToFrontmatter, frontmatterTagsInclude } from "../../shared/frontmatter";
+import { ConfirmModal } from "../../shared/modals/confirm-modal";
 import { SectionNoteSuggestModal } from "../../shared/modals/section-note-suggest";
 import { AddSectionModal } from "./add-section-modal";
+import { parseIntakeGroups } from "./intake-engine";
 import { TypeSuggestModal } from "./type-suggest-modal";
 
 export class VorgangFeature implements LuKitFeature {
@@ -200,6 +202,28 @@ export class VorgangFeature implements LuKitFeature {
 			return;
 		}
 
+		// Offene Intake-Gruppen sind noch nicht übernommene Aufgaben. Wie die
+		// übrigen Guards greift die Rückfrage vor jeder Mutation — Ablehnen
+		// lässt die Notiz byte-identisch zurück.
+		const groups = parseIntakeGroups(await this.plugin.app.vault.read(file));
+		if (groups.length > 0) {
+			const count = groups.length === 1 ? "einen unsortierten Eintrag" : `${groups.length} unsortierte Einträge`;
+			new ConfirmModal(
+				this.plugin.app,
+				`„${file.basename}" hat noch ${count} unter „Nächste Schritte". Trotzdem abschließen?`,
+				() => {
+					void this.finishClose(file, doneTag);
+				},
+			).open();
+			return;
+		}
+
+		await this.finishClose(file, doneTag);
+	}
+
+	// Der eigentliche Abschluss: Tag setzen, note_type entfernen, umbenennen,
+	// Tagebucheintrag. Erst ab hier wird geschrieben.
+	private async finishClose(file: TFile, doneTag: string): Promise<void> {
 		try {
 			await this.plugin.app.fileManager.processFrontMatter(file, (fm) => {
 				addTagToFrontmatter(fm, doneTag);

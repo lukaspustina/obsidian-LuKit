@@ -295,8 +295,12 @@ already-parsed groups from possibly many notes — lives in `task-triage-engine.
     when merging, appending them after the target's existing groups. Carryover is a raw
     splice, not a build/parse round-trip: `parseIntakeGroups` is not used for the merge. The
     system shall read the source's `# Nächste Schritte` body via `extractNextStepsBody`, take
-    the lines from its `#### Unsortiert` heading onward (the source's intake lines, unchanged
-    byte-for-byte; when the source has no boundary, there are no intake lines to carry), read
+    the lines from just BELOW its `#### Unsortiert` heading onward — not the heading itself,
+    which would emit a second boundary in the target, where this same requirement creates
+    one. Each carried group is byte-for-byte identical, including hand edits such as an
+    emptied `- Warte auf:`; only blank lines surrounding the whole block are trimmed, while
+    interior blanks separating groups survive. When the source has no boundary, there are
+    no intake lines to carry. Then read
     the target's `# Nächste Schritte` body the same way, create `# Nächste Schritte` and/or
     `#### Unsortiert` in the target first when either is missing (requirements 2 and 3), and
     append the source's intake lines verbatim after the target's existing intake lines. This
