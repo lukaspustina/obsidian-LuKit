@@ -49,6 +49,20 @@ export function sanitizeSenderSubject(value: string): string {
 		.trim();
 }
 
+// Strips only what would break a wikilink or a heading match — "]]", "|", "#" —
+// from a user-typed section title. Applied exactly once, before the value feeds
+// both the h5 heading and the intake anchor, so the two cannot drift apart.
+// Deliberately not sanitizeSenderSubject: that one also strips commas, which are
+// ordinary in a subject line and harmless here — the intake's due segment is read
+// from after the parent line's last "]]", never by splitting on commas.
+export function sanitizeSectionName(name: string): string {
+	return name
+		.replace(/\]\]/g, "")
+		.replace(/\|/g, "")
+		.replace(/#/g, "")
+		.trim();
+}
+
 // Strips recognized reply/forward prefixes (possibly repeated) from a subject.
 // Falls back to the original subject when stripping yields empty/whitespace.
 export function stripSubjectPrefixes(subject: string): string {

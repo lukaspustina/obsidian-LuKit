@@ -18,6 +18,10 @@ export interface BesprechungSettings {
 	// "# Fakten und Pointer" der Zielnotiz protokolliert. Unabhängig von
 	// sectionHeadings — eine Überschrift kann in nur einer der beiden stehen.
 	decisionHeadings: string[];
+	// Headings whose items are filed as an intake group under the target's
+	// "# Nächste Schritte". Independent of sectionHeadings — a heading listed in
+	// both goes into the h5 body *and* into the intake.
+	nextStepHeadings: string[];
 	pendingTag: string;
 	pendingOrder: PendingOrder;
 	selfNameStopwords: string[];
@@ -47,6 +51,10 @@ export interface LuKitSettings {
 	// Kommando-ID, die einen neuen Vorgang anlegt (z. B. eine QuickAdd-Choice).
 	// Leer = der "Neuen Vorgang anlegen"-Eintrag erscheint nicht in den Pickern.
 	quickAddVorgangCommandId: string;
+	// Names that mean "the user" — read only by the intake's owner detection.
+	// Distinct from besprechung.selfNameStopwords, which lists tokens the filing
+	// ranker ignores.
+	ownNames: string[];
 	workDiary: WorkDiarySettings;
 	besprechung: BesprechungSettings;
 	emailFiling: EmailFilingSettings;
@@ -59,6 +67,7 @@ export const DEFAULT_SETTINGS: LuKitSettings = {
 	firstRunNoticeShown: false,
 	doneTag: "Done",
 	quickAddVorgangCommandId: "",
+	ownNames: [],
 	workDiary: {
 		diaryNotePath: "",
 	},
@@ -66,6 +75,7 @@ export const DEFAULT_SETTINGS: LuKitSettings = {
 		folderPath: "",
 		sectionHeadings: ["Nächste Schritte", "Zusammenfassung"],
 		decisionHeadings: ["Entscheidungen"],
+		nextStepHeadings: ["Nächste Schritte"],
 		pendingTag: "todo",
 		pendingOrder: "oldest",
 		selfNameStopwords: [],

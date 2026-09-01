@@ -139,6 +139,23 @@ export function extractDecisionLines(content: string, decisionHeadings: string[]
 	return lines;
 }
 
+// Collects the raw item lines of every configured next-step section into one
+// flat list, in `nextStepHeadings` order. Unlike extractDecisionLines the lines
+// stay verbatim: buildIntakeGroup strips the bullet marker itself and reads the
+// indent to tell an item's continuation lines from the next item.
+export function extractNextStepItemLines(content: string, nextStepHeadings: string[]): string[] {
+	const lines: string[] = [];
+	for (const heading of nextStepHeadings) {
+		const body = extractSection(content, heading);
+		if (body === null) continue;
+		for (const line of body.split("\n")) {
+			if (line.trim() === "") continue;
+			lines.push(line);
+		}
+	}
+	return lines;
+}
+
 // Composes the final insertion text. When some configured sections are missing,
 // appends a "see source" line with a wikilink so the user can open the
 // besprechung to read what wasn't extracted.

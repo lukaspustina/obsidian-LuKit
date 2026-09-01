@@ -17,6 +17,7 @@ import {
 	resolveAttachmentFileNames,
 	decodeMessageIdFromUrl,
 	preselectAttachment,
+	sanitizeSectionName,
 	type EmailMeta,
 	type MailAttachment,
 	type ThreadSectionMessage,
@@ -24,7 +25,8 @@ import {
 import { formatDate } from "../../shared/date-format";
 import { mergeDetectedAccounts, isAccountIncluded } from "./email-filing-settings";
 import { mineVorgangFilings, minedFilingsToFiledRecords, isCacheStale } from "./email-routing";
-import { addVorgangSection } from "../vorgang/vorgang-engine";
+import { addVorgangSection, formatVorgangHeadingText } from "../vorgang/vorgang-engine";
+import { buildIntakeGroup, insertIntakeGroup } from "../vorgang/intake-engine";
 import { suggestFilingTargets, type FiledRecord } from "../besprechung/besprechung-suggest-engine";
 import { collectBesprechungFiledRecords } from "../besprechung/besprechung-feature";
 import { SECTION_NOTE_TAGS, frontmatterTagsInclude } from "../../shared/frontmatter";
@@ -323,12 +325,13 @@ export class EmailFilingFeature implements LuKitFeature {
 						`Betreff: ${meta.subject} · ${assembled.messages.length} Nachricht(en)`,
 						assembled.sectionName,
 						this.toPreviewMessages(assembled.messages),
-						(results, outcome) => {
+						(results, outcome, nextSteps) => {
 							void this.commitThread(
 								meta,
 								{ ...assembled, sectionName: outcome.sectionName },
 								this.applyPreviewResults(assembled.messages, results),
 								vorgang,
+								nextSteps,
 							)
 								.then(() => {
 									if (outcome.openAfterFiling) {
@@ -524,6 +527,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		assembled: AssembledThread,
 		contentMessages: ThreadSectionMessage[],
 		vorgang: TFile,
+		nextSteps: string[] | null = null,
 	): Promise<void> {
 		const emailMeta = this.toEmailMeta(meta);
 
@@ -573,14 +577,20 @@ export class EmailFilingFeature implements LuKitFeature {
 			const locale = this.plugin.settings.dateLocale;
 			const content = await this.plugin.app.vault.read(vorgang);
 			const { bodyLines } = formatThreadSection(contentMessages, meta.subject, locale);
+			// Sanitised once, then used for both the h5 heading and the intake
+			// anchor, so the two derive from the identical string (req. 9a).
+			const sectionName = sanitizeSectionName(assembled.sectionName);
 			const { newContent } = addVorgangSection(
 				content,
-				assembled.sectionName,
+				sectionName,
 				locale,
 				assembled.latestDate,
 				bodyLines,
 			);
-			await this.plugin.app.vault.modify(vorgang, newContent);
+			await this.plugin.app.vault.modify(
+				vorgang,
+				this.withIntakeGroup(newContent, sectionName, assembled.latestDate, nextSteps),
+			);
 		} catch (e) {
 			this.logBridgeError(e);
 			new Notice(`Archiviert, aber nicht in „${vorgang.basename}" abgelegt.`);
@@ -596,6 +606,21 @@ export class EmailFilingFeature implements LuKitFeature {
 		const extra = contentMessages.length - 1;
 		const suffix = extra > 0 ? ` (+${extra} Thread-Nachrichten)` : "";
 		new Notice(`Abgelegt: „${meta.subject}" → „${vorgang.basename}".${suffix}`);
+	}
+
+	// Writes the filed email's intake group. The anchor is built from the very
+	// same already-sanitised section string and date the h5 heading uses, so link
+	// and heading cannot drift apart (req. 9, 9a). null = no group at all,
+	// [] = a group with no items (⌘K).
+	private withIntakeGroup(
+		content: string,
+		sectionName: string,
+		date: Date,
+		nextSteps: string[] | null,
+	): string {
+		if (nextSteps === null) return content;
+		const anchor = `#${formatVorgangHeadingText(sectionName, this.plugin.settings.dateLocale, date)}`;
+		return insertIntakeGroup(content, buildIntakeGroup(nextSteps, anchor, this.plugin.settings.ownNames));
 	}
 
 	// Vault-relative _resources folder for a target Vorgang note: the note's own
@@ -760,12 +785,13 @@ export class EmailFilingFeature implements LuKitFeature {
 						`Betreff: ${m.subject} · ${assembled.messages.length} Nachricht(en)`,
 						assembled.sectionName,
 						this.toPreviewMessages(assembled.messages),
-						(results, outcome) => {
+						(results, outcome, nextSteps) => {
 							void this.commitSelectedThread(
 								m,
 								{ ...assembled, sectionName: outcome.sectionName },
 								this.applyPreviewResults(assembled.messages, results),
 								vorgang,
+								nextSteps,
 							)
 								.then(() => {
 									if (outcome.openAfterFiling) {
@@ -878,6 +904,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		assembled: AssembledThread,
 		contentMessages: ThreadSectionMessage[],
 		vorgang: TFile,
+		nextSteps: string[] | null = null,
 	): Promise<void> {
 		if (contentMessages.length === 0) {
 			new Notice(`Nichts in „${vorgang.basename}" übernommen (alle abgewählt).`);
@@ -888,14 +915,18 @@ export class EmailFilingFeature implements LuKitFeature {
 			const locale = this.plugin.settings.dateLocale;
 			const content = await this.plugin.app.vault.read(vorgang);
 			const { bodyLines } = formatThreadSection(contentMessages, m.subject, locale);
+			const sectionName = sanitizeSectionName(assembled.sectionName);
 			const { newContent } = addVorgangSection(
 				content,
-				assembled.sectionName,
+				sectionName,
 				locale,
 				assembled.latestDate,
 				bodyLines,
 			);
-			await this.plugin.app.vault.modify(vorgang, newContent);
+			await this.plugin.app.vault.modify(
+				vorgang,
+				this.withIntakeGroup(newContent, sectionName, assembled.latestDate, nextSteps),
+			);
 			this.walkFiledRecords.push({
 				rawTitle: `${stripSubjectPrefixes(m.subject)} ${m.partyName}`,
 				target: vorgang.basename,

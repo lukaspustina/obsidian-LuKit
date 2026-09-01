@@ -58,6 +58,24 @@ export function renderBesprechungSettings(
 		);
 
 	new Setting(containerEl)
+		.setName("Nächste-Schritte-Überschriften")
+		.setDesc(
+			'Kommagetrennte Überschriften, deren Punkte beim Ablegen als Gruppe unter „Nächste Schritte" → „Unsortiert" der Zielnotiz landen. Unabhängig von den Abschnitts-Überschriften.'
+		)
+		.addText((text) =>
+			text
+				.setPlaceholder("Nächste Schritte")
+				.setValue(plugin.settings.besprechung.nextStepHeadings.join(", "))
+				.onChange(async (value) => {
+					plugin.settings.besprechung.nextStepHeadings = value
+						.split(",")
+						.map((s) => s.trim())
+						.filter((s) => s.length > 0);
+					await plugin.saveSettings();
+				})
+		);
+
+	new Setting(containerEl)
 		.setName("Offen-Tag")
 		.setDesc('Frontmatter-Tag für noch nicht abgelegte Besprechungen (genutzt von „Alle offenen ablegen")')
 		.addText((text) =>

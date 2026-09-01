@@ -55,11 +55,13 @@ describe("mergeSettings", () => {
 			firstRunNoticeShown: true,
 			doneTag: "Erledigt",
 			quickAddVorgangCommandId: "quickadd:choice:test",
+			ownNames: ["Erika Beispiel"],
 			workDiary: { diaryNotePath: "Diary.md" },
 			besprechung: {
 				folderPath: "Meetings",
 				sectionHeadings: ["Action Items"],
 				decisionHeadings: ["Decisions"],
+				nextStepHeadings: ["Next Steps"],
 				pendingTag: "open",
 				pendingOrder: "newest" as const,
 				selfNameStopwords: ["Mustermann"],

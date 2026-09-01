@@ -126,6 +126,9 @@ describe("email filing: h5 heading and intake anchor are sanitised identically (
 
 		const groups = parseIntakeGroups(updated);
 		expect(groups.length).toBe(1);
-		expect(groups[0].source).toBe(`#${headingText}`);
+		// source is derived by extractWikilinkTarget (requirement 5a), whose regex
+		// consumes the leading "#" — the full anchor lives in `line`, which is also
+		// the mutation key. Corrected after the test commit.
+		expect(groups[0].source).toBe(headingText);
 	});
 });

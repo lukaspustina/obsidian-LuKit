@@ -8,6 +8,7 @@ import {
 	composeBesprechungInsertion,
 	buildBesprechungFilingPreview,
 	extractDecisionLines,
+	extractNextStepItemLines,
 	extractCreatedDate,
 	frontmatterTagsInclude,
 	removeTagFromFrontmatter,
@@ -18,6 +19,7 @@ import { renderBesprechungSettings } from "./besprechung-settings";
 import { FolderNoteSuggestModal } from "../../shared/modals/folder-note-suggest";
 import { SectionNoteSuggestModal } from "../../shared/modals/section-note-suggest";
 import { addVorgangSectionLinked, appendDecisionsToFakten } from "../vorgang/vorgang-engine";
+import { buildIntakeGroup, insertIntakeGroup } from "../vorgang/intake-engine";
 import {
 	tocAlreadyLinks,
 	extractWikilinkTarget,
@@ -425,7 +427,10 @@ export class BesprechungFeature implements LuKitFeature {
 					locale,
 					date,
 				);
-				await this.plugin.app.vault.modify(vorgang, logged.content);
+				await this.plugin.app.vault.modify(
+					vorgang,
+					this.withIntakeGroup(logged.content, besprechungContent, besprechung.basename),
+				);
 				await this.addDiaryEntryForBesprechung(vorgang, besprechung.basename, date);
 			}
 			// Step 1: stamp filed_into/filed_at on the besprechung. If this fails,
@@ -454,6 +459,20 @@ export class BesprechungFeature implements LuKitFeature {
 		} else {
 			new Notice(`Abgelegt: „${besprechung.basename}" → „${vorgang.basename}".`);
 		}
+	}
+
+	// Requirement 15: skipping an empty extraction is the caller's job —
+	// insertIntakeGroup writes whatever group it is handed, empty included.
+	private withIntakeGroup(vorgangContent: string, besprechungContent: string, source: string): string {
+		const itemLines = extractNextStepItemLines(
+			besprechungContent,
+			this.plugin.settings.besprechung.nextStepHeadings,
+		);
+		if (itemLines.length === 0) return vorgangContent;
+		return insertIntakeGroup(
+			vorgangContent,
+			buildIntakeGroup(itemLines, source, this.plugin.settings.ownNames),
+		);
 	}
 
 	private async removePendingTag(file: TFile, tag: string): Promise<void> {

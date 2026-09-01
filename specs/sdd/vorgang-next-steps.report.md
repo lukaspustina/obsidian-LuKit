@@ -103,3 +103,74 @@ dirty, and `adlc verify-gate` fails on exactly that — a self-blocking state wi
 inside the cycle. Worked around in this repo's own `.gitignore` (commit b61cbfa), because an
 entry in the tool-distributed `.adlc/.gitignore` would be overwritten at the next bootstrap.
 **The proper fix belongs in `pdt-adlc`.**
+
+## Phase 2: Intake engine
+
+**Status**: shipped
+**Commit**: 5a6df53
+**Test Baseline**: 1b4607fba6df7f8a5888fd887ec98447dfa6c0f3
+
+**Deviation, recorded**: the 20 criteria were written by five test-writer agents of four
+criteria each rather than 20 single-criterion agents. The per-criterion file convention is
+unchanged; bundling related criteria gave consistent fixtures against an API that did not exist
+yet. The parallelism paid for itself immediately — see the ambiguity below.
+
+**Ambiguity the parallelism exposed**: five agents produced two readings of `buildIntakeGroup`'s
+`itemLines`. Four files passed `["Angebot einholen"]`, five passed `["- Angebot einholen"]`, and
+the SDD supported both — its doc comment said "raw item lines (top-level bullets at indent 0) …
+exactly as extracted from a Besprechung section" (bulleted) while its own Test Scenario 7 showed
+bare text. All 20 agreed on the *result* (`IntakeItem.text` without a bullet), so the resolution
+was to normalise on input: a leading `- `, `* ` or `+ ` is stripped. This covers both real
+callers — `extractSection` yields bullets, the email preview yields whatever the user typed. No
+test needed changing; the SDD gained requirement 7a.
+
+### Acceptance Criteria
+
+All 20 criteria pass, plus criterion 21 (added post-review, see below). No coder iteration was
+needed: the implementing agent read the tests as the specification and hit all 20 on the first
+pass.
+
+### Reviewer Findings
+
+**Blockers**: 2, both reproduced by the reviewer, both fixed in-flight and pinned by new
+regression tests. Neither was covered by criteria 1–20, and both corrupt silently while
+reporting success — the walk would have shown no symptom.
+
+- `snoozeGroup` amputated the parent line's last character instead of replacing the due date
+  when the existing separator was a non-breaking space. `extractDateFromTitle` normalises
+  invisible spaces before matching, so the date parsed; the strip searched the un-normalised
+  tail for `", "`, found nothing, and `slice(0, -1)` cut a character. The function this module
+  mirrors, `rescheduleReminderLine`, carries a guard for exactly this. Fixed by splitting on the
+  comma alone, which shares the matcher's tolerance.
+- All three mutations resolved `group.line` with an unscoped `lines.indexOf` while the splice
+  arithmetic assumed the hit lay below the boundary. A byte-identical line in the curated part —
+  or a second group from the same source — made the mutation destroy other lines and return
+  success. Reachable without hand-editing: two threads with the same subject filed the same day
+  produce byte-identical anchors. Fixed by scoping the search below the boundary and preferring
+  the parsed `lineIndex`.
+
+**SDD Amendments**: 2, both `affected_phase: 2`, both now `repaired_in_phase: yes`.
+- The accepted "structure moved under us" null-return was implemented in `takeOverGroup` only;
+  the blocker fix extended it to `dropGroup` and `snoozeGroup`, and the docstrings now say so.
+- `extractNextStepsBody` was described as "the single read path every other function in this
+  module uses". No function in the module calls it — the ones needing line indices use the
+  private boundary helpers, since a detached slice cannot carry indices. The implementation is
+  right and the SDD sentence was wrong; corrected.
+
+**Nits**: 6, and 4 deferred items — recorded in the review file, none blocking.
+
+### Test edits after the baseline
+
+One new file, no existing test changed: `…_p2_c21_mutation-scoping-and-nbsp.test.ts`, the two
+blocker regressions. Reason recorded in `.adlc/cycle/vorgang-next-steps/test-changes.md`.
+
+### Behavioral Verification
+
+Skipped with justification: Phase 2 delivers a pure module with no caller yet — the feature
+wiring is Phase 3. Its behaviour is exercised by 24 unit tests driving the real functions
+directly, which is the same depth an E2E step could reach for a library-only phase.
+
+### Gate
+
+`adlc auto verify-gate` exit 0: attestation valid (tree mode), orphans none, lint clean.
+790 tests across 187 files.

@@ -171,9 +171,12 @@ already-parsed groups from possibly many notes — lives in `task-triage-engine.
 13. The system shall provide a setting `besprechung.nextStepHeadings: string[]` with default
     `["Nächste Schritte"]`, parsed exactly as `sectionHeadings` and `decisionHeadings` are
     (`value.split(",").map(s => s.trim()).filter(s => s.length > 0)`, no deduplication).
-14. The system shall extract, for each configured heading present in the source, that
-    section's top-level bullets — and each bullet's own further-indented lines — as the
-    group's items, flattening multiple configured headings into one list in setting order.
+14. The system shall extract, for each configured heading present in the source, every
+    non-blank line of that section — lines at indent 0 as items, further-indented lines
+    as their children — flattening multiple configured headings into one list in setting
+    order. Deliberately not `bulletsOnly`, matching `extractDecisionLines`: that flag
+    truncates at the first prose line instead of converting it, and requirement 7a
+    already normalises a non-bulleted line into an item.
 15. The system shall write no group when the extraction yields no items; this check is made
     by the caller (`besprechung-feature.ts`) before calling `insertIntakeGroup`, which itself
     writes whatever group it is given, including an empty one — the same function the email
@@ -303,7 +306,11 @@ already-parsed groups from possibly many notes — lives in `task-triage-engine.
 export interface IntakeGroup {
 	/** Full text of the parent line, the mutation key (as ReminderItem.line is). */
 	line: string;
-	/** Wikilink target of the parent, e.g. "Besprechung Acme Kickoff" or "#E-Mail-Thread: …". */
+	/** Wikilink target of the parent, via extractWikilinkTarget (requirement 5a),
+	 *  e.g. "Besprechung Acme Kickoff" or "E-Mail-Thread: Betreff, 01.09.2026".
+	 *  Note the leading "#" of an in-note anchor is NOT part of it —
+	 *  extractWikilinkTarget consumes it. The full anchor lives in `line`,
+	 *  which is also the mutation key, so nothing is lost. */
 	source: string;
 	/** Due date from the parent's trailing segment; null means due now. */
 	due: Date | null;
@@ -348,9 +355,12 @@ export function extractNextStepsBody(content: string): string[];
  * typed. buildIntakeGroup accepts both and normalises — a leading "- ", "* " or
  * "+ " is stripped, so IntakeItem.text is always the bare text. Continuation
  * lines are kept verbatim with their relative indent. source is the wikilink
- * target without brackets (e.g. "Besprechung Acme Kickoff" or
- * "#E-Mail-Thread: Betreff, 01.09.2026"). due is always null and lineIndex is
- * always -1 — both are set only by insertion or parsing.
+ * target without brackets, exactly as the caller passes it — "Besprechung Acme
+ * Kickoff" for a note link, "#E-Mail-Thread: Betreff, 01.09.2026" WITH the "#"
+ * for an in-note anchor. build and parse are deliberately not a fixed point on
+ * this field: parseIntakeGroups derives source through extractWikilinkTarget,
+ * which consumes the "#". Nothing depends on the round trip — the full anchor
+ * lives in `line`, which is the mutation key. due is always null and lineIndex is
  */
 export function buildIntakeGroup(itemLines: string[], source: string, ownNames: string[]): IntakeGroup;
 
@@ -491,7 +501,7 @@ export interface LuKitSettings {
 | `src/features/besprechung/besprechung-engine.ts` | `extractNextStepItemLines` — flattens configured `nextStepHeadings` into raw item lines, analogous to `extractDecisionLines` |
 | `src/features/besprechung/besprechung-feature.ts` | build and write the group (skip when empty) in both filing paths |
 | `src/features/besprechung/besprechung-settings.ts` | `nextStepHeadings` field |
-| `src/features/email-filing/email-preview-modal.ts` | next-steps multi-line input, ⌘K placeholder shortcut, `PreviewOutcome` unchanged in shape (the input's value travels alongside it) |
+| `src/features/email-filing/email-preview-modal.ts` | next-steps multi-line input, ⌘K placeholder shortcut, `PreviewOutcome` unchanged in shape; the value travels alongside it as `string[] | null` — `null` writes no group, `[]` writes the zero-item placeholder group (⌘K on an empty field), non-empty writes those items. ⌘K with a filled field is a no-op, since the group is written either way. The modal exposes a directly-callable hook for the shortcut, following `TaskTriageModal`'s pinned-internals pattern, because `Modal.scope.register` is inert in the test stub |
 | `src/features/email-filing/email-format-engine.ts` | **new export** `sanitizeSectionName` — applied once to the resolved section name before it is used for the h5 heading and the intake anchor (req. 9a) |
 | `src/features/email-filing/email-filing-feature.ts` | build and write the group in both filing paths, anchored via `formatVorgangHeadingText` on the `sanitizeSectionName`-applied `sectionName` (req. 9, 9a) |
 | `src/features/task-triage/task-triage-engine.ts` | `intake` stop kind, `IntakeStopCandidate`, `selectDueIntakeGroups`, `buildTriagePreview` extended to include `# Nächste Schritte` (req. 40, applies to every stop type showing a Vorgang note) |

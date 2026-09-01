@@ -58,6 +58,22 @@ export class LuKitSettingTab extends PluginSettingTab {
 					}),
 			);
 
+		new Setting(containerEl)
+			.setName("Eigene Namen")
+			.setDesc('Kommagetrennte Namen, die „ich" bedeuten: Punkte mit einem fremden „Name: "-Präfix landen im Intake unter „Warte auf:" (leer = alles gilt als eigener Punkt)')
+			.addText((text) =>
+				text
+					.setPlaceholder("")
+					.setValue(this.plugin.settings.ownNames.join(", "))
+					.onChange(async (value) => {
+						this.plugin.settings.ownNames = value
+							.split(",")
+							.map((s) => s.trim())
+							.filter((s) => s.length > 0);
+						await this.plugin.saveSettings();
+					}),
+			);
+
 		for (const feature of this.plugin.features) {
 			if (feature.renderSettings) {
 				feature.renderSettings(containerEl, this.plugin);

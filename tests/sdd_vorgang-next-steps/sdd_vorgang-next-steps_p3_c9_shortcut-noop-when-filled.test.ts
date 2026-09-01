@@ -151,6 +151,10 @@ describe("Email preview — two typed lines plus ⌘K → shortcut is a no-op (r
 		expect(groups[0].foreignItems).toHaveLength(0);
 
 		const expectedAnchor = formatVorgangHeadingText(assembled.sectionName, "de", assembled.latestDate);
-		expect(groups[0].line).toBe(`- Aus [[${expectedAnchor}]]`);
+		// The anchor is an IN-NOTE link and therefore carries the leading "#";
+		// without it the wikilink points at a note that does not exist. Corrected
+		// after the test commit — SDD requirements 9/9a and the sibling c10/c11
+		// tests pin this form, this file originally omitted the "#".
+		expect(groups[0].line).toBe(`- Aus [[#${expectedAnchor}]]`);
 	});
 });

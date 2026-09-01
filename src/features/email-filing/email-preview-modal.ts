@@ -38,9 +38,16 @@ export class EmailPreviewModal extends Modal {
 	private readonly subtitle: string;
 	private readonly sectionName: string;
 	private readonly messages: PreviewMessage[];
-	private readonly onConfirm: (results: PreviewMessageResult[], outcome: PreviewOutcome) => void;
+	private readonly onConfirm: (
+		results: PreviewMessageResult[],
+		outcome: PreviewOutcome,
+		nextSteps: string[] | null,
+	) => void;
 	private readonly onCancelCb: () => void;
 	private confirmed = false;
+	// ⌘K: write the intake group even without items. It does not outrank typed
+	// text — on a filled field the press changes nothing.
+	private nextStepsPlaceholder = false;
 
 	constructor(
 		app: App,
@@ -48,7 +55,7 @@ export class EmailPreviewModal extends Modal {
 		subtitle: string,
 		sectionName: string,
 		messages: PreviewMessage[],
-		onConfirm: (results: PreviewMessageResult[], outcome: PreviewOutcome) => void,
+		onConfirm: (results: PreviewMessageResult[], outcome: PreviewOutcome, nextSteps: string[] | null) => void,
 		onCancel: () => void,
 	) {
 		super(app);
@@ -60,8 +67,16 @@ export class EmailPreviewModal extends Modal {
 		this.onCancelCb = onCancel;
 	}
 
+	// The ⌘K handler, also a directly-callable hook: Modal.scope.register is inert
+	// in the test harness, so the binding is pinned through this method (the same
+	// reason TaskTriageModal pins availableActions).
+	private triggerNextStepsPlaceholder(): void {
+		this.nextStepsPlaceholder = true;
+	}
+
 	onOpen(): void {
 		const { contentEl } = this;
+		this.nextStepsPlaceholder = false;
 		// Size the modal to a fraction of the main window (scales with it, not a
 		// fixed size); the content area scrolls when the thread is long.
 		this.modalEl.addClass("lukit-email-preview-modal");
@@ -119,8 +134,18 @@ export class EmailPreviewModal extends Modal {
 			});
 		}
 
+		// Next steps: one line per item, empty by default. Indentation is kept —
+		// buildIntakeGroup reads it as an item's continuation lines.
+		const nextStepsRow = contentEl.createEl("label", { cls: "lukit-email-preview-next-steps-row" });
+		nextStepsRow.createEl("span", { text: "Nächste Schritte (eine Zeile je Punkt, ⌘K = Gruppe ohne Punkte): " });
+		const nextStepsInput = nextStepsRow.createEl("textarea", { cls: "lukit-email-preview-next-steps" });
+		nextStepsInput.value = "";
+		nextStepsInput.rows = 3;
+		nextStepsInput.style.width = "100%";
+
 		const submit = (openAfterFiling: boolean): void => {
 			this.confirmed = true;
+			const typed = nextStepsInput.value.split("\n").filter((l) => l.trim() !== "");
 			this.onConfirm(
 				this.messages.map((_, i) => ({
 					included: checkboxes[i].checked,
@@ -131,6 +156,7 @@ export class EmailPreviewModal extends Modal {
 					sectionName: sectionInput.value.trim() === "" ? this.sectionName : sectionInput.value.trim(),
 					openAfterFiling,
 				},
+				typed.length > 0 ? typed : this.nextStepsPlaceholder ? [] : null,
 			);
 			this.close();
 		};
@@ -157,6 +183,11 @@ export class EmailPreviewModal extends Modal {
 		this.scope.register(["Mod"], "Enter", (evt) => {
 			evt.preventDefault();
 			submit(false);
+			return false;
+		});
+		this.scope.register(["Mod"], "k", (evt) => {
+			evt.preventDefault();
+			this.triggerNextStepsPlaceholder();
 			return false;
 		});
 	}

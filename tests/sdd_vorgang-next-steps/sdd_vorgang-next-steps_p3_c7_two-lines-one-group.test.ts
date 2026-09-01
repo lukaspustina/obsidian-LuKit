@@ -146,7 +146,11 @@ describe("Email preview — two typed next-steps lines, no ⌘K → one group wi
 
 		// Anchored to the h5 section that this same filing created (requirement 9).
 		const expectedAnchor = formatVorgangHeadingText(assembled.sectionName, "de", assembled.latestDate);
-		expect(groups[0].line).toBe(`- Aus [[${expectedAnchor}]]`);
+		// The anchor is an IN-NOTE link and therefore carries the leading "#";
+		// without it the wikilink points at a note that does not exist. Corrected
+		// after the test commit — SDD requirements 9/9a and the sibling c10/c11
+		// tests pin this form, this file originally omitted the "#".
+		expect(groups[0].line).toBe(`- Aus [[#${expectedAnchor}]]`);
 		expect(content).toContain(`##### ${expectedAnchor}`);
 	});
 });
