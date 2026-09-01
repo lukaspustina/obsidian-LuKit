@@ -1,12 +1,21 @@
 # SDD Implementation Report: vorgang-next-steps.md
 
 **Date**: 2026-09-01
-**Phases run**: 1 of 5 so far
-**Overall status**: in progress
+**Phases run**: 1, 2, 3, 4, 5
+**Overall status**: all-shipped
+**SDD amendments suggested**: 8, all applied in flight
 
 | Phase | Title | Status | Commit |
 |-------|-------|--------|--------|
 | 1 | Header tolerance and the merge repair | shipped | 7cf4875 |
+| 2 | Intake engine | shipped | 5a6df53 |
+| 3 | Inflow | shipped | 977d6ff |
+| 4 | Triage stop | shipped | 91cb570 |
+| 5 | Merge and close | shipped | 0317753 |
+| — | Documentation | shipped | 6cf2d2d |
+
+71 SDD criteria, all passing. Suite 833 tests across 220 files, `tsc --noEmit` and
+`npm run build` clean, `adlc auto verify-gate` exit 0.
 
 ## Phase 1: Header tolerance and the merge repair
 
@@ -234,3 +243,78 @@ reachable in this environment.
 ### Gate
 
 `adlc auto verify-gate` exit 0: attestation valid (tree mode), orphans none, lint clean.
+
+## Phase 4: Triage stop
+
+**Status**: shipped · **Commit**: 91cb570 · **Test Baseline**: 31df7155f47c41f9d3827a7af9153e30d07c99fe
+
+Fourteen criteria plus one gap-closing test, written by three bundled agents, implemented in one
+pass. A third naming inconsistency between parallel writers (`handleIntakeTakeOver` vs
+`handleTakeOver`) was reconciled by the writers themselves before the baseline.
+
+**Reviewer**: PASS, 0 blockers, 1 amendment, 3 deferred, 7 nits. The amendment recorded the
+summary notice's two shapes in requirement 39 — the conditional is load-bearing, since making it
+unconditional breaks two pinned tests in another SDD's suite. One reviewer finding was itself
+wrong: it reported the Phase 3 wiring gap as still open, having searched only the `p4` files; the
+test exists at `tests/acceptance/email-preview-next-steps-wiring.test.ts`, deliberately placed
+there because it guards a seam rather than an SDD criterion. Verified present, green, and
+referencing `nextSteps` eight times.
+
+**A residual window recorded, not closed** (new requirement 39b): take-over renders the group as
+read at presentation time while deleting the line range computed live, so a sub-bullet hand-added
+to a group between its presentation and the keystroke is removed without being carried up. Seconds
+wide, and outside requirement 39a's rationale — sibling-stop mutation, which is handled correctly.
+
+## Phase 5: Merge and close
+
+**Status**: shipped · **Commit**: 0317753 · **Test Baseline**: 642d5c682d4b309b8545bb3a2fa95cddb39cfe84
+
+Five criteria. Criterion 5 (close unchanged when the intake is empty) was green from the start by
+design — a regression guard on the untouched path, like Phase 1's criterion 2.
+
+**Reviewer**: PASS, 0 blockers, 1 amendment, 1 deferred, 7 nits. The amendment corrected two
+overstatements in requirement 42: the splice starts *below* the boundary (carrying the heading
+would emit a second one in the target, where the same requirement creates one), and blank lines
+surrounding the block are trimmed while interior blanks separating groups survive — so every
+*group* is byte-identical, but the block is not.
+
+**Import cycle, verified safe**: `vorgang-engine` now imports `extractNextStepsBody` from
+`intake-engine`, which already imports `NEXT_STEP_HEADERS` back. Neither module touches the other
+at module-init time — only inside function bodies — so esbuild's bundling order cannot break it.
+Recorded because the plugin ships as a single bundle and a future top-level constant initialised
+across that edge would fail at load, not at build.
+
+The deferred documentation debt, carried since Phase 3, was closed in commit 6cf2d2d.
+
+## Manual Test Plan
+
+The parts no automated test in this environment can reach — they need a running Obsidian with the
+plugin installed (`just local-install <vault>`):
+
+1. Configure "Eigene Namen" in Settings → LuKit → Allgemein, and check that
+   "Nächste-Schritte-Überschriften" is set under Besprechung — expected: both fields present, the
+   second defaulting to `Nächste Schritte`.
+2. File a Besprechung holding a `# Nächste Schritte` section with a mix of own and assigned items
+   into a Vorgang — expected: `#### Unsortiert` appears in the target's `# Nächste Schritte` with
+   one `- Aus [[…]]` group; assigned items sit under `- Warte auf:`.
+3. File the same Besprechung again — expected: no second group.
+4. File an email, typing two lines into the preview's next-steps field — expected: one group
+   anchored to the h5 section that filing created; clicking the anchor jumps to it.
+5. File another email, pressing ⌘K instead of typing — expected: a group with no sub-bullets.
+6. File a third, purely informational email without touching the field — expected: no group.
+7. Run "Vorgänge: Fällige Aufgaben durchgehen" — expected: reminders first, then intake groups,
+   then tasks; the preview shows `# Nächste Schritte` with the boundary.
+8. At an intake stop press ⌘S, untick one item, confirm — expected: only the ticked items move
+   above the boundary, the whole group disappears.
+9. At the next stop press ⌘2 — expected: the parent line gains `, <date +1 week>` and the group
+   does not reappear until then.
+10. Take over a group with ⌘D, then run the walk again — expected: the taken-over items sit in the
+    curated part, the group is gone, and it does not come back when its source is re-filed.
+11. Merge a Vorgang holding an intake into another — expected: the source's groups appear in the
+    target's intake after its own, unchanged.
+12. Run "Abschließen" on a Vorgang with a non-empty intake — expected: a confirmation first;
+    declining leaves the note untouched.
+
+## How to Resume Blocked Phases
+
+None — all five phases shipped.
