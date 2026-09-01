@@ -26,6 +26,13 @@ describe("sliceSectionBody recognises the lowercase spelling directly (SDD vorga
 
 		const body = sliceSectionBody(lines, "# Nächste Schritte");
 
-		expect(body).toEqual(["- Do X", "- Do Y"]);
+		// The trailing "" is part of the contract, not slack in the assertion:
+		// sliceSectionBody returns the body "verbatim, not trimmed", so the
+		// blank line separating the section from "# Inhalt" belongs to it. The
+		// sibling c3 test pins the same shape. Corrected after the test commit —
+		// the original expectation omitted the blank line, which would have
+		// forced a trimming change that breaks c3. (Both mergeVorgangContent
+		// call sites filter blank lines themselves, so they would not notice.)
+		expect(body).toEqual(["- Do X", "- Do Y", ""]);
 	});
 });

@@ -208,10 +208,29 @@ function findFrontmatterEndIndex(lines: string[]): number {
 	return -1;
 }
 
+// Both spellings of the next-steps heading exist in the vault: Migration
+// capitalises it, hand-written notes often do not. Canonical first — a note
+// carrying both resolves to the canonical one, like FAKTEN_HEADERS does.
+export const NEXT_STEP_HEADERS: readonly string[] = ["# Nächste Schritte", "# nächste Schritte"];
+
+// Resolves a section header to its index, accepting either spelling of the
+// next-steps heading. Precedence follows the constant's order, not the order
+// the headings happen to appear in the note. Pass the canonical spelling: the
+// variant table is symmetric, so the lowercase one resolves here too, but
+// mergeH1Section's create branch inserts whatever literal it was given.
+function findSectionIndex(lines: string[], header: string): number {
+	const variants = NEXT_STEP_HEADERS.includes(header) ? NEXT_STEP_HEADERS : [header];
+	for (const variant of variants) {
+		const idx = lines.findIndex((l) => l.trim() === variant);
+		if (idx !== -1) return idx;
+	}
+	return -1;
+}
+
 // Extracts the body of a "# <header>" section (lines after the header up to
 // the next h1-h5 heading), verbatim, not trimmed.
-function sliceSectionBody(lines: string[], header: string): string[] {
-	const start = lines.findIndex((l) => l.trim() === header);
+export function sliceSectionBody(lines: string[], header: string): string[] {
+	const start = findSectionIndex(lines, header);
 	if (start === -1) return [];
 	const body: string[] = [];
 	for (let i = start + 1; i < lines.length; i++) {
@@ -266,7 +285,7 @@ function mergeH1Section(
 	createAfterHeader: string | null,
 ): string {
 	const lines = content.split("\n");
-	const headerIndex = lines.findIndex((l) => l.trim() === header);
+	const headerIndex = findSectionIndex(lines, header);
 
 	if (headerIndex !== -1) {
 		let rangeEnd = lines.length;

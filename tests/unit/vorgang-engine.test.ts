@@ -10,6 +10,7 @@ import {
 	addVorgangSectionLinked,
 	ensureVorgangSkeleton,
 	appendDecisionsToFakten,
+	mergeVorgangContent,
 } from "../../src/features/vorgang/vorgang-engine";
 import { extractDecisionLines } from "../../src/features/besprechung/besprechung-engine";
 import { formatDate, extractDateFromTitle } from "../../src/shared/date-format";
@@ -885,5 +886,52 @@ describe("appendDecisionsToFakten (SDD besprechung-entscheidungen, Phase 2)", ()
 		const parentAt = out.indexOf("- Entscheidungen 29.07.2026 ([[Besprechung Acme]])");
 		expect(parentAt).toBe(out.indexOf("# Fakten und Pointer") + 1);
 		expect(parentAt).toBeLessThan(out.indexOf("# Nächste Schritte"));
+	});
+});
+
+describe("mergeVorgangContent with a lowercase-spelled target section", () => {
+	// Behaviour change from the header-tolerant lookup in mergeH1Section: before
+	// it, the exact-match miss took the create branch and left the note with two
+	// next-steps headings. Not covered by the SDD's own Phase 1 scenarios, which
+	// all use a canonical target.
+	it("appends into the existing '# nächste Schritte' instead of adding a second heading", () => {
+		const source = [
+			"---",
+			"tags: [Vorgang]",
+			"---",
+			"",
+			"# Fakten und Pointer",
+			"",
+			"# Nächste Schritte",
+			"- Angebot einholen",
+			"",
+			"# Inhalt",
+			"",
+		].join("\n");
+
+		const target = [
+			"---",
+			"tags: [Vorgang]",
+			"---",
+			"",
+			"# Fakten und Pointer",
+			"",
+			"# nächste Schritte",
+			"- Vertrag prüfen",
+			"",
+			"# Inhalt",
+			"",
+		].join("\n");
+
+		const result = mergeVorgangContent(source, target, "de", new Date(2026, 8, 1));
+		const lines = result.newTargetContent.split("\n");
+
+		const headings = lines.filter((l) => l.trim().toLowerCase() === "# nächste schritte");
+		expect(headings).toHaveLength(1);
+		expect(headings[0].trim()).toBe("# nächste Schritte");
+
+		const headingAt = lines.findIndex((l) => l.trim() === "# nächste Schritte");
+		expect(lines.indexOf("- Vertrag prüfen")).toBeGreaterThan(headingAt);
+		expect(lines.indexOf("- Angebot einholen")).toBeGreaterThan(lines.indexOf("- Vertrag prüfen"));
 	});
 });
