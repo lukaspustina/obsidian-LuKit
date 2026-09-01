@@ -130,6 +130,10 @@ already-parsed groups from possibly many notes — lives in `task-triage-engine.
    `- Aus [[<target>]]`.
 7. The system shall write each of the source's action items as a sub-bullet indented by four
    spaces, carrying that item's own further-indented lines along with their relative indent.
+7a. The system shall accept a top-level item line with or without a leading bullet marker
+    (`- `, `* `, `+ `) and strip it, so that `IntakeItem.text` holds the bare text either way.
+    The two callers differ: `extractSection` yields bulleted lines, the email preview yields
+    whatever the user typed.
 8. The system shall write parent bullets without a trailing date. A trailing
    comma-separated date on a parent line is the group's due field, written only by snooze and
    read only by due selection. Parsing locates this due segment as any text after the parent
@@ -228,8 +232,11 @@ already-parsed groups from possibly many notes — lives in `task-triage-engine.
     (Enter), skip (Esc), stop (⌘.), and open the item selection (⌘S; see requirement 33a for
     the sub-modal's cancel behaviour).
 32. The system shall, on take over, move every item of the group above the `#### Unsortiert`
-    boundary as top-level bullets appended to the curated part, reducing their indent by four
-    spaces, dropping the `- Warte auf:` separator, and shall then remove the whole group.
+    boundary as top-level bullets appended to the curated part, dropping the `- Warte auf:`
+    separator, and shall then remove the whole group. Own and foreign items alike land at
+    indent 0 — the curated list has no separator to hang foreign items under, so preserving
+    their eight-space indent there would leave them orphaned beneath an own item. Each item's
+    own continuation lines keep their relative indent.
 33. The system shall, on the item selection, present one checkbox per item, all preselected,
     and on confirmation move only the ticked items and remove the whole group regardless.
 33a. The system shall, on dismissing the item-selection modal without confirming (Esc or
@@ -325,19 +332,25 @@ export interface IntakeItem {
  * NEXT_STEP_HEADERS), from just after the header to the next heading matching
  * `^#{1,3} ` or end of note — curated part, boundary and intake together. Unlike
  * sliceSectionBody, does not stop at the "#### Unsortiert" h4 boundary. Returns
- * [] when neither spelling of the header is present. The single read path every
- * other function in this module (and mergeVorgangContent's intake carryover)
- * uses to see past the boundary.
+ * [] when neither spelling of the header is present. The read path for callers
+ * that need the section's text — Phase 5's merge carryover above all. The
+ * functions inside this module that need line indices use the private
+ * boundary helpers directly instead, since a detached slice cannot carry them.
  */
 export function extractNextStepsBody(content: string): string[];
 
 /**
- * Builds one group from raw item lines (top-level bullets at indent 0, each
+ * Builds one group from raw item lines (top-level entries at indent 0, each
  * optionally followed by its own further-indented continuation lines, exactly
  * as extracted from a Besprechung section or typed into the email preview).
- * source is the wikilink target without brackets (e.g. "Besprechung Acme
- * Kickoff" or "#E-Mail-Thread: Betreff, 01.09.2026"). due is always null and
- * lineIndex is always -1 — both are set only by insertion or parsing.
+ * A top-level entry may or may not carry a leading bullet marker: extractSection
+ * yields "- Angebot einholen" while the email preview yields whatever the user
+ * typed. buildIntakeGroup accepts both and normalises — a leading "- ", "* " or
+ * "+ " is stripped, so IntakeItem.text is always the bare text. Continuation
+ * lines are kept verbatim with their relative indent. source is the wikilink
+ * target without brackets (e.g. "Besprechung Acme Kickoff" or
+ * "#E-Mail-Thread: Betreff, 01.09.2026"). due is always null and lineIndex is
+ * always -1 — both are set only by insertion or parsing.
  */
 export function buildIntakeGroup(itemLines: string[], source: string, ownNames: string[]): IntakeGroup;
 
@@ -371,13 +384,16 @@ export function parseIntakeGroups(content: string): IntakeGroup[];
  * Returns null, without modifying content, when group.line is no longer
  * present in content (e.g. removed by a sibling stop's mutation or a hand
  * edit since the last read) — mirrors removeReminderLine's not-found contract.
+ * Also returns null when "# Nächste Schritte" or "#### Unsortiert" is gone: a
+ * parsed group cannot exist without them, so that is the same "structure moved
+ * under us" failure class, and the walk's onMutationError path treats it alike.
  */
 export function takeOverGroup(content: string, group: IntakeGroup, selectedIndices?: number[]): { newContent: string } | null;
 
 /**
  * Removes group's parent line and all of its sub-bullets; moves nothing.
- * Returns null, without modifying content, when group.line is no longer
- * present in content.
+ * Returns null, without modifying content, when the section or the boundary
+ * is gone, or when group.line is no longer present below the boundary.
  */
 export function dropGroup(content: string, group: IntakeGroup): { newContent: string } | null;
 
@@ -385,7 +401,8 @@ export function dropGroup(content: string, group: IntakeGroup): { newContent: st
  * Rewrites group's parent line with due as its new trailing comma-separated
  * date segment (replacing any prior one), formatted via formatDate(due,
  * locale); sub-bullets are untouched. Returns null, without modifying
- * content, when group.line is no longer present in content.
+ * content, when the section or the boundary is gone, or when group.line is no
+ * longer present below the boundary.
  */
 export function snoozeGroup(content: string, group: IntakeGroup, due: Date, locale: DateLocale): { newContent: string } | null;
 ```
