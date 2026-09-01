@@ -128,3 +128,15 @@
 	border-top: 1px solid var(--background-modifier-border);
 	padding-top: var(--size-4-2);
 }
+
+.lukit-intake-select-source {
+	color: var(--text-muted);
+	margin: 0 0 var(--size-4-2);
+}
+
+.lukit-intake-select-item {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	margin-bottom: var(--size-4-1);
+}

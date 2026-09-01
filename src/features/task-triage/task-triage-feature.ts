@@ -1,24 +1,46 @@
 import { Notice, TFile } from "obsidian";
+import type { CachedMetadata } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID, type LuKitFeature, type HelpEntry } from "../../types";
 import { formatDate } from "../../shared/date-format";
 import { getDiaryNotePath } from "../../shared/diary-settings";
+import { frontmatterTagsInclude } from "../../shared/frontmatter";
+import { parseIntakeGroups, takeOverGroup, dropGroup, snoozeGroup } from "../vorgang/intake-engine";
 import { listReminders, removeReminderLine, rescheduleReminderLine, erinnerungenSection } from "../work-diary/work-diary-engine";
 import type { ReminderItem } from "../work-diary/work-diary-engine";
 import { createTaskNotesBridge, type TaskNotesBridge, type BridgeAvailability } from "./tasknotes-bridge";
 import {
 	selectTriageTasks,
 	selectDueReminders,
+	selectDueIntakeGroups,
 	snoozeDate,
 	buildTriagePreview,
 	parseIsoDate,
 	type TriageStop,
+	type IntakeStopCandidate,
 	type SnoozeKind,
 } from "./task-triage-engine";
+import { IntakeSelectModal } from "./intake-select-modal";
 import { TaskTriageModal } from "./task-triage-modal";
 import { TaskTriageDateModal } from "./task-triage-date-modal";
 
 const PREVIEW_PLACEHOLDER = "(Vorschau nicht verfügbar)";
+
+type IntakeStop = Extract<TriageStop, { kind: "intake" }>;
+
+// The intake boundary's heading text as the metadata cache stores it
+// (without the four hashes).
+const INTAKE_BOUNDARY_HEADING = "Unsortiert";
+
+// Pre-filter before reading from disk: when the metadata cache knows the
+// note's headings and the boundary is absent, the note cannot hold an intake.
+// A missing headings entry means "unknown", not "none" — such a note is still
+// read, otherwise a cold cache would silently swallow its groups.
+function mayHoldIntake(cache: CachedMetadata | null): boolean {
+	const headings = cache?.headings;
+	if (!Array.isArray(headings)) return true;
+	return headings.some((h) => h.level === 4 && h.heading.trim() === INTAKE_BOUNDARY_HEADING);
+}
 
 export class TaskTriageFeature implements LuKitFeature {
 	id = "task-triage";
@@ -28,7 +50,7 @@ export class TaskTriageFeature implements LuKitFeature {
 	walkActive = false;
 	stops: TriageStop[] = [];
 	index = 0;
-	counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };
+	counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0, takenOver: 0, discarded: 0 };
 	// Pinned once per walk so a walk crossing midnight keeps mutating the
 	// instances/dates the selection (and the visible modal) was based on.
 	walkToday = "";
@@ -62,7 +84,7 @@ export class TaskTriageFeature implements LuKitFeature {
 				commandId: "task-triage-walk",
 				displayName: "Vorgänge: Fällige Aufgaben durchgehen",
 				description:
-					"Geht fällige Tagebuch-Erinnerungen und TaskNotes-Tasks durch (Erinnerungen zuerst); pro Stop: erledigen, verschieben, heutige Instanz auslassen (nur Tasks), öffnen & stoppen oder überspringen. Ohne TaskNotes (≥ 4.10.0) läuft der Walk nur mit Erinnerungen.",
+					"Geht fällige Tagebuch-Erinnerungen, Intake-Gruppen der Vorgänge und TaskNotes-Tasks durch (in dieser Reihenfolge); pro Stop: erledigen bzw. übernehmen, verschieben, heutige Instanz auslassen (nur Tasks), verwerfen und Punkte auswählen (nur Intake), öffnen & stoppen oder überspringen. Ohne TaskNotes (≥ 4.10.0) läuft der Walk ohne Task-Stops.",
 			},
 		];
 	}
@@ -84,6 +106,7 @@ export class TaskTriageFeature implements LuKitFeature {
 		const loading = new Notice("Sammle fällige Aufgaben…", 0);
 
 		const reminders = await this.loadDueReminders();
+		const intakeStops = await this.loadDueIntakeStops();
 
 		let taskStops: TriageStop[] = [];
 		const availability = this.bridge.availability();
@@ -105,7 +128,11 @@ export class TaskTriageFeature implements LuKitFeature {
 		}
 		loading.hide();
 
-		const stops: TriageStop[] = [...reminders.map((reminder) => ({ kind: "reminder" as const, reminder })), ...taskStops];
+		const stops: TriageStop[] = [
+			...reminders.map((reminder) => ({ kind: "reminder" as const, reminder })),
+			...intakeStops,
+			...taskStops,
+		];
 		if (stops.length === 0) {
 			this.walkActive = false;
 			new Notice("Keine fälligen Tasks oder Erinnerungen");
@@ -114,7 +141,7 @@ export class TaskTriageFeature implements LuKitFeature {
 
 		this.stops = stops;
 		this.index = 0;
-		this.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };
+		this.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0, takenOver: 0, discarded: 0 };
 		this.previewCache.clear();
 		await this.presentStop();
 	}
@@ -137,8 +164,43 @@ export class TaskTriageFeature implements LuKitFeature {
 	private diaryFile(): TFile | null {
 		const path = getDiaryNotePath(this.plugin);
 		if (!path) return null;
+		return this.noteFile(path);
+	}
+
+	private noteFile(path: string): TFile | null {
 		const file = this.plugin.app.vault.getAbstractFileByPath(path);
 		return file instanceof TFile ? file : null;
+	}
+
+	// Due intake groups of every note that may carry a boundary and is not
+	// closed. An unreadable note costs its own groups, never the walk.
+	private async loadDueIntakeStops(): Promise<TriageStop[]> {
+		const candidates: IntakeStopCandidate[] = [];
+		for (const file of this.plugin.app.vault.getMarkdownFiles()) {
+			const cache = this.plugin.app.metadataCache.getFileCache(file);
+			if (!mayHoldIntake(cache) || this.isDone(cache)) continue;
+			let content: string;
+			try {
+				content = await this.plugin.app.vault.read(file);
+			} catch (e) {
+				this.logError(e);
+				continue;
+			}
+			for (const group of parseIntakeGroups(content)) {
+				candidates.push({ group, notePath: file.path, noteBasename: file.basename });
+			}
+		}
+		return selectDueIntakeGroups(candidates, this.walkToday).map((c) => ({
+			kind: "intake" as const,
+			group: c.group,
+			notePath: c.notePath,
+			noteBasename: c.noteBasename,
+		}));
+	}
+
+	private isDone(cache: CachedMetadata | null): boolean {
+		const doneTag = this.plugin.settings.doneTag;
+		return doneTag !== "" && frontmatterTagsInclude(cache?.frontmatter?.tags, doneTag);
 	}
 
 	private availabilityMessage(a: Extract<BridgeAvailability, { ok: false }>): string {
@@ -158,6 +220,13 @@ export class TaskTriageFeature implements LuKitFeature {
 		return this.stops[this.index];
 	}
 
+	// Render context for MarkdownRenderer: the note the stop came from.
+	private stopSourcePath(stop: TriageStop): string {
+		if (stop.kind === "task") return stop.task.path;
+		if (stop.kind === "intake") return stop.notePath;
+		return getDiaryNotePath(this.plugin) ?? "";
+	}
+
 	private async presentStop(): Promise<void> {
 		if (!this.walkActive) {
 			return;
@@ -170,7 +239,7 @@ export class TaskTriageFeature implements LuKitFeature {
 			locale: this.plugin.settings.dateLocale,
 			today: this.walkToday,
 			position: { index: this.index, total: this.stops.length },
-			sourcePath: stop.kind === "task" ? stop.task.path : (getDiaryNotePath(this.plugin) ?? ""),
+			sourcePath: this.stopSourcePath(stop),
 			onComplete: () => {
 				void this.handleComplete();
 			},
@@ -182,6 +251,12 @@ export class TaskTriageFeature implements LuKitFeature {
 			},
 			onSkipInstance: () => {
 				void this.handleSkipInstance();
+			},
+			onIntakeDiscard: () => {
+				void this.handleIntakeDiscard();
+			},
+			onIntakeSelect: () => {
+				this.handleIntakeSelect();
 			},
 			onOpenAndStop: () => {
 				void this.handleOpenAndStop();
@@ -221,6 +296,19 @@ export class TaskTriageFeature implements LuKitFeature {
 	}
 
 	async loadPreview(stop: TriageStop): Promise<string> {
+		if (stop.kind === "intake") {
+			// Always read fresh: several groups share one Vorgang note that earlier
+			// stops of the same walk have already changed — a cache or a prefetch
+			// would show the state before that take-over.
+			const file = this.noteFile(stop.notePath);
+			if (file === null) return PREVIEW_PLACEHOLDER;
+			try {
+				return buildTriagePreview(await this.plugin.app.vault.read(file));
+			} catch (e) {
+				this.logError(e);
+				return PREVIEW_PLACEHOLDER;
+			}
+		}
 		if (stop.kind === "reminder") {
 			// Immer frisch lesen: alle Erinnerungs-Stops teilen die Tagebuch-
 			// Notiz, die Walk-Aktionen mutieren — Cache/Prefetch wären racy.
@@ -251,13 +339,18 @@ export class TaskTriageFeature implements LuKitFeature {
 	}
 
 	availableActions(stop: TriageStop): { snooze: boolean; skipInstance: boolean } {
-		if (stop.kind === "reminder") {
+		// At an intake stop ⌘X means "discard" — the modal registers that from
+		// the stop kind itself, not through skipInstance.
+		if (stop.kind === "reminder" || stop.kind === "intake") {
 			return { snooze: true, skipInstance: false };
 		}
 		return { snooze: !stop.task.isRecurring, skipInstance: stop.task.isRecurring };
 	}
 
-	private async mutateAndAdvance(mutate: () => Promise<void>, counter: "completed" | "snoozed" | "instancesSkipped"): Promise<void> {
+	private async mutateAndAdvance(
+		mutate: () => Promise<void>,
+		counter: "completed" | "snoozed" | "instancesSkipped" | "takenOver" | "discarded",
+	): Promise<void> {
 		try {
 			await mutate();
 		} catch (e) {
@@ -288,8 +381,35 @@ export class TaskTriageFeature implements LuKitFeature {
 		}
 	}
 
+	// Applies an engine mutation to the Vorgang note; throws when the note is
+	// gone or the group no longer stands in it (→ onMutationError path). The
+	// vault.process callback hands over what is on disk, hence always fresh.
+	private async mutateIntake(stop: IntakeStop, fn: (content: string) => { newContent: string } | null): Promise<void> {
+		const file = this.noteFile(stop.notePath);
+		if (file === null) {
+			throw new Error("intake-note-missing");
+		}
+		let found = true;
+		await this.plugin.app.vault.process(file, (content) => {
+			const result = fn(content);
+			if (result === null) {
+				found = false;
+				return content;
+			}
+			return result.newContent;
+		});
+		if (!found) {
+			throw new Error("intake-group-missing");
+		}
+	}
+
 	async handleComplete(): Promise<void> {
 		const stop = this.currentStop();
+		if (stop.kind === "intake") {
+			// At an intake stop ⌘D means "take over", not "complete".
+			await this.handleIntakeTakeOver();
+			return;
+		}
 		await this.mutateAndAdvance(
 			() =>
 				stop.kind === "reminder"
@@ -307,6 +427,10 @@ export class TaskTriageFeature implements LuKitFeature {
 
 	async handleSnoozeCustom(date: string): Promise<void> {
 		const stop = this.currentStop();
+		if (stop.kind === "intake") {
+			await this.handleIntakeSnoozeCustom(date);
+			return;
+		}
 		await this.mutateAndAdvance(
 			() =>
 				stop.kind === "reminder"
@@ -326,6 +450,46 @@ export class TaskTriageFeature implements LuKitFeature {
 		await this.mutateAndAdvance(() => this.bridge.toggleSkippedInstance(stop.task.path, this.walkToday), "instancesSkipped");
 	}
 
+	async handleIntakeTakeOver(selectedIndices?: number[]): Promise<void> {
+		const stop = this.currentStop();
+		if (stop.kind !== "intake") return;
+		await this.mutateAndAdvance(
+			() => this.mutateIntake(stop, (content) => takeOverGroup(content, stop.group, selectedIndices)),
+			"takenOver",
+		);
+	}
+
+	async handleIntakeDiscard(): Promise<void> {
+		const stop = this.currentStop();
+		if (stop.kind !== "intake") return;
+		await this.mutateAndAdvance(() => this.mutateIntake(stop, (content) => dropGroup(content, stop.group)), "discarded");
+	}
+
+	async handleIntakeSnoozeCustom(date: string): Promise<void> {
+		const stop = this.currentStop();
+		if (stop.kind !== "intake") return;
+		const locale = this.plugin.settings.dateLocale;
+		await this.mutateAndAdvance(
+			() => this.mutateIntake(stop, (content) => snoozeGroup(content, stop.group, parseIsoDate(date), locale)),
+			"snoozed",
+		);
+	}
+
+	handleIntakeSelect(): void {
+		const stop = this.currentStop();
+		if (stop.kind !== "intake") return;
+		new IntakeSelectModal(this.plugin.app, {
+			group: stop.group,
+			onConfirm: (selectedIndices) => {
+				void this.handleIntakeTakeOver(selectedIndices);
+			},
+			onCancel: () => {
+				// Dismissal writes nothing — the same stop is presented again.
+				void this.presentStop();
+			},
+		}).open();
+	}
+
 	async handleSkip(): Promise<void> {
 		this.counts.skipped++;
 		await this.advance();
@@ -336,6 +500,8 @@ export class TaskTriageFeature implements LuKitFeature {
 		try {
 			if (stop.kind === "reminder") {
 				await this.openDiaryAtReminder(stop.reminder);
+			} else if (stop.kind === "intake") {
+				await this.openNoteAtIntakeGroup(stop);
 			} else {
 				await this.bridge.openInNewTab(stop.task.path);
 			}
@@ -361,6 +527,23 @@ export class TaskTriageFeature implements LuKitFeature {
 		}
 	}
 
+	private async openNoteAtIntakeGroup(stop: IntakeStop): Promise<void> {
+		const file = this.noteFile(stop.notePath);
+		if (file === null) {
+			throw new Error("intake-note-missing");
+		}
+		const leaf = this.plugin.app.workspace.getLeaf(false);
+		await leaf.openFile(file);
+		const editor = this.plugin.app.workspace.activeEditor?.editor;
+		if (!editor) return;
+		// The line index noted at collection time can be stale — the line itself
+		// is the key, exactly as it is for the mutations.
+		const found = editor.getValue().split("\n").indexOf(stop.group.line);
+		const pos = { line: found === -1 ? Math.max(stop.group.lineIndex, 0) : found, ch: 0 };
+		editor.setCursor(pos);
+		editor.scrollIntoView({ from: pos, to: pos }, true);
+	}
+
 	handleStop(): void {
 		this.finishWalk();
 	}
@@ -384,10 +567,13 @@ export class TaskTriageFeature implements LuKitFeature {
 	}
 
 	private finishWalk(): void {
-		const { completed, snoozed, instancesSkipped, skipped } = this.counts;
-		const remaining = this.stops.length - (completed + snoozed + instancesSkipped + skipped);
+		const { completed, snoozed, instancesSkipped, skipped, takenOver, discarded } = this.counts;
+		const remaining = this.stops.length - (completed + snoozed + instancesSkipped + skipped + takenOver + discarded);
+		// The two intake buckets appear only when the walk actually had intake
+		// stops — a pure task/reminder walk keeps its existing sentence.
+		const intake = this.stops.some((s) => s.kind === "intake") ? `${takenOver} übernommen, ${discarded} verworfen, ` : "";
 		new Notice(
-			`Triage beendet: ${completed} erledigt, ${snoozed} verschoben, ${instancesSkipped} ausgelassen, ${skipped} übersprungen, ${remaining} offen`,
+			`Triage beendet: ${completed} erledigt, ${snoozed} verschoben, ${instancesSkipped} ausgelassen, ${skipped} übersprungen, ${intake}${remaining} offen`,
 		);
 		this.walkActive = false;
 		this.modal = undefined;

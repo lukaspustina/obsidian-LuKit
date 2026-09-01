@@ -17,6 +17,11 @@ export interface TaskTriageModalOptions {
 	onSnooze: (kind: SnoozeKind) => void;
 	onSnoozeCustom: () => void;
 	onSkipInstance: () => void;
+	// Used at intake stops only: ⌘X discards the group, ⌘S opens the item
+	// selection. Both are separate callbacks because ⌘X means something other
+	// than "skip today's instance" there.
+	onIntakeDiscard: () => void;
+	onIntakeSelect: () => void;
 	onOpenAndStop: () => void;
 	onSkip: () => void;
 	onStop: () => void;
@@ -54,8 +59,31 @@ export class TaskTriageModal extends Modal {
 		const { stop } = this.options;
 		if (stop.kind === "reminder") {
 			this.renderReminderHeader();
+		} else if (stop.kind === "intake") {
+			this.renderIntakeHeader();
 		} else {
 			this.renderTaskHeader();
+		}
+	}
+
+	private renderIntakeHeader(): void {
+		const { contentEl } = this;
+		const { stop, locale, today, position } = this.options;
+		if (stop.kind !== "intake") return;
+		const group = stop.group;
+
+		contentEl.createEl("h3", { text: group.source === "" ? stop.noteBasename : group.source });
+
+		const meta = contentEl.createEl("p", { cls: "lukit-triage-meta" });
+		const count = group.ownItems.length + group.foreignItems.length;
+		const due = group.due === null ? "ohne Datum" : formatDate(group.due, locale);
+		const parts: string[] = [`${position.index + 1}/${position.total}`, `Intake: ${stop.noteBasename}`, `fällig ${due}`, `${count} Punkt(e)`];
+		meta.createSpan({ text: parts.join(" · ") });
+
+		const overdue = reminderOverdueLabel(group.due, today, locale);
+		if (overdue !== "") {
+			meta.createSpan({ text: " · " });
+			meta.createSpan({ text: overdue, cls: "lukit-triage-overdue" });
 		}
 	}
 
@@ -159,6 +187,17 @@ export class TaskTriageModal extends Modal {
 			});
 		}
 
+		if (this.options.stop.kind === "intake") {
+			this.scope.register(["Mod"], "X", () => {
+				this.act(this.options.onIntakeDiscard);
+				return false;
+			});
+			this.scope.register(["Mod"], "S", () => {
+				this.act(this.options.onIntakeSelect);
+				return false;
+			});
+		}
+
 		this.scope.register([], "Enter", () => {
 			this.act(this.options.onOpenAndStop);
 			return false;
@@ -172,9 +211,10 @@ export class TaskTriageModal extends Modal {
 
 	private renderInstructions(): void {
 		const { actions } = this.options;
+		const isIntake = this.options.stop.kind === "intake";
 		const instructions: { command: string; purpose: string }[] = [
 			{ command: "↵", purpose: "Öffnen & Stopp" },
-			{ command: "⌘D", purpose: "Erledigt" },
+			{ command: "⌘D", purpose: isIntake ? "Übernehmen" : "Erledigt" },
 		];
 		if (actions.snooze) {
 			instructions.push(
@@ -186,6 +226,9 @@ export class TaskTriageModal extends Modal {
 		}
 		if (actions.skipInstance) {
 			instructions.push({ command: "⌘X", purpose: "Heute auslassen" });
+		}
+		if (isIntake) {
+			instructions.push({ command: "⌘S", purpose: "Punkte auswählen…" }, { command: "⌘X", purpose: "Verwerfen" });
 		}
 		instructions.push({ command: "esc", purpose: "Überspringen" }, { command: "⌘.", purpose: "Stopp" });
 

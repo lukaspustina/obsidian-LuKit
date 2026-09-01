@@ -174,3 +174,63 @@ directly, which is the same depth an E2E step could reach for a library-only pha
 
 `adlc auto verify-gate` exit 0: attestation valid (tree mode), orphans none, lint clean.
 790 tests across 187 files.
+
+## Phase 3: Inflow
+
+**Status**: shipped
+**Commit**: 977d6ff
+**Test Baseline**: afc69c66fd3d0b47f3db0a9f34959c9ea95075c3
+
+Thirteen criteria, written by three bundled test-writer agents, implemented by one coder in a
+single pass. All 13 pass; 811 tests across 200 files green.
+
+**Contradiction between test files, exposed by the parallelism a second time**: three files
+(c7, c8, c9) pinned the intake anchor WITHOUT a leading `#`, while their siblings (c10, c11)
+and SDD requirements 9/9a pin it WITH one. The coder followed the SDD and reported the conflict
+rather than picking a side silently. Corrected the three: an in-note anchor without `#` is a
+dangling link to a note that does not exist. A fourth expectation (c11) wanted `#` preserved in
+`IntakeGroup.source`, which `extractWikilinkTarget` consumes — corrected, since the full anchor
+lives in `line`, the mutation key.
+
+**Regression caught by an existing test**: `tests/unit/types.test.ts`'s `mergeSettings`
+round-trip pins the complete settings shape and correctly reported that the shape grew. Its
+fixture gained the two new fields; no assertion was relaxed.
+
+### Reviewer Findings
+
+**Blockers**: none. The reviewer confirmed all four filing paths write the group, that
+`sanitizeSectionName` is applied exactly once before the value feeds both the h5 heading and the
+anchor, that the empty-extraction skip lives caller-side without a `force` parameter, and that
+`selfNameStopwords` is untouched.
+
+**SDD Amendments**: 2, both text-only, both applied.
+- `IntakeGroup.source`: build keeps what the caller passes (`#…` for an anchor), parse derives it
+  via `extractWikilinkTarget` and strips the `#`. Both are right for their direction; the
+  document now says build and parse are deliberately not a fixed point on that field.
+- Requirement 14 said "top-level bullets"; `extractNextStepItemLines` forwards every non-blank
+  line, deliberately matching `extractDecisionLines` (whose `bulletsOnly` flag truncates at the
+  first prose line). Reworded.
+
+**Deferred**: 3, carried forward.
+- README and project CLAUDE.md do not yet document the two new settings or the preview field.
+  Correctly deferred — writing it up now would document a half-feature, since nothing drains the
+  intake until Phase 4. **Must land by `/sdd-finish`.**
+- No test pins the modal → `commitThread` wiring of `nextSteps`. The modal's emission and the
+  commit's handling are each covered, but not the callback that connects them; TypeScript accepts
+  a callback with fewer parameters, so dropping the argument would leave tsc clean and all 13
+  criteria green. **One walk-level test in Phase 4 closes it.**
+- Sequencing: `nextStepHeadings` defaults to `["Nächste Schritte"]`, so from this commit on the
+  intake fills with no way to drain it until Phase 4 lands.
+
+**Nits**: 7, recorded in the review file, none blocking.
+
+### Behavioral Verification
+
+Skipped with justification: the phase's entry points are Obsidian commands and a modal, neither
+scriptable here. The four filing paths are driven end-to-end in the acceptance tests through the
+real commands with mocked Obsidian APIs and a fake mail bridge, which is the deepest rung
+reachable in this environment.
+
+### Gate
+
+`adlc auto verify-gate` exit 0: attestation valid (tree mode), orphans none, lint clean.

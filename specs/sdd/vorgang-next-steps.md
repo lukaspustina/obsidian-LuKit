@@ -257,7 +257,19 @@ already-parsed groups from possibly many notes — lives in `task-triage-engine.
     either when the vault write itself fails, or when `takeOverGroup`/`dropGroup`/
     `snoozeGroup` returns `null` because the group's parent line is no longer present in the
     note (see Data Models); both cases surface the same way.
-39. The system shall count intake actions in the closing summary notice.
+39. The system shall count intake actions in the closing summary notice. The notice has two
+    shapes and the choice is load-bearing: the pre-existing five-bucket sentence when the
+    walk had no intake stop, and a seven-bucket one adding `T übernommen, D verworfen`
+    when it had at least one. The gate is the *presence* of an intake stop, not the
+    outcome — a walk whose intake stops were all skipped still reports `0 übernommen,
+    0 verworfen`. Making this unconditional would break `sdd_tasknotes-triage-walk`'s
+    c8 and c11, which pin the five-bucket string literally.
+39b. The system reads an intake stop's group fresh, but renders take-over from the group
+    object as read at presentation time while deleting the line range computed live. A
+    sub-bullet hand-added to a group between its presentation and the keystroke is
+    therefore removed without being carried up. The window is seconds wide and outside
+    requirement 39a's rationale (sibling-stop mutation, which is handled correctly);
+    recorded rather than closed.
 39a. The system shall always read a Vorgang note fresh from disk immediately before presenting
      or acting on an intake stop belonging to it, never from a cached or prefetched copy taken
      when the walk started — because several intake groups can share one note and an earlier

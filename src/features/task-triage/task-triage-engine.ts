@@ -1,6 +1,9 @@
 import { formatDate, parseDateString } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
 import { extractSection } from "../besprechung/besprechung-engine";
+import { extractNextStepsBody } from "../vorgang/intake-engine";
+import type { IntakeGroup } from "../vorgang/intake-engine";
+import { NEXT_STEP_HEADERS } from "../vorgang/vorgang-engine";
 import type { ReminderItem } from "../work-diary/work-diary-engine";
 
 export interface TriageTask {
@@ -19,10 +22,20 @@ export interface TriageTask {
 
 export type SnoozeKind = "tomorrow" | "week" | "nextMonday";
 
-// Ein Stop des Triage-Walks: TaskNotes-Task oder Tagebuch-Erinnerung.
+// One stop of the triage walk: a TaskNotes task, a diary reminder, or an
+// intake group below a Vorgang note's "#### Unsortiert" boundary.
 export type TriageStop =
 	| { kind: "task"; task: TriageTask }
-	| { kind: "reminder"; reminder: ReminderItem };
+	| { kind: "reminder"; reminder: ReminderItem }
+	| { kind: "intake"; group: IntakeGroup; notePath: string; noteBasename: string };
+
+// One group gathered during walk setup, before due filtering and ordering —
+// carries the note it came from, which IntakeGroup itself does not know.
+export interface IntakeStopCandidate {
+	group: IntakeGroup;
+	notePath: string;
+	noteBasename: string;
+}
 
 export interface TriageSummary {
 	completed: number;
@@ -93,6 +106,27 @@ export function selectDueReminders(items: ReminderItem[], todayIso: string): Rem
 		});
 }
 
+// Due intake groups: dated on or before today, or dateless (due now).
+// Ordered like the reminders — date ascending, dateless last; ties by note
+// path, then line index, so the order is stable across several notes.
+export function selectDueIntakeGroups(candidates: IntakeStopCandidate[], todayIso: string): IntakeStopCandidate[] {
+	return candidates
+		.filter((c) => c.group.due === null || formatDate(c.group.due, "iso") <= todayIso)
+		.sort((a, b) => cmpDue(a.group.due, b.group.due) || cmpPath(a.notePath, b.notePath) || a.group.lineIndex - b.group.lineIndex);
+}
+
+function cmpDue(a: Date | null, b: Date | null): number {
+	if (a === null && b === null) return 0;
+	if (a === null) return 1;
+	if (b === null) return -1;
+	return a.getTime() - b.getTime();
+}
+
+function cmpPath(a: string, b: string): number {
+	if (a === b) return 0;
+	return a < b ? -1 : 1;
+}
+
 // Überfällig-Label für ein einzelnes Erinnerungs-Datum (überladungsfrei neben
 // overdueLabel, dessen Signatur TriageTask-gebunden ist). Leer bei datumslos
 // oder Fälligkeit heute/zukünftig.
@@ -157,6 +191,25 @@ function bodyAfterFakten(lines: string[], faktenIdx: number): string {
 	return "";
 }
 
+function trimBlankEdges(lines: string[]): string[] {
+	let start = 0;
+	let end = lines.length;
+	while (start < end && lines[start].trim() === "") start++;
+	while (end > start && lines[end - 1].trim() === "") end--;
+	return lines.slice(start, end);
+}
+
+// Curated part, boundary and intake as one block: unlike sliceSectionBody,
+// extractNextStepsBody sees past the "#### Unsortiert" boundary — without it
+// the preview would never show the intake. The heading is always emitted in
+// the canonical spelling; which of the two the note uses does not matter for
+// a read-only preview.
+function nextStepsBlock(content: string): string {
+	const body = trimBlankEdges(extractNextStepsBody(content));
+	if (body.length === 0) return "";
+	return `${NEXT_STEP_HEADERS[0]}\n${body.join("\n")}`;
+}
+
 export function buildTriagePreview(content: string): string {
 	const stripped = stripFrontmatter(content);
 	const lines = stripped.split("\n");
@@ -169,12 +222,18 @@ export function buildTriagePreview(content: string): string {
 	}
 
 	const fakten = extractSection(stripped, "Fakten und Pointer");
-	const head = fakten === null ? "# Fakten und Pointer" : `# Fakten und Pointer\n${fakten}`;
-	const h5 = newestH5Sections(bodyAfterFakten(lines, faktenIdx), VORGANG_PREVIEW_SECTIONS);
-	if (h5 === "") {
-		return head;
+	const blocks = [fakten === null ? "# Fakten und Pointer" : `# Fakten und Pointer\n${fakten}`];
+
+	const nextSteps = nextStepsBlock(stripped);
+	if (nextSteps !== "") {
+		blocks.push(nextSteps);
 	}
-	return `${head}\n\n${h5}`;
+
+	const h5 = newestH5Sections(bodyAfterFakten(lines, faktenIdx), VORGANG_PREVIEW_SECTIONS);
+	if (h5 !== "") {
+		blocks.push(h5);
+	}
+	return blocks.join("\n\n");
 }
 
 export function overdueLabel(task: TriageTask, today: string, locale: DateLocale): string {
