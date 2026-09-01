@@ -138,12 +138,50 @@ function findIntakeBoundary(lines: string[]): number {
 // below — destroying the other group's lines and reporting success. Prefers the
 // parsed lineIndex when it still holds, so duplicates resolve to the group the
 // caller actually meant.
+//
+// When lineIndex has gone stale — an earlier stop in the same walk shifted the
+// lines — the parent line alone no longer identifies the group: an email anchor
+// is subject plus date, so two same-subject threads filed the same day carry
+// byte-identical parents. Falling back to the first match then moves one group's
+// items while splicing away another's. So the fallback disambiguates by the
+// group's items, and gives up rather than guess when several still match.
 function findParentIndex(lines: string[], group: IntakeGroup, boundaryIndex: number): number {
 	if (group.lineIndex > boundaryIndex && lines[group.lineIndex] === group.line) return group.lineIndex;
+
+	const candidates: number[] = [];
 	for (let i = boundaryIndex + 1; i < lines.length; i++) {
-		if (lines[i] === group.line) return i;
+		if (lines[i] === group.line) candidates.push(i);
 	}
-	return -1;
+	if (candidates.length <= 1) return candidates[0] ?? -1;
+
+	const wanted = itemTexts(group);
+	const matches = candidates.filter((i) => {
+		const block = lines.slice(i, groupRangeEnd(lines, i));
+		return sameItems(itemTextsFromLines(block), wanted);
+	});
+	// Ambiguous beyond the items too: the groups are indistinguishable, and a
+	// wrong pick loses a sibling's lines. Not-found is the safe answer — the
+	// walk reports it and keeps the stop.
+	return matches.length === 1 ? matches[0] : -1;
+}
+
+function itemTexts(group: IntakeGroup): string[] {
+	return [...group.ownItems, ...group.foreignItems].map((i) => i.text);
+}
+
+function itemTextsFromLines(block: string[]): string[] {
+	const texts: string[] = [];
+	for (const line of block.slice(1)) {
+		const trimmed = line.trim();
+		if (trimmed === "" || trimmed === WARTE_AUF) continue;
+		const indent = line.length - line.trimStart().length;
+		if (indent === 4 || indent === 8) texts.push(stripBulletMarker(trimmed));
+	}
+	return texts;
+}
+
+function sameItems(a: string[], b: string[]): boolean {
+	return a.length === b.length && a.every((text, i) => text === b[i]);
 }
 
 // The group's lines as written: the parent, the own items, then the foreign
@@ -192,12 +230,25 @@ function spliceWithSpacing(lines: string[], atIndex: number, block: string[]): v
 }
 
 // Where a missing "# Nächste Schritte" is created: after the Fakten section's
-// content, else directly after the frontmatter — a Vorgang-tagged note that
-// never went through ensureVorgangSkeleton must not lose its action items.
+// content, else before the note's first heading of any level, else at the end —
+// a Vorgang-tagged note that never went through ensureVorgangSkeleton must not
+// lose its action items.
+//
+// Never directly after the frontmatter when a body follows: the intake region
+// closes only at the next h1-h3, so a body placed below the new heading would
+// sit INSIDE the intake, parse as bogus groups, and be deleted by a discard.
+// Putting the section before the first heading — or after everything, when the
+// note has none — keeps existing content outside the region either way.
 function newSectionIndex(lines: string[]): number {
 	const faktenIndex = lines.findIndex((l) => l.trim() === FAKTEN_HEADER);
-	if (faktenIndex === -1) return findFrontmatterEndIndex(lines) + 1;
-	for (let i = faktenIndex + 1; i < lines.length; i++) {
+	if (faktenIndex !== -1) {
+		for (let i = faktenIndex + 1; i < lines.length; i++) {
+			if (/^#{1,5} /.test(lines[i])) return i;
+		}
+		return lines.length;
+	}
+	const fmEnd = findFrontmatterEndIndex(lines);
+	for (let i = fmEnd + 1; i < lines.length; i++) {
 		if (/^#{1,5} /.test(lines[i])) return i;
 	}
 	return lines.length;
@@ -224,7 +275,11 @@ export function extractNextStepsBody(content: string): string[] {
  * "- Angebot einholen", the email preview yields whatever the user typed — so
  * "- ", "* " and "+ " are stripped and IntakeItem.text is always bare.
  * An item whose text opens with "<name>: " for a name outside ownNames is
- * foreign; everything else, prefix or none, is the user's own.
+ * foreign; everything else, prefix or none, is the user's own. An empty
+ * ownNames turns detection off rather than making everything foreign: without
+ * configured names there is nothing to tell an assignee from ordinary prose,
+ * and "Angebot: bis Freitag prüfen" is not a person. That is also what the
+ * setting's own description promises.
  */
 export function buildIntakeGroup(itemLines: string[], source: string, ownNames: string[]): IntakeGroup {
 	const ownItems: IntakeItem[] = [];
@@ -239,7 +294,7 @@ export function buildIntakeGroup(itemLines: string[], source: string, ownNames: 
 		}
 		const text = stripBulletMarker(raw.trim());
 		current = { text, children: [] };
-		const assignee = /^([^:]+): /.exec(text);
+		const assignee = ownNames.length === 0 ? null : /^([^:]+): /.exec(text);
 		const foreign = assignee !== null && !ownNames.includes(assignee[1]);
 		(foreign ? foreignItems : ownItems).push(current);
 	}

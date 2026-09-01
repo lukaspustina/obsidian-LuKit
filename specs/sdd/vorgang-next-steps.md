@@ -210,6 +210,12 @@ already-parsed groups from possibly many notes — lives in `task-triage-engine.
 23. The system shall classify an item as foreign when its text begins with an assignee prefix
     of the form `<name>: ` and that name matches none of `ownNames`; every other item,
     including one with no prefix, is the user's own.
+23a. The system shall perform no owner detection at all while `ownNames` is empty — every
+    item is the user's own. Detection on an empty list would make the shipped default
+    classify every item holding a colon as foreign, including ordinary prose like
+    `Angebot: bis Freitag prüfen`, which names no person. Without configured names there
+    is nothing to tell an assignee from a colon, and the setting's own description already
+    promises this behaviour.
 24. The system shall place foreign items below the own items of the same group, under a
     sub-bullet `- Warte auf:` at four-space indent, with the foreign items indented eight
     spaces beneath it.
