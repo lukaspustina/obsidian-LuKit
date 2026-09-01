@@ -10,3 +10,4 @@
 - [x] Vorgang: Add section now also creates a linked diary entry automatically
 - [x] Email Filing: walk Apple Mail inbox, file each message into a Vorgang/Person/Bestellung/Bewerbung note (engines, bridge, feature) — osascript bridge pending manual smoke test against real accounts (esp. Gmail archive mailbox)
 - [x] Email Filing conversations (v2): assemble full thread (received + Sent replies) with dedup against the Vorgang; single-shot "File selected Mail message" for initiated threads; cross-session routing mined from Vorgänge (cached in data.json) — `listSentForThread`/`getSelection` JXA pending manual smoke test
+- [x] Vorgang next-steps intake: filing a Besprechung or an email thread also deposits its action items below an `#### Unsortiert` marker in `# Nächste Schritte`, drained via a third stop kind in the triage walk (take over, discard, snooze, or pick individual items)
