@@ -299,3 +299,54 @@ describe("the intake region's blank lines stay normalised", () => {
 		expect(lines).toContain("- Rückmeldung geben");
 	});
 });
+
+describe("the created section never swallows content below it", () => {
+	// The independent review pass found the earlier fix incomplete: newSectionIndex
+	// looked for the first heading of ANY level while sectionEndIndex closes the
+	// intake region only at h1-h3. A note whose first heading is an h4 or h5 got
+	// the section placed above it, so everything below fell inside the region,
+	// parsed as groups, and became deletable by ⌘X in the walk.
+	it("places the section after an h4-only note's headings, not above them", () => {
+		const personNote = [
+			"---",
+			"tags: [Person]",
+			"---",
+			"",
+			"#### Kontakt",
+			"- Telefon: 0123",
+			"- Musterstadt",
+			"",
+			"#### Notizen",
+			"- mag Kaffee",
+			"",
+		].join("\n");
+
+		const group = buildIntakeGroup(["Rückruf vereinbaren"], "Besprechung Acme Kickoff", []);
+		const result = insertIntakeGroup(personNote, group);
+
+		expect(parseIntakeGroups(result)).toHaveLength(1);
+		expect(result).toContain("#### Kontakt");
+		expect(result).toContain("- mag Kaffee");
+	});
+
+	it("places the section after an h5 archive section, not above it", () => {
+		const vorgang = [
+			"---",
+			"tags: [Vorgang]",
+			"---",
+			"",
+			"# Fakten und Pointer",
+			"- Bestandsfakt",
+			"",
+			"##### Alter Eintrag, 01.01.2026",
+			"- Notiz von damals",
+			"",
+		].join("\n");
+
+		const group = buildIntakeGroup(["Rückruf vereinbaren"], "Besprechung Acme Kickoff", []);
+		const result = insertIntakeGroup(vorgang, group);
+
+		expect(parseIntakeGroups(result)).toHaveLength(1);
+		expect(result).toContain("- Notiz von damals");
+	});
+});

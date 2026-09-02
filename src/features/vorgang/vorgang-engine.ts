@@ -9,7 +9,7 @@ import {
 	tocAlreadyLinks,
 	extractWikilinkTarget,
 } from "../../shared/note-structure";
-import { extractNextStepsBody } from "./intake-engine";
+import { createIntakeSection, extractNextStepsBody } from "./intake-engine";
 
 export { findInhaltSectionIndex, findInhaltBulletRange, formatLinkedBullet };
 
@@ -415,7 +415,13 @@ function appendIntakeLines(content: string, intakeLines: string[]): string {
 	const lines = content.split("\n");
 	const headerIndex = findSectionIndex(lines, NEXT_STEP_HEADERS[0]);
 	if (headerIndex === -1) {
-		return mergeH1Section(content, NEXT_STEP_HEADERS[0], [INTAKE_BOUNDARY, ...intakeLines], "# Fakten und Pointer");
+		// Not mergeH1Section's create branch: it inserts at frontmatterEnd + 1
+		// when the target has no facts heading, which leaves the target's own
+		// body inside the intake region — the region closes only at the next
+		// h1-h3, so the body would parse as groups and a later ⌘X would delete
+		// it. createIntakeSection places the section where nothing is enclosed,
+		// the same rule insertIntakeGroup follows.
+		return createIntakeSection(content, intakeLines);
 	}
 
 	const body = extractNextStepsBody(content);

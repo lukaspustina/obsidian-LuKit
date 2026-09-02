@@ -262,15 +262,20 @@ function newSectionIndex(lines: string[]): number {
 	// carries "# Fakten", and creating the section above it would leave the
 	// facts inside the intake region.
 	const faktenIndex = findFaktenIndex(lines);
-	if (faktenIndex !== -1) {
-		for (let i = faktenIndex + 1; i < lines.length; i++) {
-			if (/^#{1,5} /.test(lines[i])) return i;
-		}
-		return lines.length;
-	}
-	const fmEnd = findFrontmatterEndIndex(lines);
-	for (let i = fmEnd + 1; i < lines.length; i++) {
-		if (/^#{1,5} /.test(lines[i])) return i;
+	const fromIndex = faktenIndex !== -1 ? faktenIndex + 1 : findFrontmatterEndIndex(lines) + 1;
+	return firstRegionClosingHeading(lines, fromIndex);
+}
+
+// The insertion point must use the SAME heading level at which the intake region
+// closes (sectionEndIndex: h1-h3). Searching for any heading h1-h5 put the
+// section above an h4 or h5 — a Person note headed "#### Kontakt", or a Vorgang
+// whose only structure is a dated "##### " archive section — and everything
+// below then fell inside the region, parsed as groups, and became deletable with
+// ⌘X in the walk. Where no such heading exists, the end of the note is the only
+// position that encloses nothing.
+function firstRegionClosingHeading(lines: string[], fromIndex: number): number {
+	for (let i = fromIndex; i < lines.length; i++) {
+		if (/^#{1,3} /.test(lines[i])) return i;
 	}
 	return lines.length;
 }
@@ -333,15 +338,25 @@ export function buildIntakeGroup(itemLines: string[], source: string, ownNames: 
  * either is missing. Writes the group unconditionally, including a zero-item
  * one; callers that must skip an empty group check before calling.
  */
+/**
+ * Creates "# Nächste Schritte" and its boundary in a note that has neither, and
+ * puts intakeLines below the boundary. The position is the one point that
+ * encloses nothing (see newSectionIndex). Used by the merge carryover, which
+ * must not reach for mergeH1Section's create branch: that one inserts right
+ * after the frontmatter and would leave the target's own body inside the region.
+ */
+export function createIntakeSection(content: string, intakeLines: string[]): string {
+	const lines = content.split("\n");
+	spliceWithSpacing(lines, newSectionIndex(lines), [NEXT_STEP_HEADERS[0], INTAKE_BOUNDARY, ...intakeLines]);
+	return lines.join("\n");
+}
+
 export function insertIntakeGroup(content: string, group: IntakeGroup): string {
 	const lines = content.split("\n");
 	const block = renderGroup(group);
 
 	const headerIndex = findNextStepsHeaderIndex(lines);
-	if (headerIndex === -1) {
-		spliceWithSpacing(lines, newSectionIndex(lines), [NEXT_STEP_HEADERS[0], INTAKE_BOUNDARY, ...block]);
-		return lines.join("\n");
-	}
+	if (headerIndex === -1) return createIntakeSection(content, block);
 
 	const endIndex = sectionEndIndex(lines, headerIndex);
 	const boundaryIndex = findBoundaryIndex(lines, headerIndex, endIndex);

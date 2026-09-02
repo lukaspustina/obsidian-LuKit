@@ -97,8 +97,12 @@ already-parsed groups from possibly many notes — lives in `task-triage-engine.
    sanctioned exception, per requirement 10 and requirement 32.)
 2. The system shall create the `# Nächste Schritte` section, positioned after
    `# Fakten und Pointer`, when the target note does not have it; when `# Fakten und Pointer`
-   is itself absent, the system shall create `# Nächste Schritte` directly after the
-   frontmatter, before any other content. A note tagged Vorgang but never converted through
+   is itself absent, the system shall create `# Nächste Schritte` before the note's first
+   heading of level h1-h3, else at the end of the note — never at the position that encloses nothing (requirement 2),
+   which would leave an existing body inside the intake region (the region closes only at the
+   next h1-h3, so the body would parse as groups and a discard would delete it). The level must
+   match the one at which the region closes: searching for any heading h1-h5 put the section
+   above an `#### Kontakt` or a dated `##### ` archive section and enclosed everything below. A note tagged Vorgang but never converted through
    `ensureVorgangSkeleton` is a real case, and dropping the group there would lose an action
    item.
 3. The system shall create the `#### Unsortiert` heading when the section exists without it,
@@ -549,7 +553,7 @@ settings blob without either field falls back to the default. No migration code 
 | Failure | Trigger | Behaviour | User-visible |
 |---|---|---|---|
 | Target note unreadable when writing a group | vault error during filing | filing completes without the group; the archive write already happened | German notice naming the note |
-| `# Nächste Schritte` absent | legacy note | section created (req. 2), directly after the frontmatter when `# Fakten und Pointer` is also absent | none |
+| `# Nächste Schritte` absent | legacy note | section created (req. 2), at the position that encloses nothing (requirement 2) when `# Fakten und Pointer` is also absent | none |
 | Intake mutation fails at a stop | vault error on take over / discard / snooze | walk stays on the stop (req. 38) | German notice, entry stays open |
 | Group's parent line no longer present at mutation time | hand-edit, or a sibling stop's mutation already removed it | the mutation function (`takeOverGroup`/`dropGroup`/`snoozeGroup`) returns `null`; the walk keeps the stop and reports the failure (req. 38) | German notice |
 | Group's note deleted mid-walk | external change | stop skipped silently, counted in the closing summary | summary line only |
@@ -608,7 +612,7 @@ Phase 3's gate, not here; and round-tripping build → parse → mutate → pars
    inserted, THEN the section is created after `# Fakten und Pointer` with the boundary and
    the group below it.
 2. GIVEN a note with no `# Fakten und Pointer` section at all, WHEN a group is inserted, THEN
-   `# Nächste Schritte` is created directly after the frontmatter, before any other content,
+   `# Nächste Schritte` is created at the position that encloses nothing (requirement 2), before any other content,
    with the boundary and the group below it.
 3. GIVEN a note whose `# Nächste Schritte` holds two curated bullets and no boundary, WHEN a
    group is inserted, THEN the boundary appears after the curated bullets and both survive
