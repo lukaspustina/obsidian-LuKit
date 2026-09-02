@@ -1,6 +1,7 @@
 # SDD: Next Steps Intake in Vorgang Notes
 
-Status: Ready for Implementation
+Status: Done
+Finished: 2026-09-02
 Original: specs/sdd/vorgang-next-steps.md
 Refined: 2026-09-01
 PRD: specs/prd/vorgang-next-steps.md
