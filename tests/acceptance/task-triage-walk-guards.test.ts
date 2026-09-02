@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import type { TaskNotesBridge } from "../../src/features/task-triage/tasknotes-bridge";
 import type { TriageTask, TriageStop, SnoozeKind } from "../../src/features/task-triage/task-triage-engine";
-import { createMockApp, createMockPlugin, makeTestSettings, asLuKitPlugin, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
+import { createMockApp, createMockPlugin, createMockTFile, createMockEditor, makeTestSettings, asLuKitPlugin, noticeMessages, resetNotices } from "../helpers/obsidian-mocks";
+import { parseIntakeGroups } from "../../src/features/vorgang/intake-engine";
 
 const TODAY = "2026-07-02";
 
@@ -151,5 +152,46 @@ describe("TaskTriageFeature.onunload — aborts a running walk", () => {
 
 		expect(internals.index).toBe(0); // advance() refused — no new stop presented
 		expect(noticeMessages().length).toBe(noticesBefore); // and no summary Notice fired
+	});
+});
+
+// A curated bullet can be byte-identical to an intake group's parent line —
+// taking a group over by hand leaves exactly that behind. Locating the line
+// with an unscoped indexOf parked the cursor on the copy above the boundary.
+describe("TaskTriageFeature.handleOpenAndStop — intake stop whose parent line also stands in the curated part", () => {
+	const VORGANG = [
+		"---",
+		"tags: [Vorgang]",
+		"---",
+		"",
+		"# Nächste Schritte",
+		"- Aus [[Besprechung Acme Kickoff]]",
+		"",
+		"#### Unsortiert",
+		"- Aus [[Besprechung Acme Kickoff]]",
+		"    - Angebot einholen",
+		"",
+		"# Inhalt",
+		"",
+	].join("\n");
+
+	it("puts the cursor on the group below the boundary, not on the curated copy", async () => {
+		const { app, internals } = setup(fakeBridge());
+		const vorgang = createMockTFile("Vorgänge/Vorgang - Acme.md", { basename: "Vorgang - Acme" });
+		app.vault.register(vorgang, VORGANG);
+		const editor = createMockEditor(VORGANG);
+		app.workspace.activeEditor = { editor };
+
+		const group = parseIntakeGroups(VORGANG)[0];
+		internals.walkActive = true;
+		internals.stops = [{ kind: "intake", group, notePath: vorgang.path, noteBasename: vorgang.basename }];
+		internals.index = 0;
+
+		await (internals as unknown as { handleOpenAndStop: () => Promise<void> }).handleOpenAndStop();
+
+		expect(app.workspace.openedFiles).toContain(vorgang);
+		const boundaryAt = VORGANG.split("\n").indexOf("#### Unsortiert");
+		expect(editor.cursorPos.line).toBeGreaterThan(boundaryAt);
+		expect(editor.cursorPos).toEqual({ line: group.lineIndex, ch: 0 });
 	});
 });

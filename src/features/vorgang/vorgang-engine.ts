@@ -324,7 +324,7 @@ function mergeH1Section(
 // Kanonischer Header zuerst; „# Fakten" ist der Legacy-Name, den
 // migration-engine.ts auf „Fakten und Pointer" umbenennt — noch nicht
 // migrierte Notizen sollen das Entscheidungs-Log trotzdem bekommen.
-const FAKTEN_HEADERS = ["# Fakten und Pointer", "# Fakten"];
+export const FAKTEN_HEADERS: readonly string[] = ["# Fakten und Pointer", "# Fakten"];
 // Fixed concept label for the decisions log — deliberately not derived from the
 // configured heading name, so a renamed source heading does not fragment the log.
 const DECISION_BULLET_PREFIX = "- Entscheidungen ";

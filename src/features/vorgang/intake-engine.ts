@@ -1,7 +1,7 @@
 import { extractDateFromTitle, formatDate } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
 import { extractWikilinkTarget } from "../../shared/note-structure";
-import { NEXT_STEP_HEADERS } from "./vorgang-engine";
+import { FAKTEN_HEADERS, NEXT_STEP_HEADERS } from "./vorgang-engine";
 
 /** One filed source's action items, the unit that carries state. */
 export interface IntakeGroup {
@@ -31,7 +31,6 @@ const INTAKE_BOUNDARY = "#### Unsortiert";
 const WARTE_AUF = "- Warte auf:";
 const ITEM_INDENT = "    ";
 const FOREIGN_INDENT = "        ";
-const FAKTEN_HEADER = "# Fakten und Pointer";
 // parseIntakeGroups takes no locale — the note itself does not say which one it
 // was written in, so a trailing date is accepted in any of the three formats.
 // Same trick tocAlreadyLinks already uses for its date-suffixed link targets.
@@ -70,6 +69,17 @@ function lastNonEmptyIndex(lines: string[], fromIndex: number, toIndex: number):
 		if (lines[i].trim() !== "") last = i;
 	}
 	return last;
+}
+
+// Keeps the intake region's spacing from drifting across a walk: removing a
+// group leaves the blank line that separated it from its successor behind, so
+// repeated take-overs stacked blanks under the boundary. Collapses every run of
+// blank lines below the boundary to a single one — the blank between two groups
+// (and the one under an emptied boundary) survives, a second one does not.
+function collapseBlankRuns(lines: string[], boundaryIndex: number): void {
+	for (let i = sectionEndIndex(lines, boundaryIndex) - 1; i > boundaryIndex + 1; i--) {
+		if (lines[i].trim() === "" && lines[i - 1].trim() === "") lines.splice(i, 1);
+	}
 }
 
 function findFrontmatterEndIndex(lines: string[]): number {
@@ -229,6 +239,14 @@ function spliceWithSpacing(lines: string[], atIndex: number, block: string[]): v
 	lines.splice(atIndex, 0, ...segment);
 }
 
+function findFaktenIndex(lines: string[]): number {
+	for (const header of FAKTEN_HEADERS) {
+		const idx = lines.findIndex((l) => l.trim() === header);
+		if (idx !== -1) return idx;
+	}
+	return -1;
+}
+
 // Where a missing "# Nächste Schritte" is created: after the Fakten section's
 // content, else before the note's first heading of any level, else at the end —
 // a Vorgang-tagged note that never went through ensureVorgangSkeleton must not
@@ -240,7 +258,10 @@ function spliceWithSpacing(lines: string[], atIndex: number, block: string[]): v
 // Putting the section before the first heading — or after everything, when the
 // note has none — keeps existing content outside the region either way.
 function newSectionIndex(lines: string[]): number {
-	const faktenIndex = lines.findIndex((l) => l.trim() === FAKTEN_HEADER);
+	// Both spellings, canonical first: a note Migration has not touched yet
+	// carries "# Fakten", and creating the section above it would leave the
+	// facts inside the intake region.
+	const faktenIndex = findFaktenIndex(lines);
 	if (faktenIndex !== -1) {
 		for (let i = faktenIndex + 1; i < lines.length; i++) {
 			if (/^#{1,5} /.test(lines[i])) return i;
@@ -288,8 +309,12 @@ export function buildIntakeGroup(itemLines: string[], source: string, ownNames: 
 
 	for (const raw of itemLines) {
 		if (raw.trim() === "") continue;
-		if (indentWidth(raw) > 0) {
-			if (current !== null) current.children.push(raw);
+		// An indented line nests under the item above it — unless there is none:
+		// a leading indented line (a stray tab in the preview's next-steps box)
+		// has no parent, and dropping what the user typed is the wrong failure,
+		// so it opens an item of its own.
+		if (indentWidth(raw) > 0 && current !== null) {
+			current.children.push(raw);
 			continue;
 		}
 		const text = stripBulletMarker(raw.trim());
@@ -321,8 +346,11 @@ export function insertIntakeGroup(content: string, group: IntakeGroup): string {
 	const endIndex = sectionEndIndex(lines, headerIndex);
 	const boundaryIndex = findBoundaryIndex(lines, headerIndex, endIndex);
 	if (boundaryIndex === -1) {
+		// createAt always follows a non-empty line (the last curated bullet, or
+		// the header itself when the section is empty), so the blank is
+		// unconditional — exactly one, never spliced onto the bullet.
 		const createAt = lastNonEmptyIndex(lines, headerIndex, endIndex) + 1;
-		lines.splice(createAt, 0, INTAKE_BOUNDARY, ...block);
+		lines.splice(createAt, 0, "", INTAKE_BOUNDARY, ...block);
 		return lines.join("\n");
 	}
 
@@ -376,6 +404,14 @@ export function parseIntakeGroups(content: string): IntakeGroup[] {
 			continue;
 		}
 
+		// Inside the waiting block indent decides ownership, because the block
+		// has no closing marker: an item at the separator's own indent is its
+		// sibling, hence the user's own, and ends the block; only the items
+		// nested one level deeper are the foreign ones. Without this the flag
+		// never cleared and a hand-added own item below the block was read as
+		// foreign — and rewritten as foreign on the next take-over.
+		if (waiting && indentWidth(line) === ITEM_INDENT.length) waiting = false;
+
 		const base = waiting ? FOREIGN_INDENT.length : ITEM_INDENT.length;
 		if (item !== null && indentWidth(line) > base) {
 			item.children.push(line.slice(base));
@@ -386,6 +422,20 @@ export function parseIntakeGroups(content: string): IntakeGroup[] {
 	}
 
 	return groups;
+}
+
+/**
+ * Index of group's parent line in content — scoped below the intake boundary
+ * and disambiguated exactly as the mutations are — or -1 when the group no
+ * longer stands in the note. Lets a caller place a cursor on the same line a
+ * mutation would rewrite; an unscoped indexOf would resolve onto a curated copy
+ * of the line or onto a sibling group with a byte-identical anchor.
+ */
+export function findIntakeGroupLine(content: string, group: IntakeGroup): number {
+	const lines = content.split("\n");
+	const boundaryIndex = findIntakeBoundary(lines);
+	if (boundaryIndex === -1) return -1;
+	return findParentIndex(lines, group, boundaryIndex);
 }
 
 /**
@@ -422,6 +472,9 @@ export function takeOverGroup(
 	// first, then remove the group at its shifted position.
 	lines.splice(lastNonEmptyIndex(lines, headerIndex, boundaryIndex) + 1, 0, ...movedLines);
 	lines.splice(parentIndex + movedLines.length, rangeEnd - parentIndex);
+	// The moved lines all went in above the boundary, so it shifted by exactly
+	// their count.
+	collapseBlankRuns(lines, boundaryIndex + movedLines.length);
 	return { newContent: lines.join("\n") };
 }
 
@@ -437,6 +490,7 @@ export function dropGroup(content: string, group: IntakeGroup): { newContent: st
 	const parentIndex = findParentIndex(lines, group, boundaryIndex);
 	if (parentIndex === -1) return null;
 	lines.splice(parentIndex, groupRangeEnd(lines, parentIndex) - parentIndex);
+	collapseBlankRuns(lines, boundaryIndex);
 	return { newContent: lines.join("\n") };
 }
 

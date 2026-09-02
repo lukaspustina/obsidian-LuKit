@@ -5,7 +5,7 @@ import { LUKIT_ICON_ID, type LuKitFeature, type HelpEntry } from "../../types";
 import { formatDate } from "../../shared/date-format";
 import { getDiaryNotePath } from "../../shared/diary-settings";
 import { frontmatterTagsInclude } from "../../shared/frontmatter";
-import { parseIntakeGroups, takeOverGroup, dropGroup, snoozeGroup } from "../vorgang/intake-engine";
+import { parseIntakeGroups, takeOverGroup, dropGroup, snoozeGroup, findIntakeGroupLine } from "../vorgang/intake-engine";
 import { listReminders, removeReminderLine, rescheduleReminderLine, erinnerungenSection } from "../work-diary/work-diary-engine";
 import type { ReminderItem } from "../work-diary/work-diary-engine";
 import { createTaskNotesBridge, type TaskNotesBridge, type BridgeAvailability } from "./tasknotes-bridge";
@@ -36,6 +36,11 @@ const INTAKE_BOUNDARY_HEADING = "Unsortiert";
 // note's headings and the boundary is absent, the note cannot hold an intake.
 // A missing headings entry means "unknown", not "none" — such a note is still
 // read, otherwise a cold cache would silently swallow its groups.
+//
+// Deliberate trade-off: Obsidian also omits `headings` for a note that simply
+// has none, so every heading-less note is read once per walk. Treating the
+// absent entry as "no headings" would save those reads but lose real groups
+// whenever the cache is merely cold — correctness outranks the reads here.
 function mayHoldIntake(cache: CachedMetadata | null): boolean {
 	const headings = cache?.headings;
 	if (!Array.isArray(headings)) return true;
@@ -537,8 +542,10 @@ export class TaskTriageFeature implements LuKitFeature {
 		const editor = this.plugin.app.workspace.activeEditor?.editor;
 		if (!editor) return;
 		// The line index noted at collection time can be stale — the line itself
-		// is the key, exactly as it is for the mutations.
-		const found = editor.getValue().split("\n").indexOf(stop.group.line);
+		// is the key, and it is resolved exactly as the mutations resolve it:
+		// scoped below the boundary, so a curated copy of the line or a sibling
+		// group with a byte-identical anchor cannot capture the cursor.
+		const found = findIntakeGroupLine(editor.getValue(), stop.group);
 		const pos = { line: found === -1 ? Math.max(stop.group.lineIndex, 0) : found, ch: 0 };
 		editor.setCursor(pos);
 		editor.scrollIntoView({ from: pos, to: pos }, true);

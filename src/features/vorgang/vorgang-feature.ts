@@ -205,7 +205,14 @@ export class VorgangFeature implements LuKitFeature {
 		// Offene Intake-Gruppen sind noch nicht übernommene Aufgaben. Wie die
 		// übrigen Guards greift die Rückfrage vor jeder Mutation — Ablehnen
 		// lässt die Notiz byte-identisch zurück.
-		const groups = parseIntakeGroups(await this.plugin.app.vault.read(file));
+		let content: string;
+		try {
+			content = await this.plugin.app.vault.read(file);
+		} catch (e) {
+			new Notice(`„${file.basename}" konnte nicht gelesen werden — Abschließen abgebrochen: ` + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
+		const groups = parseIntakeGroups(content);
 		if (groups.length > 0) {
 			const count = groups.length === 1 ? "einen unsortierten Eintrag" : `${groups.length} unsortierte Einträge`;
 			new ConfirmModal(

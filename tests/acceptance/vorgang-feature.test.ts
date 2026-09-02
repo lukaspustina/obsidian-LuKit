@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { VorgangFeature } from "../../src/features/vorgang/vorgang-feature";
 import {
 	createMockApp,
@@ -161,6 +161,22 @@ describe("VorgangFeature.closeVorgangCmd", () => {
 		await (closed.feature as unknown as { closeVorgangCmd: () => Promise<void> }).closeVorgangCmd();
 		expect(lastNotice()).toContain("bereits abgeschlossen");
 		expect(closed.app.fileManager.renamedTo).toEqual([]);
+	});
+
+	// Der Intake-Guard liest die Notiz; scheiterte dieser Read, brach das
+	// Kommando ohne Notice ab — anders als jeder andere Guard hier.
+	it("reports a failed read with a Notice and writes nothing", async () => {
+		const { app, feature, active } = setupClose({ tags: ["Vorgang"], note_type: "tasknote" });
+		app.vault.read = vi.fn(async () => {
+			throw new Error("EIO");
+		});
+
+		await (feature as unknown as { closeVorgangCmd: () => Promise<void> }).closeVorgangCmd();
+
+		expect(lastNotice()).toContain("konnte nicht gelesen werden");
+		expect(app.fileManager.renamedTo).toEqual([]);
+		expect(app.fileManager.frontmatter.get(active.path)?.tags).toEqual(["Vorgang"]);
+		expect(app.fileManager.frontmatter.get(active.path)?.note_type).toBe("tasknote");
 	});
 });
 
