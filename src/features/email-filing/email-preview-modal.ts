@@ -162,7 +162,10 @@ export class EmailPreviewModal extends Modal {
 		if (this.target) {
 			const targetEl = bodyEl.createEl("div", { cls: "lukit-email-preview-target" });
 			targetEl.createEl("div", { text: "Zielnotiz (⌘P)", cls: "lukit-email-preview-target-label" });
-			const targetBody = targetEl.createEl("div");
+			// Obsidian scopes all markdown typography (headings, list bullets,
+			// internal links) to .markdown-rendered — without the class the
+			// rendered DOM comes out unstyled and reads like raw markup.
+			const targetBody = targetEl.createEl("div", { cls: "markdown-rendered" });
 			void MarkdownRenderer.render(this.app, this.target.preview, targetBody, this.target.path, this.targetComponent);
 			this.scope.register(["Mod"], "p", (evt) => {
 				evt.preventDefault();

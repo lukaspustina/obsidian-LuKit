@@ -149,7 +149,9 @@ export class TaskTriageModal extends Modal {
 	}
 
 	private renderPreview(): void {
-		this.previewEl = this.contentEl.createDiv({ cls: "lukit-triage-preview" });
+		// markdown-rendered: see the note in email-preview-modal.ts — the class is
+		// what gives MarkdownRenderer's output Obsidian's typography.
+		this.previewEl = this.contentEl.createDiv({ cls: "lukit-triage-preview markdown-rendered" });
 		this.previewEl.setText("Lade Vorschau…");
 	}
 
