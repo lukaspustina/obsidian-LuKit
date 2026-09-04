@@ -40,11 +40,18 @@ export function __stubEl(tag = "div", cls?: string): any {
 		tag,
 		cls: cls ?? "",
 		style: {},
+		classes: new Set<string>(),
 		texts: [] as string[],
 		children: [] as any[],
 		__listeners: {} as Record<string, ((...args: any[]) => void)[]>,
 		empty: () => { el.children.length = 0; el.texts.length = 0; },
-		addClass: () => undefined,
+		addClass: (c: string) => { el.classes.add(c); },
+		removeClass: (c: string) => { el.classes.delete(c); },
+		hasClass: (c: string) => el.classes.has(c),
+		toggleClass: (c: string, value?: boolean) => {
+			if (value ?? !el.classes.has(c)) el.classes.add(c);
+			else el.classes.delete(c);
+		},
 		addEventListener: (type: string, fn: (...args: any[]) => void) => {
 			(el.__listeners[type] ??= []).push(fn);
 		},
@@ -88,6 +95,9 @@ export class Modal {
 }
 export class FuzzySuggestModal<T> {
 	app: any;
+	// The real class exposes the modal root; the peek panel hangs off it, so
+	// without this the panel's whole render path stayed untested.
+	modalEl: any = __stubEl();
 	inputEl: any = { value: "", focus: () => undefined, dispatchEvent: () => undefined };
 	scope: any = { register: () => undefined };
 	constructor(app: any) { this.app = app; }

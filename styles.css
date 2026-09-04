@@ -172,6 +172,58 @@
 	opacity: 0.5;
 }
 
+/* Picker with a preview (⌘P): the suggestion list and the preview sit side by
+   side instead of the preview taking up to 45vh above the list. Grid areas
+   place the children, so no DOM reordering is needed. */
+.lukit-peek-modal.prompt {
+	width: min(90vw, 1200px);
+	/* Obsidian's .prompt caps the width via --prompt-max-width; without this the
+	   grid would still be squeezed into ~700px. */
+	max-width: min(90vw, 1200px);
+	max-height: 80vh;
+	display: grid;
+	grid-template-columns: minmax(280px, 1fr) 1.4fr;
+	grid-template-rows: auto minmax(0, 1fr) auto;
+	grid-template-areas:
+		"input input"
+		"results peek"
+		"instructions instructions";
+}
+
+.lukit-peek-modal .prompt-input-container {
+	grid-area: input;
+}
+
+.lukit-peek-modal .prompt-results {
+	grid-area: results;
+	min-height: 0;
+	max-height: none;
+	overflow-y: auto;
+}
+
+.lukit-peek-modal .prompt-instructions {
+	grid-area: instructions;
+}
+
+.lukit-email-peek {
+	grid-area: peek;
+	min-height: 0;
+	overflow-y: auto;
+	white-space: pre-wrap;
+	user-select: text;
+	padding: var(--size-4-2) var(--size-4-3);
+	border-left: 1px solid var(--background-modifier-border);
+	font-size: var(--font-ui-smaller);
+}
+
+.lukit-peek-modal.lukit-peek-hidden {
+	grid-template-columns: 1fr;
+}
+
+.lukit-peek-modal.lukit-peek-hidden .lukit-email-peek {
+	display: none;
+}
+
 .lukit-triage-modal {
 	width: min(90vw, 1200px);
 	height: 85vh;

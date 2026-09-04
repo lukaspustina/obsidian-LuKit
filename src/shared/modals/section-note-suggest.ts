@@ -98,20 +98,12 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 	private renderPreviewPanel(): void {
 		const text = this.options.previewText;
 		if (!text || !this.modalEl) return;
+		// The class turns the picker into a two-column grid (list | preview), so
+		// both are readable at once instead of the preview eating the list's
+		// height. Placement comes from the grid areas, not from the DOM order.
+		this.modalEl.addClass("lukit-peek-modal");
 		const panel = this.modalEl.createDiv({ cls: "lukit-email-peek" });
 		panel.setText(text);
-		// flex-shrink:0 keeps the picker's suggestion list from collapsing the
-		// panel; the list below scrolls instead.
-		panel.style.flex = "0 0 auto";
-		panel.style.maxHeight = "45vh";
-		panel.style.overflowY = "auto";
-		panel.style.whiteSpace = "pre-wrap";
-		panel.style.padding = "10px 14px";
-		panel.style.marginBottom = "6px";
-		panel.style.borderBottom = "1px solid var(--background-modifier-border)";
-		panel.style.fontSize = "var(--font-ui-smaller)";
-		panel.style.userSelect = "text";
-		this.modalEl.prepend(panel);
 		this.previewPanel = panel;
 	}
 
@@ -133,8 +125,9 @@ export class SectionNoteSuggestModal extends FuzzySuggestModal<Item> {
 		}
 		if (this.previewPanel) {
 			this.scope.register(["Mod"], "P", () => {
-				const panel = this.previewPanel; // ⌘P → toggle the email peek
-				if (panel) panel.style.display = panel.style.display === "none" ? "" : "none";
+				// ⌘P → toggle the email peek. The class collapses the grid back to
+				// one column; hiding only the panel would leave its column empty.
+				this.modalEl.toggleClass("lukit-peek-hidden", !this.modalEl.hasClass("lukit-peek-hidden"));
 				return false;
 			});
 		}
