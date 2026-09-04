@@ -6,7 +6,7 @@ import { formatDate } from "../../shared/date-format";
 import { getDiaryNotePath } from "../../shared/diary-settings";
 import { frontmatterTagsInclude } from "../../shared/frontmatter";
 import { parseIntakeGroups, takeOverGroup, dropGroup, snoozeGroup, findIntakeGroupLine } from "../vorgang/intake-engine";
-import type { IntakeTakeOverItem } from "../vorgang/intake-engine";
+import type { IntakeTakeOver } from "../vorgang/intake-engine";
 import { listReminders, removeReminderLine, rescheduleReminderLine, erinnerungenSection } from "../work-diary/work-diary-engine";
 import type { ReminderItem } from "../work-diary/work-diary-engine";
 import { createTaskNotesBridge, type TaskNotesBridge, type BridgeAvailability } from "./tasknotes-bridge";
@@ -271,6 +271,9 @@ export class TaskTriageFeature implements LuKitFeature {
 			onIntakeSelect: () => {
 				this.handleIntakeSelect();
 			},
+			onIntakeNoteDate: () => {
+				this.handleIntakeNoteDate();
+			},
 			onOpenAndStop: () => {
 				void this.handleOpenAndStop();
 			},
@@ -463,7 +466,7 @@ export class TaskTriageFeature implements LuKitFeature {
 		await this.mutateAndAdvance(() => this.bridge.toggleSkippedInstance(stop.task.path, this.walkToday), "instancesSkipped");
 	}
 
-	async handleIntakeTakeOver(selection?: IntakeTakeOverItem[]): Promise<void> {
+	async handleIntakeTakeOver(selection?: IntakeTakeOver): Promise<void> {
 		const stop = this.currentStop();
 		if (stop.kind !== "intake") return;
 		try {
@@ -471,29 +474,51 @@ export class TaskTriageFeature implements LuKitFeature {
 		} catch (e) {
 			return this.onMutationError(e);
 		}
-		this.counts.takenOver++;
-		// The items are now in the note's curated next steps, which is exactly
-		// when its own due date wants revisiting — so the note's date step
-		// follows the take-over instead of forcing a detour out of the walk.
-		// Only for a note TaskNotes actually knows; Esc leaves the date alone.
-		if (stop.noteIsTask !== true) {
-			await this.advance();
+		// A partial take-over leaves the stop with something still to decide —
+		// return to it (uncounted; the stop is counted by whatever finishes it)
+		// instead of advancing past a group that is still standing.
+		const kept = selection !== undefined && selection.keptOwn.length + selection.keptForeign.length > 0;
+		if (kept && (await this.refreshIntakeStop(stop))) {
+			await this.presentStop();
 			return;
 		}
-		this.promptNoteDate(stop);
+		this.counts.takenOver++;
+		await this.advance();
+	}
+
+	// Re-reads the note and puts the group as it now stands back on the stop, so
+	// the re-presented dialog acts on current line numbers and items. False when
+	// the group is gone (nothing was kept, or the note changed underneath) — the
+	// caller then advances instead.
+	private async refreshIntakeStop(stop: IntakeStop): Promise<boolean> {
+		const file = this.noteFile(stop.notePath);
+		if (file === null) return false;
+		let content: string;
+		try {
+			content = await this.plugin.app.vault.read(file);
+		} catch (e) {
+			this.logError(e);
+			return false;
+		}
+		const group = parseIntakeGroups(content).find((g) => g.line === stop.group.line);
+		if (group === undefined) return false;
+		this.stops[this.index] = { ...stop, group };
+		return true;
 	}
 
 	// Datum der Notiz selbst (nicht der Gruppe): schreibt scheduled über die
-	// TaskNotes-Bridge und geht danach weiter. Ein Fehlschlag kostet nur das
-	// Datum — übernommen ist übernommen, der Stop ist vorbei.
-	private promptNoteDate(stop: IntakeStop): void {
+	// TaskNotes-Bridge und kehrt zum Stop zurück — es beendet ihn nicht. Nur für
+	// Notizen, die TaskNotes kennt; ein Fehlschlag kostet nur das Datum.
+	handleIntakeNoteDate(): void {
+		const stop = this.currentStop();
+		if (stop.kind !== "intake" || stop.noteIsTask !== true) return;
 		new TaskTriageDateModal(
 			this.plugin.app,
 			(dateIso) => {
 				void this.setNoteDate(stop, dateIso);
 			},
 			() => {
-				void this.advance();
+				void this.presentStop();
 			},
 			stop.noteScheduled === undefined ? undefined : parseIsoDate(stop.noteScheduled),
 			`Datum von „${stop.noteBasename}" setzen…`,
@@ -503,11 +528,12 @@ export class TaskTriageFeature implements LuKitFeature {
 	private async setNoteDate(stop: IntakeStop, dateIso: string): Promise<void> {
 		try {
 			await this.bridge.setScheduled(stop.notePath, dateIso);
+			this.stops[this.index] = { ...stop, noteScheduled: dateIso };
 		} catch (e) {
 			this.logError(e);
 			new Notice("Datum der Notiz konnte nicht gesetzt werden.");
 		}
-		await this.advance();
+		await this.presentStop();
 	}
 
 	async handleIntakeDiscard(): Promise<void> {

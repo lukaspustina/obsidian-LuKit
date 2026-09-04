@@ -25,11 +25,16 @@ import {
 
 // SDD vorgang-next-steps, Phase 4, Test Scenario 7 / Requirement 33: ⌘S opens
 // the item-selection modal (IntakeSelectModal, one checkbox per item, all
-// preselected). Unticking one of three items and confirming moves only the
-// two ticked items above the boundary and removes the whole group regardless.
-// The modal now confirms the ticked lines themselves (their text is editable)
-// rather than their indices; the criterion — only ticked items move, the group
-// goes either way — is unchanged.
+// preselected). Unticking one of three items and confirming moves only the two
+// ticked items above the boundary.
+//
+// SUPERSEDED IN PART (2026-09-04): the criterion's second half — "removes the
+// whole group regardless" — no longer holds. An unticked item now STAYS in the
+// group and the walk returns to the same stop, so a group can be worked off in
+// several passes; discarding is what ⌘X is for. The first half (only ticked
+// items move, and they move above the boundary) is unchanged and still pinned
+// below. The modal also confirms the lines themselves rather than their
+// indices, their text being editable.
 //
 // `TaskTriageFeature.handleIntakeSelect` and
 // `src/features/task-triage/intake-select-modal.ts` do not exist yet, so this
@@ -99,20 +104,31 @@ describe("intake stop — ⌘S item selection moves only the ticked items (SDD v
 		internals.handleIntakeSelect();
 
 		expect(constructed).toHaveLength(1);
-		const onConfirm = constructed[0].onConfirm as (selection: { text: string; children: string[] }[]) => void;
-		// "Vertrag prüfen" is unticked — the modal confirms the other two, each
-		// with the text as its (editable) field holds it.
-		onConfirm([
-			{ text: "Angebot einholen", children: [] },
-			{ text: "Rückmeldung abwarten", children: [] },
-		]);
+		const onConfirm = constructed[0].onConfirm as (selection: {
+			taken: { text: string; children: string[] }[];
+			keptOwn: { text: string; children: string[] }[];
+			keptForeign: { text: string; children: string[] }[];
+		}) => void;
+		// "Vertrag prüfen" is unticked — the modal confirms the other two as
+		// taken, each with the text as its (editable) field holds it, and the
+		// unticked one as kept.
+		onConfirm({
+			taken: [
+				{ text: "Angebot einholen", children: [] },
+				{ text: "Rückmeldung abwarten", children: [] },
+			],
+			keptOwn: [{ text: "Vertrag prüfen", children: [] }],
+			keptForeign: [],
+		});
 		await Promise.resolve();
 		await Promise.resolve();
 		await Promise.resolve();
 
 		const newContent = app.vault.files.get(vorgang.path) ?? "";
-		expect(parseIntakeGroups(newContent)).toHaveLength(0);
-		expect(newContent).not.toContain("Aus [[Besprechung Acme Kickoff]]");
+		// The group survives with the unticked item, and the walk stays on it.
+		const groups = parseIntakeGroups(newContent);
+		expect(groups).toHaveLength(1);
+		expect(groups[0].ownItems.map((i) => i.text)).toEqual(["Vertrag prüfen"]);
 
 		const boundaryIndex = newContent.indexOf("#### Unsortiert");
 		const idxAngebot = newContent.indexOf("- Angebot einholen");
@@ -123,6 +139,7 @@ describe("intake stop — ⌘S item selection moves only the ticked items (SDD v
 		expect(idxAngebot).toBeLessThan(boundaryIndex);
 		expect(idxRueckmeldung).toBeGreaterThan(0);
 		expect(idxRueckmeldung).toBeLessThan(boundaryIndex);
-		expect(idxVertrag).toBe(-1);
+		// The unticked one did not move: it is still below the boundary.
+		expect(idxVertrag).toBeGreaterThan(boundaryIndex);
 	});
 });

@@ -84,9 +84,11 @@ describe("takeOverGroup — the picker's selection is what gets written", () => 
 		const content = insertIntakeGroup(noteWith([]), group);
 		const parsed = parseIntakeGroups(content)[0];
 
-		const result = takeOverGroup(content, parsed, [
-			{ text: "Max:", children: ["    - Angebot prüfen, 15.09.2026"] },
-		]);
+		const result = takeOverGroup(content, parsed, {
+			taken: [{ text: "Max:", children: ["    - Angebot prüfen, 15.09.2026"] }],
+			keptOwn: [],
+			keptForeign: [],
+		});
 
 		expect(result).not.toBeNull();
 		const lines = (result as { newContent: string }).newContent.split("\n");

@@ -67,6 +67,7 @@ interface FeatureInternals {
 	bridge: TaskNotesBridge;
 	presentStop: () => Promise<void>;
 	handleIntakeTakeOver: () => Promise<void>;
+	handleIntakeNoteDate: () => void;
 }
 
 function setup(stopExtras: Record<string, unknown>) {
@@ -102,43 +103,54 @@ beforeEach(() => {
 	dateModals.length = 0;
 });
 
-describe("intake take-over — the note's own date", () => {
-	it("asks for the Vorgang's date after the take-over, prefilled with its current one", async () => {
+describe("intake stop — the note's own date (⌘G)", () => {
+	it("offers the note's date prefilled with its current one", () => {
 		const { internals } = setup({ noteIsTask: true, noteScheduled: "2026-09-30" });
 
-		await internals.handleIntakeTakeOver();
+		internals.handleIntakeNoteDate();
 
 		expect(dateModals).toHaveLength(1);
 		expect(dateModals[0].prompt).toBe('Datum von „Vorgang - Acme" setzen…');
 		expect(formatDate(dateModals[0].defaultDate as Date, "iso")).toBe("2026-09-30");
 	});
 
-	it("writes the chosen date to the note, not to the group, and then advances", async () => {
+	it("writes the chosen date to the note and returns to the same stop", async () => {
 		const { internals, bridge, app, vorgang } = setup({ noteIsTask: true, noteScheduled: "2026-09-30" });
 
-		await internals.handleIntakeTakeOver();
+		internals.handleIntakeNoteDate();
 		(dateModals[0].onSubmit as (iso: string) => void)("2026-10-15");
 		await Promise.resolve();
 		await Promise.resolve();
 
 		expect(bridge.setScheduled).toHaveBeenCalledWith("Vorgänge/Vorgang - Acme.md", "2026-10-15");
-		// The group is gone either way — the date step is about the note.
-		expect(parseIntakeGroups(app.vault.files.get(vorgang.path) ?? "")).toHaveLength(0);
-		expect(internals.counts.takenOver).toBe(1);
+		// The date step touches the note, never the group — and it does not end
+		// the stop, so the walk is still on it.
+		expect(parseIntakeGroups(app.vault.files.get(vorgang.path) ?? "")).toHaveLength(1);
+		expect(internals.index).toBe(0);
+		expect(internals.presentStop).toHaveBeenCalled();
 	});
 
 	it("leaves the date alone when the step is dismissed", async () => {
 		const { internals, bridge } = setup({ noteIsTask: true });
 
-		await internals.handleIntakeTakeOver();
+		internals.handleIntakeNoteDate();
 		(dateModals[0].onCancel as () => void)();
 		await Promise.resolve();
 
 		expect(bridge.setScheduled).not.toHaveBeenCalled();
+		expect(internals.presentStop).toHaveBeenCalled();
 	});
 
-	it("skips the step for a note TaskNotes does not know (e.g. a Person note)", async () => {
+	it("does nothing for a note TaskNotes does not know (e.g. a Person note)", () => {
 		const { internals } = setup({ noteIsTask: false });
+
+		internals.handleIntakeNoteDate();
+
+		expect(dateModals).toHaveLength(0);
+	});
+
+	it("is not chained onto a take-over — that advances without asking", async () => {
+		const { internals } = setup({ noteIsTask: true, noteScheduled: "2026-09-30" });
 
 		await internals.handleIntakeTakeOver();
 

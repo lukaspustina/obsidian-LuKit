@@ -1,12 +1,12 @@
 import { App, Modal } from "obsidian";
-import type { IntakeGroup, IntakeTakeOverItem } from "../vorgang/intake-engine";
+import type { IntakeGroup, IntakeItem, IntakeTakeOver } from "../vorgang/intake-engine";
 
 export interface IntakeSelectModalOptions {
 	// The group whose lines are offered for selection — all preselected.
 	group: IntakeGroup;
-	// The ticked lines with their (possibly edited) text, own items first, then
-	// foreign — exactly what takeOverGroup writes.
-	onConfirm: (selection: IntakeTakeOverItem[]) => void;
+	// What leaves the group and what stays behind, both with their (possibly
+	// edited) text — exactly what takeOverGroup writes.
+	onConfirm: (selection: IntakeTakeOver) => void;
 	// Dismissed (Esc or click-outside): nothing is written, the triage stop is
 	// presented again unchanged.
 	onCancel: () => void;
@@ -27,10 +27,12 @@ interface Row {
 }
 
 // One editable row per line of the group — items and the lines nested under
-// them — each with its own checkbox, all preselected. The text is editable so a
-// due date can be appended before the item leaves the intake; an unticked item
-// takes its children with it. The group itself disappears either way —
-// takeOverGroup decides that, not this dialog.
+// them — each with its own checkbox, all preselected. The text is editable, so
+// wording can be fixed on the way out. A ticked line leaves the group, an
+// unticked one stays behind — independently of its neighbours: a ticked child
+// under an unticked parent moves on its own, an unticked child under a ticked
+// parent stays as a line of its own. The walk returns to the stop as long as
+// anything remains, so a group can be worked off in several passes.
 export class IntakeSelectModal extends Modal {
 	private readonly options: IntakeSelectModalOptions;
 	private confirmed = false;
@@ -49,37 +51,42 @@ export class IntakeSelectModal extends Modal {
 		contentEl.createEl("p", { text: group.line, cls: "lukit-intake-select-source" });
 
 		const list = contentEl.createEl("div", { cls: "lukit-intake-select" });
-		const items = [...group.ownItems, ...group.foreignItems].map((item) => {
-			const itemRow = this.renderRow(list, "", item.text);
-			const childRows = item.children.map((child) => {
+		// Every line decides for itself. Coupling a child to its parent would
+		// block the common case: taking the todos out from under a person header
+		// and leaving the header behind.
+		const items = [...group.ownItems, ...group.foreignItems].map((item) => ({
+			itemRow: this.renderRow(list, "", item.text),
+			childRows: item.children.map((child) => {
 				const { prefix, text } = splitChildLine(child);
 				return this.renderRow(list, prefix, text, true);
-			});
-			// Excluding an item dims its children with it: they cannot outlive
-			// the line they hang under.
-			itemRow.checkbox.addEventListener("change", () => {
-				itemRow.input.disabled = !itemRow.checkbox.checked;
-				for (const row of childRows) {
-					row.checkbox.disabled = !itemRow.checkbox.checked;
-					row.input.disabled = !itemRow.checkbox.checked;
-				}
-			});
-			return { itemRow, childRows };
-		});
+			}),
+		}));
 
+		const ownCount = group.ownItems.length;
 		const submit = (): void => {
 			this.confirmed = true;
-			const selection = items.flatMap(({ itemRow, childRows }) => {
-				if (!itemRow.checkbox.checked) return [];
-				return [
-					{
-						text: valueOf(itemRow),
-						children: childRows.filter((r) => r.checkbox.checked).map((r) => r.prefix + valueOf(r)),
-					},
-				];
+			const taken: IntakeItem[] = [];
+			const keptOwn: IntakeItem[] = [];
+			const keptForeign: IntakeItem[] = [];
+			items.forEach(({ itemRow, childRows }, i) => {
+				const kept = i < ownCount ? keptOwn : keptForeign;
+				const takenChildren = childRows.filter((r) => r.checkbox.checked);
+				const keptChildren = childRows.filter((r) => !r.checkbox.checked);
+				const lines = (rows: Row[]) => rows.map((r) => r.prefix + valueOf(r));
+				if (itemRow.checkbox.checked) {
+					taken.push({ text: valueOf(itemRow), children: lines(takenChildren) });
+					// An unticked child of a ticked item loses its parent, so it
+					// stays behind as a line of its own rather than vanishing.
+					for (const row of keptChildren) kept.push({ text: valueOf(row), children: [] });
+					return;
+				}
+				kept.push({ text: valueOf(itemRow), children: lines(keptChildren) });
+				// A ticked child of an unticked item moves on its own — usually
+				// exactly what is wanted: the todo, not the person header above it.
+				for (const row of takenChildren) taken.push({ text: valueOf(row), children: [] });
 			});
 			this.close();
-			this.options.onConfirm(selection);
+			this.options.onConfirm({ taken, keptOwn, keptForeign });
 		};
 
 		const buttons = contentEl.createEl("div", { cls: "lukit-intake-select-buttons" });

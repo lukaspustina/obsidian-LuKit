@@ -22,6 +22,9 @@ export interface TaskTriageModalOptions {
 	// than "skip today's instance" there.
 	onIntakeDiscard: () => void;
 	onIntakeSelect: () => void;
+	// Datum der Notiz selbst (nur wenn sie eine TaskNote ist) — beendet den Stop
+	// nicht, anders als jede andere Aktion hier.
+	onIntakeNoteDate: () => void;
 	onOpenAndStop: () => void;
 	onSkip: () => void;
 	onStop: () => void;
@@ -189,7 +192,8 @@ export class TaskTriageModal extends Modal {
 			});
 		}
 
-		if (this.options.stop.kind === "intake") {
+		const stop = this.options.stop;
+		if (stop.kind === "intake") {
 			this.scope.register(["Mod"], "X", () => {
 				this.act(this.options.onIntakeDiscard);
 				return false;
@@ -198,6 +202,12 @@ export class TaskTriageModal extends Modal {
 				this.act(this.options.onIntakeSelect);
 				return false;
 			});
+			if (stop.noteIsTask === true) {
+				this.scope.register(["Mod"], "G", () => {
+					this.act(this.options.onIntakeNoteDate);
+					return false;
+				});
+			}
 		}
 
 		this.scope.register([], "Enter", () => {
@@ -229,8 +239,12 @@ export class TaskTriageModal extends Modal {
 		if (actions.skipInstance) {
 			instructions.push({ command: "⌘X", purpose: "Heute auslassen" });
 		}
-		if (isIntake) {
+		const stop = this.options.stop;
+		if (stop.kind === "intake") {
 			instructions.push({ command: "⌘S", purpose: "Punkte auswählen…" }, { command: "⌘X", purpose: "Verwerfen" });
+			if (stop.noteIsTask === true) {
+				instructions.push({ command: "⌘G", purpose: "Datum der Notiz…" });
+			}
 		}
 		instructions.push({ command: "esc", purpose: "Überspringen" }, { command: "⌘.", purpose: "Stopp" });
 

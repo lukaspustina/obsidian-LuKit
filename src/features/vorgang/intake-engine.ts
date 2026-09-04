@@ -21,14 +21,15 @@ export interface IntakeGroup {
 }
 
 /**
- * One line to move out of a group, as the picker left it: the item's text and
- * its child lines, each with their relative indent. Self-describing on purpose —
- * the user may have edited any of them, so the group's own items are no longer
- * the source of truth for what gets written.
+ * What the picker decided about a group: which lines leave it, and which stay
+ * behind in which block. Self-describing on purpose — the user may have edited
+ * any of them, so the group as parsed is no longer the source of truth for what
+ * gets written.
  */
-export interface IntakeTakeOverItem {
-	text: string;
-	children: string[];
+export interface IntakeTakeOver {
+	taken: IntakeItem[];
+	keptOwn: IntakeItem[];
+	keptForeign: IntakeItem[];
 }
 
 /** One action item plus the lines nested underneath it. */
@@ -524,16 +525,18 @@ export function findIntakeGroupLine(content: string, group: IntakeGroup): number
 /**
  * Moves every item of group (own and foreign, in that order) above the
  * boundary as top-level bullets appended to the curated part, dropping the
- * "- Warte auf:" separator; then removes the group's whole line range. With
- * selection, exactly those lines move, in the given order and with the given
- * (possibly edited) text — the rest go with the group, which is always removed.
+ * "- Warte auf:" separator; then removes the group's whole line range. With a
+ * selection, exactly selection.taken moves (in the given order, with the given
+ * possibly-edited text) and the group is rewritten from selection.keptOwn /
+ * keptForeign — or removed too when both are empty, which is what lets a walk
+ * return to a stop that still has something left to decide.
  * Returns null, without modifying content, when group.line is no longer
  * present — mirrors removeReminderLine's not-found contract.
  */
 export function takeOverGroup(
 	content: string,
 	group: IntakeGroup,
-	selection?: IntakeTakeOverItem[],
+	selection?: IntakeTakeOver,
 ): { newContent: string } | null {
 	const lines = content.split("\n");
 	const headerIndex = findNextStepsHeaderIndex(lines);
@@ -546,14 +549,20 @@ export function takeOverGroup(
 	const parentIndex = findParentIndex(lines, group, boundaryIndex);
 	if (parentIndex === -1) return null;
 
-	const moved: IntakeTakeOverItem[] = selection ?? [...group.ownItems, ...group.foreignItems];
+	const moved = selection?.taken ?? [...group.ownItems, ...group.foreignItems];
 	const movedLines = moved.flatMap((item) => [`- ${item.text}`, ...item.children]);
+	// What stays behind: the group is rewritten from the kept lines, or removed
+	// entirely when nothing was kept (always the case for a full take-over).
+	const kept =
+		selection === undefined || (selection.keptOwn.length === 0 && selection.keptForeign.length === 0)
+			? []
+			: renderGroup({ ...group, ownItems: selection.keptOwn, foreignItems: selection.keptForeign });
 
 	const rangeEnd = groupRangeEnd(lines, parentIndex);
 	// The curated part sits above the boundary, hence above the group: insert
-	// first, then remove the group at its shifted position.
+	// first, then rewrite the group at its shifted position.
 	lines.splice(lastNonEmptyIndex(lines, headerIndex, boundaryIndex) + 1, 0, ...movedLines);
-	lines.splice(parentIndex + movedLines.length, rangeEnd - parentIndex);
+	lines.splice(parentIndex + movedLines.length, rangeEnd - parentIndex, ...kept);
 	// The moved lines all went in above the boundary, so it shifted by exactly
 	// their count.
 	collapseBlankRuns(lines, boundaryIndex + movedLines.length);

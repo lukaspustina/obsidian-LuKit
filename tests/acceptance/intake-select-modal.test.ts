@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { IntakeSelectModal } from "../../src/features/task-triage/intake-select-modal";
-import type { IntakeGroup, IntakeTakeOverItem } from "../../src/features/vorgang/intake-engine";
+import type { IntakeGroup, IntakeTakeOver } from "../../src/features/vorgang/intake-engine";
 import { createMockApp } from "../helpers/obsidian-mocks";
 import { __fireEvent } from "../helpers/obsidian-stub";
 
@@ -20,7 +20,7 @@ function allEls(el: { children?: unknown[] }): Record<string, never>[] {
 }
 
 function open() {
-	let confirmed: IntakeTakeOverItem[] | null = null;
+	let confirmed: IntakeTakeOver | null = null;
 	const modal = new IntakeSelectModal(createMockApp({}) as never, {
 		group: GROUP,
 		onConfirm: (selection) => {
@@ -67,33 +67,58 @@ describe("IntakeSelectModal", () => {
 		const modal = open();
 		modal.texts[1].value = "Angebot prüfen, 15.09.2026";
 
-		expect(modal.confirm()).toEqual([
+		expect(modal.confirm()?.taken).toEqual([
 			{ text: "Max:", children: ["    - Angebot prüfen, 15.09.2026", "    - Termin vereinbaren"] },
 			{ text: "Petra Schneider:", children: ["    - Zahlen liefern"] },
 		]);
 	});
 
-	it("drops an unticked child but keeps its siblings", () => {
+	it("keeps an unticked child behind — with its parent, when the parent leaves", () => {
 		const modal = open();
 		modal.checkboxes[2].checked = false;
 
-		expect(modal.confirm()?.[0]).toEqual({ text: "Max:", children: ["    - Angebot prüfen"] });
+		const result = modal.confirm();
+		expect(result?.taken[0]).toEqual({ text: "Max:", children: ["    - Angebot prüfen"] });
+		// "Termin vereinbaren" lost its parent, so it stays as a line of its own.
+		expect(result?.keptOwn).toEqual([{ text: "Termin vereinbaren", children: [] }]);
 	});
 
-	it("drops an unticked item together with its children", () => {
+	it("keeps a whole block behind when the item and its children are unticked", () => {
 		const modal = open();
-		modal.checkboxes[0].checked = false;
-		__fireEvent(modal.checkboxes[0] as never, "change");
+		for (const i of [0, 1, 2]) modal.checkboxes[i].checked = false;
 
-		expect(modal.confirm()).toEqual([
+		const result = modal.confirm();
+		expect(result?.keptOwn).toEqual([
+			{ text: "Max:", children: ["    - Angebot prüfen", "    - Termin vereinbaren"] },
+		]);
+		expect(result?.taken).toEqual([{ text: "Petra Schneider:", children: ["    - Zahlen liefern"] }]);
+	});
+
+	it("keeps a foreign item in the foreign block, so Warte auf survives a partial pass", () => {
+		const modal = open();
+		modal.checkboxes[3].checked = false;
+		modal.checkboxes[4].checked = false;
+
+		const result = modal.confirm();
+		expect(result?.keptOwn).toEqual([]);
+		expect(result?.keptForeign).toEqual([
 			{ text: "Petra Schneider:", children: ["    - Zahlen liefern"] },
 		]);
+	});
+
+	it("moves a ticked child on its own when its parent stays behind", () => {
+		const modal = open();
+		modal.checkboxes[0].checked = false;
+
+		const result = modal.confirm();
+		expect(result?.taken).toContainEqual({ text: "Angebot prüfen", children: [] });
+		expect(result?.keptOwn[0]).toEqual({ text: "Max:", children: [] });
 	});
 
 	it("falls back to the original text when a field was emptied", () => {
 		const modal = open();
 		modal.texts[0].value = "   ";
 
-		expect(modal.confirm()?.[0].text).toBe("Max:");
+		expect(modal.confirm()?.taken[0].text).toBe("Max:");
 	});
 });
