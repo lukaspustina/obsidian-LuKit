@@ -139,6 +139,9 @@ export function extractDecisionLines(content: string, decisionHeadings: string[]
 	return lines;
 }
 
+// "---", "***", "___" and longer runs — markdown's thematic break.
+const THEMATIC_BREAK = /^(-{3,}|\*{3,}|_{3,})$/;
+
 // Collects the raw item lines of every configured next-step section into one
 // flat list, in `nextStepHeadings` order. Unlike extractDecisionLines the lines
 // stay verbatim: buildIntakeGroup strips the bullet marker itself and reads the
@@ -150,6 +153,9 @@ export function extractNextStepItemLines(content: string, nextStepHeadings: stri
 		if (body === null) continue;
 		for (const line of body.split("\n")) {
 			if (line.trim() === "") continue;
+			// A thematic break separates the note's sections; carried into the
+			// intake it would become an item reading "---".
+			if (THEMATIC_BREAK.test(line.trim())) continue;
 			lines.push(line);
 		}
 	}

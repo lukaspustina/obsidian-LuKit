@@ -98,6 +98,17 @@ function stripBulletMarker(text: string): string {
 	return /^[-*+] /.test(text) ? text.slice(2) : text;
 }
 
+// A group header in a meeting note: an unindented, unbulleted line whose text
+// ends in a colon ("Erika Beispiel:"). Bullets are deliberately excluded — a
+// bulleted "- Erika Beispiel:" already expresses its grouping through the indent
+// of the lines below it.
+function isHeaderLine(raw: string): boolean {
+	if (indentWidth(raw) > 0) return false;
+	const trimmed = raw.trim();
+	if (/^[-*+] /.test(trimmed)) return false;
+	return trimmed.length > 1 && trimmed.endsWith(":");
+}
+
 // The due segment is whatever follows the parent's last "]]" — a comma and a
 // date inside the anchor itself (e.g. "[[#E-Mail-Thread: Angebot, 01.09.2026]]")
 // belong to the link, not to a snooze.
@@ -313,18 +324,42 @@ export function buildIntakeGroup(itemLines: string[], source: string, ownNames: 
 	const ownItems: IntakeItem[] = [];
 	const foreignItems: IntakeItem[] = [];
 	let current: IntakeItem | null = null;
+	// The open header block, if any. Meeting notes group action items under a
+	// plain "<Name>:" paragraph with the items as unindented bullets below it —
+	// the grouping is in the paragraph, not in the indentation, so without this
+	// the header arrived as a sibling of its own items.
+	let header: IntakeItem | null = null;
 
 	for (const raw of itemLines) {
 		if (raw.trim() === "") continue;
 		// An indented line nests under the item above it — unless there is none:
 		// a leading indented line (a stray tab in the preview's next-steps box)
 		// has no parent, and dropping what the user typed is the wrong failure,
-		// so it opens an item of its own.
+		// so it opens an item of its own. Inside a header block it goes one level
+		// deeper still, below the child bullet it followed.
 		if (indentWidth(raw) > 0 && current !== null) {
-			current.children.push(raw);
+			current.children.push(header === null ? raw : `${ITEM_INDENT}${raw}`);
 			continue;
 		}
 		const text = stripBulletMarker(raw.trim());
+
+		// A plain (non-bullet) line ending in ":" opens a header block. The
+		// header also names the assignee: the inline "Name: text" rule below
+		// cannot match it, there being no text after the colon.
+		if (isHeaderLine(raw)) {
+			header = { text, children: [] };
+			current = header;
+			const foreign = ownNames.length > 0 && !ownNames.includes(text.slice(0, -1));
+			(foreign ? foreignItems : ownItems).push(header);
+			continue;
+		}
+
+		// Everything up to the next header belongs to the open one.
+		if (header !== null) {
+			header.children.push(`${ITEM_INDENT}- ${text}`);
+			continue;
+		}
+
 		current = { text, children: [] };
 		const assignee = ownNames.length === 0 ? null : /^([^:]+): /.exec(text);
 		const foreign = assignee !== null && !ownNames.includes(assignee[1]);
