@@ -15,19 +15,27 @@
 	padding: var(--size-4-2) var(--size-4-3);
 }
 
+.lukit-confirm-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--size-4-2);
+	margin-top: var(--size-4-3);
+}
+
+.lukit-modal-error {
+	color: var(--text-error);
+	margin: var(--size-4-1) 0 0;
+}
+
 .lukit-help-modal {
-	max-width: 600px;
+	width: min(90vw, 700px);
+	max-width: min(90vw, 700px);
+	max-height: 80vh;
 }
 
-.lukit-help-modal h3 {
-	margin-top: var(--size-4-4);
-	margin-bottom: var(--size-4-1);
-}
-
-.lukit-help-setup {
-	color: var(--text-muted);
-	font-size: var(--font-ui-small);
-	margin-top: 0;
+.lukit-help-modal .modal-content {
+	max-height: 100%;
+	overflow-y: auto;
 }
 
 .lukit-help-list {
@@ -257,6 +265,18 @@
 .lukit-intake-select-source {
 	color: var(--text-muted);
 	margin: 0 0 var(--size-4-2);
+}
+
+.lukit-intake-select {
+	max-height: 50vh;
+	overflow-y: auto;
+}
+
+.lukit-intake-select-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--size-4-2);
+	margin-top: var(--size-4-3);
 }
 
 .lukit-intake-select-item {

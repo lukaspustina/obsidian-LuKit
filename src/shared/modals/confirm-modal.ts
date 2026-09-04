@@ -14,8 +14,10 @@ export class ConfirmModal extends Modal {
 		const { contentEl } = this;
 		contentEl.createEl("p", { text: this.message });
 
+		// Own class: .lukit-text-input-buttons carries the padding that the input
+		// modals cancel on contentEl, which this modal does not.
 		const buttonRow = contentEl.createEl("div", {
-			cls: "lukit-text-input-buttons",
+			cls: "lukit-confirm-buttons",
 		});
 		buttonRow.createEl("button", { text: "Abbrechen" }).addEventListener(
 			"click",

@@ -11,7 +11,9 @@ export class HelpModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		contentEl.addClass("lukit-help-modal");
+		// Width belongs on the modal box; on contentEl it only narrowed the text
+		// column and left the box's own width unused.
+		this.modalEl.addClass("lukit-help-modal");
 
 		contentEl.createEl("h2", { text: "LuKit — Kommandos" });
 
