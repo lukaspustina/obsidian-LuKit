@@ -248,9 +248,11 @@ function findFaktenIndex(lines: string[]): number {
 }
 
 // Where a missing "# Nächste Schritte" is created: after the Fakten section's
-// content, else before the note's first heading of any level, else at the end —
-// a Vorgang-tagged note that never went through ensureVorgangSkeleton must not
-// lose its action items.
+// content, else before the note's first heading of level h1-h3, else at the
+// end — a Vorgang-tagged note that never went through ensureVorgangSkeleton
+// must not lose its action items. h1-h3 and not "any heading": the level has
+// to match the one at which the region closes, or an h4/h5 below the new
+// heading ends up inside the region.
 //
 // Never directly after the frontmatter when a body follows: the intake region
 // closes only at the next h1-h3, so a body placed below the new heading would

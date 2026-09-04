@@ -21,12 +21,22 @@ region, so the two cannot disagree — and routing every writer of the heading t
 intake engine (`createIntakeSection`, `ensureNextStepsSection`) instead of each reaching
 for its own splice.
 
-**And it took a fourth round.** The note first claimed that repair complete while
-`mergeVorgangContent`'s curated-bullet path was still calling `mergeH1Section`'s own create
-branch — a second writer of the same heading, with its own `^#{1,5} ` search. A second
-independent review found it, in the very commit that repaired the third instance. Writing
-"every writer now asks that function" is not the same as making it true, and the sentence
-was easier to write than to check.
+**And it took four rounds, then a fifth to notice the claim was still false.** The note
+first declared the repair complete while `mergeVorgangContent`'s curated-bullet path was
+still calling `mergeH1Section`'s own create branch — a second writer with its own
+`^#{1,5} ` search. A second independent review found it, in the very commit that repaired
+the third instance. The rewritten sentence then claimed *every* writer had been routed
+through the engine, and a third review found that false too: `ensureVorgangSkeleton`
+(`vorgang-engine.ts`) still emits the heading from a hardcoded skeleton, never asking
+`newSectionIndex`. It is safe, but only incidentally — `# Inhalt` always follows
+immediately in that skeleton and closes the region.
+
+**So the honest statement is narrower:** every writer that has to *choose* a position now
+asks one function. One writer does not choose — it emits a fixed skeleton — and that is
+fine as long as the skeleton keeps the closing heading directly below. Twice in a row the
+appealing sentence ("every writer now asks that function") was written before it was
+checked, and twice a reader with no stake in it found the exception. The claim is the part
+to distrust, not the code.
 
 **The transferable part:** when a region has a defined end, exactly one function may
 define it, and every writer must ask that function. A second regex describing the same
