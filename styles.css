@@ -277,9 +277,26 @@
 	margin: 0 0 var(--size-4-2);
 }
 
+.lukit-intake-select-modal {
+	width: min(90vw, 800px);
+	max-width: min(90vw, 800px);
+}
+
 .lukit-intake-select {
 	max-height: 50vh;
 	overflow-y: auto;
+}
+
+.lukit-intake-select-text {
+	flex: 1;
+}
+
+.lukit-intake-select-text:disabled {
+	opacity: 0.5;
+}
+
+.lukit-intake-select-child {
+	margin-left: var(--size-4-4);
 }
 
 .lukit-intake-select-buttons {

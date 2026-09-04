@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildIntakeGroup, insertIntakeGroup, parseIntakeGroups } from "../../src/features/vorgang/intake-engine";
+import { buildIntakeGroup, insertIntakeGroup, parseIntakeGroups, takeOverGroup } from "../../src/features/vorgang/intake-engine";
 
 const OWN = ["Max"];
 
@@ -75,5 +75,34 @@ describe("header groups survive the note round trip", () => {
 		const [parsed] = parseIntakeGroups(content);
 		expect(parsed.ownItems).toEqual(group.ownItems);
 		expect(parsed.foreignItems).toEqual(group.foreignItems);
+	});
+});
+
+describe("takeOverGroup — the picker's selection is what gets written", () => {
+	it("writes the edited text, not the parsed one, and keeps the given children", () => {
+		const group = buildIntakeGroup(MEETING_LINES, "Besprechung - Kickoff", OWN);
+		const content = insertIntakeGroup(noteWith([]), group);
+		const parsed = parseIntakeGroups(content)[0];
+
+		const result = takeOverGroup(content, parsed, [
+			{ text: "Max:", children: ["    - Angebot prüfen, 15.09.2026"] },
+		]);
+
+		expect(result).not.toBeNull();
+		const lines = (result as { newContent: string }).newContent.split("\n");
+		const boundary = lines.indexOf("#### Unsortiert");
+		expect(lines.slice(0, boundary)).toContain("    - Angebot prüfen, 15.09.2026");
+		// The group goes either way, ticked items or not.
+		expect(parseIntakeGroups((result as { newContent: string }).newContent)).toHaveLength(0);
+	});
+
+	it("moves the whole group when no selection is given", () => {
+		const group = buildIntakeGroup(MEETING_LINES, "Besprechung - Kickoff", OWN);
+		const content = insertIntakeGroup(noteWith([]), group);
+		const parsed = parseIntakeGroups(content)[0];
+
+		const result = takeOverGroup(content, parsed);
+
+		expect((result as { newContent: string }).newContent).toContain("- Max:\n    - Angebot prüfen");
 	});
 });

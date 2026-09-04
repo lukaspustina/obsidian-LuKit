@@ -20,6 +20,17 @@ export interface IntakeGroup {
 	lineIndex: number;
 }
 
+/**
+ * One line to move out of a group, as the picker left it: the item's text and
+ * its child lines, each with their relative indent. Self-describing on purpose —
+ * the user may have edited any of them, so the group's own items are no longer
+ * the source of truth for what gets written.
+ */
+export interface IntakeTakeOverItem {
+	text: string;
+	children: string[];
+}
+
 /** One action item plus the lines nested underneath it. */
 export interface IntakeItem {
 	text: string;
@@ -514,15 +525,15 @@ export function findIntakeGroupLine(content: string, group: IntakeGroup): number
  * Moves every item of group (own and foreign, in that order) above the
  * boundary as top-level bullets appended to the curated part, dropping the
  * "- Warte auf:" separator; then removes the group's whole line range. With
- * selectedIndices, only the items at those indices (own first, then foreign,
- * 0-based) move — the rest go with the group, which is always removed.
+ * selection, exactly those lines move, in the given order and with the given
+ * (possibly edited) text — the rest go with the group, which is always removed.
  * Returns null, without modifying content, when group.line is no longer
  * present — mirrors removeReminderLine's not-found contract.
  */
 export function takeOverGroup(
 	content: string,
 	group: IntakeGroup,
-	selectedIndices?: number[],
+	selection?: IntakeTakeOverItem[],
 ): { newContent: string } | null {
 	const lines = content.split("\n");
 	const headerIndex = findNextStepsHeaderIndex(lines);
@@ -535,8 +546,7 @@ export function takeOverGroup(
 	const parentIndex = findParentIndex(lines, group, boundaryIndex);
 	if (parentIndex === -1) return null;
 
-	const items = [...group.ownItems, ...group.foreignItems];
-	const moved = selectedIndices === undefined ? items : items.filter((_, i) => selectedIndices.includes(i));
+	const moved: IntakeTakeOverItem[] = selection ?? [...group.ownItems, ...group.foreignItems];
 	const movedLines = moved.flatMap((item) => [`- ${item.text}`, ...item.children]);
 
 	const rangeEnd = groupRangeEnd(lines, parentIndex);

@@ -27,6 +27,9 @@ import {
 // the item-selection modal (IntakeSelectModal, one checkbox per item, all
 // preselected). Unticking one of three items and confirming moves only the
 // two ticked items above the boundary and removes the whole group regardless.
+// The modal now confirms the ticked lines themselves (their text is editable)
+// rather than their indices; the criterion — only ticked items move, the group
+// goes either way — is unchanged.
 //
 // `TaskTriageFeature.handleIntakeSelect` and
 // `src/features/task-triage/intake-select-modal.ts` do not exist yet, so this
@@ -96,9 +99,13 @@ describe("intake stop — ⌘S item selection moves only the ticked items (SDD v
 		internals.handleIntakeSelect();
 
 		expect(constructed).toHaveLength(1);
-		const onConfirm = constructed[0].onConfirm as (selectedIndices: number[]) => void;
-		// "Vertrag prüfen" (index 1) is unticked — only indices 0 and 2 confirm.
-		onConfirm([0, 2]);
+		const onConfirm = constructed[0].onConfirm as (selection: { text: string; children: string[] }[]) => void;
+		// "Vertrag prüfen" is unticked — the modal confirms the other two, each
+		// with the text as its (editable) field holds it.
+		onConfirm([
+			{ text: "Angebot einholen", children: [] },
+			{ text: "Rückmeldung abwarten", children: [] },
+		]);
 		await Promise.resolve();
 		await Promise.resolve();
 		await Promise.resolve();

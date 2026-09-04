@@ -6,6 +6,7 @@ import { formatDate } from "../../shared/date-format";
 import { getDiaryNotePath } from "../../shared/diary-settings";
 import { frontmatterTagsInclude } from "../../shared/frontmatter";
 import { parseIntakeGroups, takeOverGroup, dropGroup, snoozeGroup, findIntakeGroupLine } from "../vorgang/intake-engine";
+import type { IntakeTakeOverItem } from "../vorgang/intake-engine";
 import { listReminders, removeReminderLine, rescheduleReminderLine, erinnerungenSection } from "../work-diary/work-diary-engine";
 import type { ReminderItem } from "../work-diary/work-diary-engine";
 import { createTaskNotesBridge, type TaskNotesBridge, type BridgeAvailability } from "./tasknotes-bridge";
@@ -455,11 +456,11 @@ export class TaskTriageFeature implements LuKitFeature {
 		await this.mutateAndAdvance(() => this.bridge.toggleSkippedInstance(stop.task.path, this.walkToday), "instancesSkipped");
 	}
 
-	async handleIntakeTakeOver(selectedIndices?: number[]): Promise<void> {
+	async handleIntakeTakeOver(selection?: IntakeTakeOverItem[]): Promise<void> {
 		const stop = this.currentStop();
 		if (stop.kind !== "intake") return;
 		await this.mutateAndAdvance(
-			() => this.mutateIntake(stop, (content) => takeOverGroup(content, stop.group, selectedIndices)),
+			() => this.mutateIntake(stop, (content) => takeOverGroup(content, stop.group, selection)),
 			"takenOver",
 		);
 	}
@@ -485,8 +486,8 @@ export class TaskTriageFeature implements LuKitFeature {
 		if (stop.kind !== "intake") return;
 		new IntakeSelectModal(this.plugin.app, {
 			group: stop.group,
-			onConfirm: (selectedIndices) => {
-				void this.handleIntakeTakeOver(selectedIndices);
+			onConfirm: (selection) => {
+				void this.handleIntakeTakeOver(selection);
 			},
 			onCancel: () => {
 				// Dismissal writes nothing — the same stop is presented again.
