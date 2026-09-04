@@ -77,8 +77,8 @@ export class EmailPreviewModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 		this.nextStepsPlaceholder = false;
-		// Size the modal to a fraction of the main window (scales with it, not a
-		// fixed size); the content area scrolls when the thread is long.
+		// Width scales with the main window; the height follows the thread up to a
+		// cap (see styles.css), and the message list scrolls when it exceeds it.
 		this.modalEl.addClass("lukit-email-preview-modal");
 		contentEl.empty();
 		contentEl.createEl("h3", { text: `E-Mail ablegen → ${this.targetNoteName}` });
@@ -96,8 +96,12 @@ export class EmailPreviewModal extends Modal {
 		const textareas: HTMLTextAreaElement[] = [];
 		const attachmentCheckboxes: HTMLInputElement[][] = [];
 
+		// The message list is the modal's only growing region; the footer below
+		// stays put so the buttons never scroll out of reach.
+		const messageList = contentEl.createEl("div", { cls: "lukit-email-preview-messages" });
+
 		for (const msg of this.messages) {
-			const row = contentEl.createEl("div", { cls: "lukit-email-preview-msg" });
+			const row = messageList.createEl("div", { cls: "lukit-email-preview-msg" });
 			const headerRow = row.createEl("label", { cls: "lukit-email-preview-header" });
 			const checkbox = headerRow.createEl("input");
 			checkbox.type = "checkbox";
@@ -107,8 +111,6 @@ export class EmailPreviewModal extends Modal {
 
 			const textarea = row.createEl("textarea", { cls: "lukit-email-preview" });
 			textarea.value = msg.body;
-			textarea.rows = 6;
-			textarea.style.width = "100%";
 			textareas.push(textarea);
 
 			const msgAttachmentCheckboxes: HTMLInputElement[] = [];
@@ -136,12 +138,11 @@ export class EmailPreviewModal extends Modal {
 
 		// Next steps: one line per item, empty by default. Indentation is kept —
 		// buildIntakeGroup reads it as an item's continuation lines.
-		const nextStepsRow = contentEl.createEl("label", { cls: "lukit-email-preview-next-steps-row" });
+		const footer = contentEl.createEl("div", { cls: "lukit-email-preview-footer" });
+		const nextStepsRow = footer.createEl("label", { cls: "lukit-email-preview-next-steps-row" });
 		nextStepsRow.createEl("span", { text: "Nächste Schritte (eine Zeile je Punkt, ⌘K = Gruppe ohne Punkte): " });
 		const nextStepsInput = nextStepsRow.createEl("textarea", { cls: "lukit-email-preview-next-steps" });
 		nextStepsInput.value = "";
-		nextStepsInput.rows = 3;
-		nextStepsInput.style.width = "100%";
 
 		const submit = (openAfterFiling: boolean): void => {
 			this.confirmed = true;
@@ -161,7 +162,7 @@ export class EmailPreviewModal extends Modal {
 			this.close();
 		};
 
-		const buttons = contentEl.createEl("div", { cls: "lukit-email-preview-buttons" });
+		const buttons = footer.createEl("div", { cls: "lukit-email-preview-buttons" });
 		const confirmBtn = buttons.createEl("button", { text: "Ablegen", cls: "mod-cta" });
 		confirmBtn.addEventListener("click", () => submit(false));
 		const openBtn = buttons.createEl("button", { text: "Ablegen und Öffnen" });
