@@ -9,7 +9,7 @@ import {
 	tocAlreadyLinks,
 	extractWikilinkTarget,
 } from "../../shared/note-structure";
-import { createIntakeSection, extractNextStepsBody } from "./intake-engine";
+import { createIntakeSection, ensureNextStepsSection, extractNextStepsBody } from "./intake-engine";
 
 export { findInhaltSectionIndex, findInhaltBulletRange, formatLinkedBullet };
 
@@ -455,6 +455,11 @@ export function mergeVorgangContent(
 
 	const nsBody = sliceSectionBody(sourceLines, "# Nächste Schritte").filter((l) => l.trim() !== "");
 	if (nsBody.length > 0) {
+		// Create the section through the intake engine first, so mergeH1Section
+		// finds it and takes its append branch. Its create branch searches with
+		// `^#{1,5} ` and falls back to the frontmatter, which would swallow a
+		// target's own h4/h5 block between the new heading and the boundary.
+		working = ensureNextStepsSection(working);
 		working = mergeH1Section(working, "# Nächste Schritte", nsBody, "# Fakten und Pointer");
 	}
 

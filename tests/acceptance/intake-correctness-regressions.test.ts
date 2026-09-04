@@ -19,6 +19,7 @@ import {
 	takeOverGroup,
 	dropGroup,
 } from "../../src/features/vorgang/intake-engine";
+import { mergeVorgangContent } from "../../src/features/vorgang/vorgang-engine";
 
 describe("mutations disambiguate byte-identical parent lines by group content", () => {
 	const twoIdenticalAnchors = [
@@ -348,5 +349,59 @@ describe("the created section never swallows content below it", () => {
 
 		expect(parseIntakeGroups(result)).toHaveLength(1);
 		expect(result).toContain("- Notiz von damals");
+	});
+});
+
+describe("merging curated next-step bullets does not relocate the target's content", () => {
+	// The third instance of the same defect, found by a second independent pass.
+	// The intake carryover was switched to the shared placement rule, but the
+	// path that merges the source's CURATED bullets still went through
+	// mergeH1Section's own create branch, which searches with ^#{1,5} and falls
+	// back to frontmatterEnd + 1. A target whose first heading is an h4 then has
+	// that heading swallowed between "# Nächste Schritte" and the boundary.
+	it("leaves an h4-headed target's own block outside the created section", () => {
+		const source = [
+			"---",
+			"tags: [Vorgang]",
+			"---",
+			"",
+			"# Nächste Schritte",
+			"- Angebot nachfassen",
+			"",
+			"#### Unsortiert",
+			"- Aus [[Besprechung Acme Kickoff]]",
+			"    - Punkt A",
+			"",
+			"# Inhalt",
+			"",
+		].join("\n");
+
+		const target = [
+			"---",
+			"tags: [Person]",
+			"---",
+			"",
+			"#### Kontakt",
+			"- E-Mail: erika@example.com",
+			"",
+			"# Inhalt",
+			"",
+		].join("\n");
+
+		const merged = mergeVorgangContent(source, target, "de", new Date(2026, 8, 4)).newTargetContent;
+		const lines = merged.split("\n");
+
+		const kontaktAt = lines.indexOf("#### Kontakt");
+		const nextStepsAt = lines.findIndex((l) => l.trim() === "# Nächste Schritte");
+
+		// The target's own block must stay above the created section, not end up
+		// between its heading and the boundary.
+		expect(kontaktAt).toBeGreaterThanOrEqual(0);
+		expect(nextStepsAt).toBeGreaterThan(kontaktAt);
+		expect(lines.indexOf("- E-Mail: erika@example.com")).toBeLessThan(nextStepsAt);
+
+		// And the merge still does its job.
+		expect(merged).toContain("- Angebot nachfassen");
+		expect(parseIntakeGroups(merged)).toHaveLength(1);
 	});
 });

@@ -17,8 +17,16 @@ review stages, and each repair looked complete because its own test went green:
    h1-h5, and the merge carryover had never been switched away from the old path at all.
 
 **What worked:** deriving the insertion point from the same function that closes the
-region, so the two cannot disagree — and giving every writer one shared entry point
-(`createIntakeSection`) instead of each reaching for its own splice.
+region, so the two cannot disagree — and routing every writer of the heading through the
+intake engine (`createIntakeSection`, `ensureNextStepsSection`) instead of each reaching
+for its own splice.
+
+**And it took a fourth round.** The note first claimed that repair complete while
+`mergeVorgangContent`'s curated-bullet path was still calling `mergeH1Section`'s own create
+branch — a second writer of the same heading, with its own `^#{1,5} ` search. A second
+independent review found it, in the very commit that repaired the third instance. Writing
+"every writer now asks that function" is not the same as making it true, and the sentence
+was easier to write than to check.
 
 **The transferable part:** when a region has a defined end, exactly one function may
 define it, and every writer must ask that function. A second regex describing the same

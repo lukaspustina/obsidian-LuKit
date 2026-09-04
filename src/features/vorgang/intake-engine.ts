@@ -333,12 +333,6 @@ export function buildIntakeGroup(itemLines: string[], source: string, ownNames: 
 }
 
 /**
- * Appends group below the note's "#### Unsortiert" boundary, after the last
- * existing group. Creates "# Nächste Schritte" and/or the boundary first when
- * either is missing. Writes the group unconditionally, including a zero-item
- * one; callers that must skip an empty group check before calling.
- */
-/**
  * Creates "# Nächste Schritte" and its boundary in a note that has neither, and
  * puts intakeLines below the boundary. The position is the one point that
  * encloses nothing (see newSectionIndex). Used by the merge carryover, which
@@ -351,6 +345,32 @@ export function createIntakeSection(content: string, intakeLines: string[]): str
 	return lines.join("\n");
 }
 
+/**
+ * Creates an empty "# Nächste Schritte" at the same position, without a
+ * boundary, when the note has neither spelling; otherwise returns content
+ * unchanged.
+ *
+ * For the writer that only needs the section to exist before appending to it —
+ * mergeVorgangContent's curated-bullet path, which then finds it and takes
+ * mergeH1Section's append branch. Without this it took mergeH1Section's CREATE
+ * branch, which searches with `^#{1,5} ` and falls back to the frontmatter, and
+ * a target whose first heading is an h4 had that heading swallowed between the
+ * new heading and the boundary. Every writer of this heading asks the same
+ * function for its position; that is the whole point.
+ */
+export function ensureNextStepsSection(content: string): string {
+	const lines = content.split("\n");
+	if (findNextStepsHeaderIndex(lines) !== -1) return content;
+	spliceWithSpacing(lines, newSectionIndex(lines), [NEXT_STEP_HEADERS[0]]);
+	return lines.join("\n");
+}
+
+/**
+ * Appends group below the note's "#### Unsortiert" boundary, after the last
+ * existing group. Creates "# Nächste Schritte" and/or the boundary first when
+ * either is missing. Writes the group unconditionally, including a zero-item
+ * one; callers that must skip an empty group check before calling.
+ */
 export function insertIntakeGroup(content: string, group: IntakeGroup): string {
 	const lines = content.split("\n");
 	const block = renderGroup(group);

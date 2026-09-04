@@ -99,7 +99,7 @@ already-parsed groups from possibly many notes — lives in `task-triage-engine.
 2. The system shall create the `# Nächste Schritte` section, positioned after
    `# Fakten und Pointer`, when the target note does not have it; when `# Fakten und Pointer`
    is itself absent, the system shall create `# Nächste Schritte` before the note's first
-   heading of level h1-h3, else at the end of the note — never at the position that encloses nothing (requirement 2),
+   heading of level h1-h3, else at the end of the note — never directly after the frontmatter,
    which would leave an existing body inside the intake region (the region closes only at the
    next h1-h3, so the body would parse as groups and a discard would delete it). The level must
    match the one at which the region closes: searching for any heading h1-h5 put the section
@@ -613,8 +613,9 @@ Phase 3's gate, not here; and round-tripping build → parse → mutate → pars
    inserted, THEN the section is created after `# Fakten und Pointer` with the boundary and
    the group below it.
 2. GIVEN a note with no `# Fakten und Pointer` section at all, WHEN a group is inserted, THEN
-   `# Nächste Schritte` is created at the position that encloses nothing (requirement 2), before any other content,
-   with the boundary and the group below it.
+   `# Nächste Schritte` is created before the note's first h1-h3 heading, else at the end of the
+   note, with the boundary and the group below it — never above existing content that the
+   region would then enclose.
 3. GIVEN a note whose `# Nächste Schritte` holds two curated bullets and no boundary, WHEN a
    group is inserted, THEN the boundary appears after the curated bullets and both survive
    byte-identical.
