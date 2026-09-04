@@ -58,11 +58,41 @@
 
 /* The only growing region — without a flex child that may shrink below its
    content, the column keeps every child at content size and the reserved
-   height stays empty. */
-.lukit-email-preview-messages {
+   height stays empty. Two columns (messages | target note), one when the
+   target could not be read. */
+.lukit-email-preview-body {
 	flex: 1 1 auto;
 	min-height: 0;
+	display: grid;
+	grid-template-columns: 1.6fr 1fr;
+	gap: var(--size-4-3);
+}
+
+.lukit-email-preview-body.is-single {
+	grid-template-columns: 1fr;
+}
+
+.lukit-email-preview-messages {
+	min-height: 0;
 	overflow-y: auto;
+}
+
+.lukit-email-preview-target {
+	min-height: 0;
+	overflow-y: auto;
+	user-select: text;
+	border-left: 1px solid var(--background-modifier-border);
+	padding-left: var(--size-4-3);
+}
+
+.lukit-email-preview-target-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	margin-bottom: var(--size-4-1);
+}
+
+.lukit-email-preview-attachment-size {
+	color: var(--text-faint);
 }
 
 .lukit-email-preview-footer {

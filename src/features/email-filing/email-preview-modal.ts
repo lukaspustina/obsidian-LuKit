@@ -1,4 +1,5 @@
-import { App, Modal } from "obsidian";
+import { App, Component, MarkdownRenderer, Modal } from "obsidian";
+import { formatAttachmentSize } from "./email-format-engine";
 
 // One message row in the preview: a read-only header (date · party · direction),
 // an editable body, and a list of attachments with a checkbox each (name
@@ -8,7 +9,9 @@ import { App, Modal } from "obsidian";
 export interface PreviewMessage {
 	header: string;
 	body: string;
-	attachments: { name: string; preselected: boolean }[];
+	// size is the attachment's byte count for display only; absent or -1 means
+	// the bridge could not determine it and the row stays name-only.
+	attachments: { name: string; preselected: boolean; size?: number }[];
 }
 
 // Per-message result: whether to include the message in the written section,
@@ -29,6 +32,13 @@ export interface PreviewOutcome {
 	openAfterFiling: boolean;
 }
 
+// Aktueller Stand der Zielnotiz für die Seitenspalte: `preview` ist der bereits
+// getrimmte Markdown, `path` der Render-Kontext für MarkdownRenderer.render.
+export interface PreviewTarget {
+	preview: string;
+	path: string;
+}
+
 // Shows an assembled thread as one row per message — each with an include/exclude
 // checkbox and an editable body textarea; the header + attachment line are
 // read-only. onConfirm receives per-message results (order preserved); onCancel
@@ -44,6 +54,10 @@ export class EmailPreviewModal extends Modal {
 		nextSteps: string[] | null,
 	) => void;
 	private readonly onCancelCb: () => void;
+	// Absent when the target note could not be read — the body then renders as a
+	// single column, exactly as before the side panel existed.
+	private readonly target?: PreviewTarget;
+	private readonly targetComponent = new Component();
 	private confirmed = false;
 	// ⌘K: write the intake group even without items. It does not outrank typed
 	// text — on a filled field the press changes nothing.
@@ -57,6 +71,7 @@ export class EmailPreviewModal extends Modal {
 		messages: PreviewMessage[],
 		onConfirm: (results: PreviewMessageResult[], outcome: PreviewOutcome, nextSteps: string[] | null) => void,
 		onCancel: () => void,
+		target?: PreviewTarget,
 	) {
 		super(app);
 		this.targetNoteName = targetNoteName;
@@ -65,6 +80,7 @@ export class EmailPreviewModal extends Modal {
 		this.messages = messages;
 		this.onConfirm = onConfirm;
 		this.onCancelCb = onCancel;
+		this.target = target;
 	}
 
 	// The ⌘K handler, also a directly-callable hook: Modal.scope.register is inert
@@ -77,6 +93,7 @@ export class EmailPreviewModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 		this.nextStepsPlaceholder = false;
+		this.targetComponent.load();
 		// Width scales with the main window; the height follows the thread up to a
 		// cap (see styles.css), and the message list scrolls when it exceeds it.
 		this.modalEl.addClass("lukit-email-preview-modal");
@@ -96,9 +113,13 @@ export class EmailPreviewModal extends Modal {
 		const textareas: HTMLTextAreaElement[] = [];
 		const attachmentCheckboxes: HTMLInputElement[][] = [];
 
-		// The message list is the modal's only growing region; the footer below
-		// stays put so the buttons never scroll out of reach.
-		const messageList = contentEl.createEl("div", { cls: "lukit-email-preview-messages" });
+		// The body is the modal's only growing region; the footer below stays put
+		// so the buttons never scroll out of reach. Two columns when the target
+		// note could be read, one when it could not.
+		const bodyEl = contentEl.createEl("div", {
+			cls: this.target ? ["lukit-email-preview-body"] : ["lukit-email-preview-body", "is-single"],
+		});
+		const messageList = bodyEl.createEl("div", { cls: "lukit-email-preview-messages" });
 
 		for (const msg of this.messages) {
 			const row = messageList.createEl("div", { cls: "lukit-email-preview-msg" });
@@ -123,6 +144,8 @@ export class EmailPreviewModal extends Modal {
 					attCheckbox.type = "checkbox";
 					attCheckbox.checked = att.preselected;
 					attRow.createEl("span", { text: att.name });
+					const size = formatAttachmentSize(att.size);
+					if (size !== "") attRow.createEl("span", { text: ` · ${size}`, cls: "lukit-email-preview-attachment-size" });
 					msgAttachmentCheckboxes.push(attCheckbox);
 				}
 			}
@@ -133,6 +156,18 @@ export class EmailPreviewModal extends Modal {
 			checkbox.addEventListener("change", () => {
 				textarea.disabled = !checkbox.checked;
 				for (const attCheckbox of msgAttachmentCheckboxes) attCheckbox.disabled = !checkbox.checked;
+			});
+		}
+
+		if (this.target) {
+			const targetEl = bodyEl.createEl("div", { cls: "lukit-email-preview-target" });
+			targetEl.createEl("div", { text: "Zielnotiz (⌘P)", cls: "lukit-email-preview-target-label" });
+			const targetBody = targetEl.createEl("div");
+			void MarkdownRenderer.render(this.app, this.target.preview, targetBody, this.target.path, this.targetComponent);
+			this.scope.register(["Mod"], "p", (evt) => {
+				evt.preventDefault();
+				bodyEl.classList.toggle("is-single");
+				return false;
 			});
 		}
 
@@ -194,6 +229,7 @@ export class EmailPreviewModal extends Modal {
 	}
 
 	onClose(): void {
+		this.targetComponent.unload();
 		this.contentEl.empty();
 		if (!this.confirmed) {
 			this.onCancelCb();

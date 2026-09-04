@@ -27,6 +27,9 @@ import { mergeDetectedAccounts, isAccountIncluded } from "./email-filing-setting
 import { mineVorgangFilings, minedFilingsToFiledRecords, isCacheStale } from "./email-routing";
 import { addVorgangSection, formatVorgangHeadingText } from "../vorgang/vorgang-engine";
 import { buildIntakeGroup, insertIntakeGroup } from "../vorgang/intake-engine";
+// Same trimming the triage walk shows for a Vorgang note — frontmatter stripped,
+// facts, the newest h5 sections, and the intake below "#### Unsortiert".
+import { buildTriagePreview } from "../task-triage/task-triage-engine";
 import { suggestFilingTargets, type FiledRecord } from "../besprechung/besprechung-suggest-engine";
 import { collectBesprechungFiledRecords } from "../besprechung/besprechung-feature";
 import { SECTION_NOTE_TAGS, frontmatterTagsInclude } from "../../shared/frontmatter";
@@ -36,6 +39,7 @@ import {
 	EmailPreviewModal,
 	type PreviewMessage,
 	type PreviewMessageResult,
+	type PreviewTarget,
 } from "./email-preview-modal";
 
 // minScore must sit below NAME_MATCH_WEIGHT (0.4) so name-match-only ranking
@@ -313,12 +317,13 @@ export class EmailFilingFeature implements LuKitFeature {
 			openLabel: "→ Stopp und E-Mail in Mail öffnen",
 			onPick: (vorgang) => {
 				const loading = new Notice("Thread wird zusammengestellt…", 0);
-				void this.assembleThread(meta, body, attachments, vorgang).then((assembled) => {
+				void this.assembleThread(meta, body, attachments, vorgang).then(async (assembled) => {
 					loading.hide();
 					if (!assembled) {
 						this.presentMessage(metas, i + 1);
 						return;
 					}
+					const target = await this.readTargetPreview(vorgang);
 					new EmailPreviewModal(
 						this.plugin.app,
 						vorgang.basename,
@@ -356,6 +361,7 @@ export class EmailFilingFeature implements LuKitFeature {
 						() => {
 							this.presentMessage(metas, i);
 						},
+						target,
 					).open();
 				}).catch((e) => {
 					// Without this catch a rejection wedges the walk: the loading
@@ -403,7 +409,7 @@ export class EmailFilingFeature implements LuKitFeature {
 		return messages.map((msg) => ({
 			header: `${formatDate(new Date(msg.dateSent), locale)} — ${sanitizeSenderSubject(msg.partyName)} (${msg.direction === "in" ? "eingegangen" : "gesendet"})`,
 			body: msg.body,
-			attachments: msg.attachments.map((a) => ({ name: a.name, preselected: preselectAttachment(a) })),
+			attachments: msg.attachments.map((a) => ({ name: a.name, preselected: preselectAttachment(a), size: a.size })),
 		}));
 	}
 
@@ -773,12 +779,13 @@ export class EmailFilingFeature implements LuKitFeature {
 			excludeTag: this.plugin.settings.doneTag,
 			onPick: (vorgang) => {
 				const loading = new Notice("Thread wird zusammengestellt…", 0);
-				void this.assembleSelectedThread(m, body, attachments, vorgang).then((assembled) => {
+				void this.assembleSelectedThread(m, body, attachments, vorgang).then(async (assembled) => {
 					loading.hide();
 					if (!assembled) {
 						this.presentSelected(sel, i + 1);
 						return;
 					}
+					const target = await this.readTargetPreview(vorgang);
 					new EmailPreviewModal(
 						this.plugin.app,
 						vorgang.basename,
@@ -811,6 +818,7 @@ export class EmailFilingFeature implements LuKitFeature {
 						() => {
 							this.presentSelected(sel, i);
 						},
+						target,
 					).open();
 				}).catch((e) => {
 					// Without this catch a rejection wedges the walk: the loading
@@ -1033,6 +1041,17 @@ export class EmailFilingFeature implements LuKitFeature {
 	private async invalidateRoutingCache(): Promise<void> {
 		this.plugin.settings.emailFiling.routingCache = undefined;
 		await this.plugin.saveSettings();
+	}
+
+	// Current state of the target note for the preview's side column. A failed
+	// read degrades to the single-column preview — filing never depends on it.
+	private async readTargetPreview(vorgang: TFile): Promise<PreviewTarget | undefined> {
+		try {
+			return { preview: buildTriagePreview(await this.plugin.app.vault.cachedRead(vorgang)), path: vorgang.path };
+		} catch (e) {
+			console.error("LuKit email-filing: target preview unreadable:", e instanceof Error ? e.name : typeof e);
+			return undefined;
+		}
 	}
 
 	private logBridgeError(e: unknown): void {

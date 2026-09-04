@@ -121,6 +121,16 @@ export function preselectAttachment(att: MailAttachment): boolean {
 	return att.size >= IMAGE_PRESELECT_MIN_BYTES;
 }
 
+// Human-readable size for an attachment row in the preview. An unknown size
+// (the bridge yields -1, older callers pass nothing) renders as "" so the row
+// stays name-only. Decimal units, matching IMAGE_PRESELECT_MIN_BYTES.
+export function formatAttachmentSize(bytes?: number): string {
+	if (bytes === undefined || bytes < 0) return "";
+	if (bytes < 1000) return `${bytes} B`;
+	if (bytes < 1_000_000) return `${Math.round(bytes / 1000)} kB`;
+	return `${(bytes / 1_000_000).toFixed(1)} MB`;
+}
+
 // Drops client-embedded inline images (signature logos, pasted images),
 // identified by their auto-generated imageNNN.<ext> name. Real attachments —
 // including images with meaningful names — are kept. Biased to under-filter: a

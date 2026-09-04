@@ -37,9 +37,11 @@ describe("SDD email-attachment-selection p1 c13 — toPreviewMessages preselect"
 
 		const [preview] = internals.toPreviewMessages(thread);
 
+		// size is carried through for the preview's display only; the criterion is
+		// the preselect flags and their order.
 		expect(preview.attachments).toEqual([
-			{ name: "logo.png", preselected: false },
-			{ name: "vertrag.pdf", preselected: true },
+			{ name: "logo.png", preselected: false, size: 40_000 },
+			{ name: "vertrag.pdf", preselected: true, size: 40_000 },
 		]);
 	});
 });
