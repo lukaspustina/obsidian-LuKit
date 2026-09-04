@@ -112,9 +112,12 @@ export class TaskTriageFeature implements LuKitFeature {
 		const loading = new Notice("Sammle fällige Aufgaben…", 0);
 
 		const reminders = await this.loadDueReminders();
-		const intakeStops = await this.loadDueIntakeStops();
 
 		let taskStops: TriageStop[] = [];
+		// Path → the note's own scheduled date. Loaded before the intake stops
+		// because a Vorgang note is itself a task, and its stop offers to set
+		// that date after a take-over.
+		const noteTasks = new Map<string, string | undefined>();
 		const availability = this.bridge.availability();
 		if (availability.ok) {
 			let all;
@@ -127,11 +130,13 @@ export class TaskTriageFeature implements LuKitFeature {
 				new Notice("Konnte Tasks nicht laden — Triage abgebrochen.");
 				return;
 			}
+			for (const task of all) noteTasks.set(task.path, task.scheduled);
 			taskStops = selectTriageTasks(all, this.walkToday).map((task) => ({ kind: "task" as const, task }));
 		} else {
 			// Degradation statt Abbruch: Erinnerungen hängen nicht von TaskNotes ab.
 			new Notice(this.availabilityMessage(availability));
 		}
+		const intakeStops = await this.loadDueIntakeStops(noteTasks);
 		loading.hide();
 
 		const stops: TriageStop[] = [
@@ -180,7 +185,7 @@ export class TaskTriageFeature implements LuKitFeature {
 
 	// Due intake groups of every note that may carry a boundary and is not
 	// closed. An unreadable note costs its own groups, never the walk.
-	private async loadDueIntakeStops(): Promise<TriageStop[]> {
+	private async loadDueIntakeStops(noteTasks: Map<string, string | undefined>): Promise<TriageStop[]> {
 		const candidates: IntakeStopCandidate[] = [];
 		for (const file of this.plugin.app.vault.getMarkdownFiles()) {
 			const cache = this.plugin.app.metadataCache.getFileCache(file);
@@ -201,6 +206,8 @@ export class TaskTriageFeature implements LuKitFeature {
 			group: c.group,
 			notePath: c.notePath,
 			noteBasename: c.noteBasename,
+			noteIsTask: noteTasks.has(c.notePath),
+			noteScheduled: noteTasks.get(c.notePath),
 		}));
 	}
 
@@ -459,10 +466,48 @@ export class TaskTriageFeature implements LuKitFeature {
 	async handleIntakeTakeOver(selection?: IntakeTakeOverItem[]): Promise<void> {
 		const stop = this.currentStop();
 		if (stop.kind !== "intake") return;
-		await this.mutateAndAdvance(
-			() => this.mutateIntake(stop, (content) => takeOverGroup(content, stop.group, selection)),
-			"takenOver",
-		);
+		try {
+			await this.mutateIntake(stop, (content) => takeOverGroup(content, stop.group, selection));
+		} catch (e) {
+			return this.onMutationError(e);
+		}
+		this.counts.takenOver++;
+		// The items are now in the note's curated next steps, which is exactly
+		// when its own due date wants revisiting — so the note's date step
+		// follows the take-over instead of forcing a detour out of the walk.
+		// Only for a note TaskNotes actually knows; Esc leaves the date alone.
+		if (stop.noteIsTask !== true) {
+			await this.advance();
+			return;
+		}
+		this.promptNoteDate(stop);
+	}
+
+	// Datum der Notiz selbst (nicht der Gruppe): schreibt scheduled über die
+	// TaskNotes-Bridge und geht danach weiter. Ein Fehlschlag kostet nur das
+	// Datum — übernommen ist übernommen, der Stop ist vorbei.
+	private promptNoteDate(stop: IntakeStop): void {
+		new TaskTriageDateModal(
+			this.plugin.app,
+			(dateIso) => {
+				void this.setNoteDate(stop, dateIso);
+			},
+			() => {
+				void this.advance();
+			},
+			stop.noteScheduled === undefined ? undefined : parseIsoDate(stop.noteScheduled),
+			`Datum von „${stop.noteBasename}" setzen…`,
+		).open();
+	}
+
+	private async setNoteDate(stop: IntakeStop, dateIso: string): Promise<void> {
+		try {
+			await this.bridge.setScheduled(stop.notePath, dateIso);
+		} catch (e) {
+			this.logError(e);
+			new Notice("Datum der Notiz konnte nicht gesetzt werden.");
+		}
+		await this.advance();
 	}
 
 	async handleIntakeDiscard(): Promise<void> {

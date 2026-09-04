@@ -27,7 +27,19 @@ export type SnoozeKind = "tomorrow" | "week" | "nextMonday";
 export type TriageStop =
 	| { kind: "task"; task: TriageTask }
 	| { kind: "reminder"; reminder: ReminderItem }
-	| { kind: "intake"; group: IntakeGroup; notePath: string; noteBasename: string };
+	// noteIsTask/noteScheduled describe the note the group sits in, not the
+	// group: a Vorgang is itself a TaskNote (note_type: tasknote) and carries
+	// its own scheduled date, while a Person note — which can hold an intake
+	// too — is not a task and has none. Optional: a stop built before the task
+	// list was known simply offers no note date.
+	| {
+			kind: "intake";
+			group: IntakeGroup;
+			notePath: string;
+			noteBasename: string;
+			noteIsTask?: boolean;
+			noteScheduled?: string;
+	  };
 
 // One group gathered during walk setup, before due filtering and ordering —
 // carries the note it came from, which IntakeGroup itself does not know.

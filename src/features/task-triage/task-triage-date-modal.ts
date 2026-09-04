@@ -8,19 +8,27 @@ export class TaskTriageDateModal extends Modal {
 	private dateInputEl!: HTMLInputElement;
 	private errorEl!: HTMLElement;
 	private initialDate: Date;
+	private prompt: string;
 
-	constructor(app: App, onSubmit: (dateIso: string) => void, onCancel: () => void, defaultDate?: Date) {
+	constructor(
+		app: App,
+		onSubmit: (dateIso: string) => void,
+		onCancel: () => void,
+		defaultDate?: Date,
+		prompt = "Verschieben auf…",
+	) {
 		super(app);
 		this.onSubmit = onSubmit;
 		this.onCancel = onCancel;
 		this.initialDate = defaultDate ?? new Date();
+		this.prompt = prompt;
 	}
 
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.addClass("lukit-text-input-modal");
 
-		contentEl.createEl("p", { text: "Verschieben auf…" });
+		contentEl.createEl("p", { text: this.prompt });
 
 		// Native date input — the same control TaskNotes' own DateTimePickerModal
 		// uses; Electron renders it with a calendar popup. Value is always ISO.
