@@ -35,6 +35,8 @@ interface FeatureInternals {
 	counts: Record<string, number>;
 	presentStop: () => Promise<void>;
 	handleIntakeTakeOver: (selection?: IntakeTakeOver) => Promise<void>;
+	handleSkip: () => Promise<void>;
+	availableActions: (stop: TriageStop) => { snooze: boolean; skipInstance: boolean };
 }
 
 function setup() {
@@ -65,7 +67,7 @@ function setup() {
 
 beforeEach(() => resetNotices());
 
-describe("intake ⌘S — a partial take-over returns to the same stop", () => {
+describe("intake ⌘S — sorting the intake is a sub-task, not the end of the stop", () => {
 	it("keeps the unticked line, stays on the stop, and refreshes its group", async () => {
 		const { internals, app, vorgang } = setup();
 
@@ -100,7 +102,7 @@ describe("intake ⌘S — a partial take-over returns to the same stop", () => {
 		expect(internals.counts.takenOver).toBe(0);
 	});
 
-	it("advances and counts once nothing is left in the group", async () => {
+	it("stays on the stop even when the group is emptied, and withdraws its actions", async () => {
 		const { internals } = setup();
 
 		await internals.handleIntakeTakeOver({
@@ -111,6 +113,44 @@ describe("intake ⌘S — a partial take-over returns to the same stop", () => {
 			keptOwn: [],
 			keptForeign: [],
 		});
+
+		// The note's own dates are still to be set here — that is the reason for
+		// coming back at all.
+		expect(internals.index).toBe(0);
+		const stop = internals.stops[0] as Extract<TriageStop, { kind: "intake" }>;
+		expect(stop.groupDone).toBe(true);
+		// Snoozing addresses the group's parent line, which is gone.
+		expect(internals.availableActions(stop).snooze).toBe(false);
+	});
+
+	it("reports the take-over, not a skip, when the stop is finally left", async () => {
+		const { internals } = setup();
+
+		await internals.handleIntakeTakeOver({
+			taken: [{ text: "Angebot prüfen", children: [] }],
+			keptOwn: [{ text: "Termin vereinbaren", children: [] }],
+			keptForeign: [],
+		});
+		await internals.handleSkip();
+
+		expect(internals.counts.takenOver).toBe(1);
+		expect(internals.counts.skipped).toBe(0);
+		expect(internals.index).toBe(1);
+	});
+
+	it("counts a plain skip as a skip", async () => {
+		const { internals } = setup();
+
+		await internals.handleSkip();
+
+		expect(internals.counts.skipped).toBe(1);
+		expect(internals.counts.takenOver).toBe(0);
+	});
+
+	it("⌘D still means done with the group and advances", async () => {
+		const { internals } = setup();
+
+		await internals.handleIntakeTakeOver();
 
 		expect(internals.index).toBe(1);
 		expect(internals.counts.takenOver).toBe(1);

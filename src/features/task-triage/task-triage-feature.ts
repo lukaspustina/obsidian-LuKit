@@ -57,6 +57,9 @@ export class TaskTriageFeature implements LuKitFeature {
 	stops: TriageStop[] = [];
 	index = 0;
 	counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0, takenOver: 0, discarded: 0 };
+	// Indices of stops whose intake a ⌘S pass already moved out; they count as
+	// taken over whenever they are finally left.
+	private takenOverStops = new Set<number>();
 	// Pinned once per walk so a walk crossing midnight keeps mutating the
 	// instances/dates the selection (and the visible modal) was based on.
 	walkToday = "";
@@ -153,6 +156,7 @@ export class TaskTriageFeature implements LuKitFeature {
 		this.stops = stops;
 		this.index = 0;
 		this.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0, takenOver: 0, discarded: 0 };
+		this.takenOverStops.clear();
 		this.previewCache.clear();
 		await this.presentStop();
 	}
@@ -357,7 +361,10 @@ export class TaskTriageFeature implements LuKitFeature {
 	availableActions(stop: TriageStop): { snooze: boolean; skipInstance: boolean } {
 		// At an intake stop ⌘X means "discard" — the modal registers that from
 		// the stop kind itself, not through skipInstance.
-		if (stop.kind === "reminder" || stop.kind === "intake") {
+		if (stop.kind === "intake") {
+			return { snooze: stop.groupDone !== true, skipInstance: false };
+		}
+		if (stop.kind === "reminder") {
 			return { snooze: true, skipInstance: false };
 		}
 		return { snooze: !stop.task.isRecurring, skipInstance: stop.task.isRecurring };
@@ -474,11 +481,15 @@ export class TaskTriageFeature implements LuKitFeature {
 		} catch (e) {
 			return this.onMutationError(e);
 		}
-		// A partial take-over leaves the stop with something still to decide —
-		// return to it (uncounted; the stop is counted by whatever finishes it)
-		// instead of advancing past a group that is still standing.
-		const kept = selection !== undefined && selection.keptOwn.length + selection.keptForeign.length > 0;
-		if (kept && (await this.refreshIntakeStop(stop))) {
+		// Sorting the intake is a sub-task of working the Vorgang, not the end of
+		// it: ⌘S returns to the stop either way, so the note's own dates can
+		// still be set there. ⌘D (no selection) means "done with this group" and
+		// advances as before. Counting is deferred to whatever leaves the stop —
+		// counting here would double-count a second pass and break the summary's
+		// bucket sum.
+		this.takenOverStops.add(this.index);
+		if (selection !== undefined) {
+			await this.refreshIntakeStop(stop);
 			await this.presentStop();
 			return;
 		}
@@ -487,23 +498,21 @@ export class TaskTriageFeature implements LuKitFeature {
 	}
 
 	// Re-reads the note and puts the group as it now stands back on the stop, so
-	// the re-presented dialog acts on current line numbers and items. False when
-	// the group is gone (nothing was kept, or the note changed underneath) — the
-	// caller then advances instead.
-	private async refreshIntakeStop(stop: IntakeStop): Promise<boolean> {
+	// the re-presented dialog acts on current line numbers and items. A group
+	// that is gone entirely marks the stop groupDone: the dialog then keeps only
+	// the actions that address the note.
+	private async refreshIntakeStop(stop: IntakeStop): Promise<void> {
 		const file = this.noteFile(stop.notePath);
-		if (file === null) return false;
-		let content: string;
-		try {
-			content = await this.plugin.app.vault.read(file);
-		} catch (e) {
-			this.logError(e);
-			return false;
+		let content: string | null = null;
+		if (file !== null) {
+			try {
+				content = await this.plugin.app.vault.read(file);
+			} catch (e) {
+				this.logError(e);
+			}
 		}
-		const group = parseIntakeGroups(content).find((g) => g.line === stop.group.line);
-		if (group === undefined) return false;
-		this.stops[this.index] = { ...stop, group };
-		return true;
+		const group = content === null ? undefined : parseIntakeGroups(content).find((g) => g.line === stop.group.line);
+		this.stops[this.index] = group === undefined ? { ...stop, groupDone: true } : { ...stop, group, groupDone: false };
 	}
 
 	// Datum der Notiz selbst (nicht der Gruppe): schreibt scheduled über die
@@ -568,7 +577,10 @@ export class TaskTriageFeature implements LuKitFeature {
 	}
 
 	async handleSkip(): Promise<void> {
-		this.counts.skipped++;
+		// Leaving a stop whose intake was worked reports what happened to it —
+		// "übersprungen" would hide the take-over from the summary.
+		if (this.takenOverStops.has(this.index)) this.counts.takenOver++;
+		else this.counts.skipped++;
 		await this.advance();
 	}
 

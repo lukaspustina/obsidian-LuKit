@@ -80,7 +80,10 @@ export class TaskTriageModal extends Modal {
 		const meta = contentEl.createEl("p", { cls: "lukit-triage-meta" });
 		const count = group.ownItems.length + group.foreignItems.length;
 		const due = group.due === null ? "ohne Datum" : formatDate(group.due, locale);
-		const parts: string[] = [`${position.index + 1}/${position.total}`, `Intake: ${stop.noteBasename}`, `fällig ${due}`, `${count} Punkt(e)`];
+		const parts: string[] =
+			stop.groupDone === true
+				? [`${position.index + 1}/${position.total}`, `Intake: ${stop.noteBasename}`, "übernommen"]
+				: [`${position.index + 1}/${position.total}`, `Intake: ${stop.noteBasename}`, `fällig ${due}`, `${count} Punkt(e)`];
 		meta.createSpan({ text: parts.join(" · ") });
 
 		const overdue = reminderOverdueLabel(group.due, today, locale);
@@ -160,11 +163,14 @@ export class TaskTriageModal extends Modal {
 
 	private registerActionKeys(): void {
 		const { actions } = this.options;
+		const groupGone = this.options.stop.kind === "intake" && this.options.stop.groupDone === true;
 
-		this.scope.register(["Mod"], "D", () => {
-			this.act(this.options.onComplete);
-			return false;
-		});
+		if (!groupGone) {
+			this.scope.register(["Mod"], "D", () => {
+				this.act(this.options.onComplete);
+				return false;
+			});
+		}
 
 		if (actions.snooze) {
 			this.scope.register(["Mod"], "1", () => {
@@ -194,14 +200,16 @@ export class TaskTriageModal extends Modal {
 
 		const stop = this.options.stop;
 		if (stop.kind === "intake") {
-			this.scope.register(["Mod"], "X", () => {
-				this.act(this.options.onIntakeDiscard);
-				return false;
-			});
-			this.scope.register(["Mod"], "S", () => {
-				this.act(this.options.onIntakeSelect);
-				return false;
-			});
+			if (!groupGone) {
+				this.scope.register(["Mod"], "X", () => {
+					this.act(this.options.onIntakeDiscard);
+					return false;
+				});
+				this.scope.register(["Mod"], "S", () => {
+					this.act(this.options.onIntakeSelect);
+					return false;
+				});
+			}
 			if (stop.noteIsTask === true) {
 				this.scope.register(["Mod"], "G", () => {
 					this.act(this.options.onIntakeNoteDate);
@@ -224,10 +232,11 @@ export class TaskTriageModal extends Modal {
 	private renderInstructions(): void {
 		const { actions } = this.options;
 		const isIntake = this.options.stop.kind === "intake";
-		const instructions: { command: string; purpose: string }[] = [
-			{ command: "↵", purpose: "Öffnen & Stopp" },
-			{ command: "⌘D", purpose: isIntake ? "Übernehmen" : "Erledigt" },
-		];
+		const groupGone = this.options.stop.kind === "intake" && this.options.stop.groupDone === true;
+		const instructions: { command: string; purpose: string }[] = [{ command: "↵", purpose: "Öffnen & Stopp" }];
+		if (!groupGone) {
+			instructions.push({ command: "⌘D", purpose: isIntake ? "Übernehmen" : "Erledigt" });
+		}
 		if (actions.snooze) {
 			instructions.push(
 				{ command: "⌘1", purpose: "Morgen" },
@@ -241,7 +250,9 @@ export class TaskTriageModal extends Modal {
 		}
 		const stop = this.options.stop;
 		if (stop.kind === "intake") {
-			instructions.push({ command: "⌘S", purpose: "Punkte auswählen…" }, { command: "⌘X", purpose: "Verwerfen" });
+			if (!groupGone) {
+				instructions.push({ command: "⌘S", purpose: "Punkte auswählen…" }, { command: "⌘X", purpose: "Verwerfen" });
+			}
 			if (stop.noteIsTask === true) {
 				instructions.push({ command: "⌘G", purpose: "Datum der Notiz…" });
 			}
