@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const { dateModals } = vi.hoisted(() => ({ dateModals: [] as Array<Record<string, unknown>> }));
-vi.mock("../../src/features/task-triage/task-triage-date-modal", () => ({
-	TaskTriageDateModal: class {
+vi.mock("../../src/features/task-triage/note-date-modal", () => ({
+	NoteDateModal: class {
 		constructor(
 			_app: unknown,
-			onSubmit: (iso: string) => void,
+			noteName: string,
+			initial: { due: string; scheduled: string },
+			onSubmit: (dates: { due: string; scheduled: string }) => void,
 			onCancel: () => void,
-			defaultDate?: Date,
-			prompt?: string,
 		) {
-			dateModals.push({ onSubmit, onCancel, defaultDate, prompt });
+			dateModals.push({ noteName, initial, onSubmit, onCancel });
 		}
 		open(): void {}
 	},
@@ -18,7 +18,6 @@ vi.mock("../../src/features/task-triage/task-triage-date-modal", () => ({
 
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import { parseIntakeGroups } from "../../src/features/vorgang/intake-engine";
-import { formatDate } from "../../src/shared/date-format";
 import type { TriageStop } from "../../src/features/task-triage/task-triage-engine";
 import type { TaskNotesBridge } from "../../src/features/task-triage/tasknotes-bridge";
 import {
@@ -36,6 +35,9 @@ function fakeBridge(overrides: Partial<TaskNotesBridge> = {}): TaskNotesBridge {
 		listTasks: vi.fn(async () => []),
 		complete: vi.fn(async () => undefined),
 		setScheduled: vi.fn(async () => undefined),
+		setDue: vi.fn(async () => undefined),
+		clearScheduled: vi.fn(async () => undefined),
+		clearDue: vi.fn(async () => undefined),
 		toggleCompleteInstance: vi.fn(async () => undefined),
 		toggleSkippedInstance: vi.fn(async () => undefined),
 		readNote: vi.fn(async () => ""),
@@ -103,34 +105,54 @@ beforeEach(() => {
 	dateModals.length = 0;
 });
 
-describe("intake stop — the note's own date (⌘G)", () => {
-	it("offers the note's date prefilled with its current one", () => {
-		const { internals } = setup({ noteIsTask: true, noteScheduled: "2026-09-30" });
+describe("intake stop — the note's own dates (⌘G)", () => {
+	it("offers Fällig and Geplant prefilled with the note's current values", () => {
+		const { internals } = setup({ noteIsTask: true, noteScheduled: "2026-09-30", noteDue: "2026-09-15" });
 
 		internals.handleIntakeNoteDate();
 
 		expect(dateModals).toHaveLength(1);
-		expect(dateModals[0].prompt).toBe('Datum von „Vorgang - Acme" setzen…');
-		expect(formatDate(dateModals[0].defaultDate as Date, "iso")).toBe("2026-09-30");
+		expect(dateModals[0].noteName).toBe("Vorgang - Acme");
+		expect(dateModals[0].initial).toEqual({ due: "2026-09-15", scheduled: "2026-09-30" });
 	});
 
-	it("writes the chosen date to the note and returns to the same stop", async () => {
-		const { internals, bridge, app, vorgang } = setup({ noteIsTask: true, noteScheduled: "2026-09-30" });
+	it("writes only what changed and returns to the same stop", async () => {
+		const { internals, bridge, app, vorgang } = setup({
+			noteIsTask: true,
+			noteScheduled: "2026-09-30",
+			noteDue: "2026-09-15",
+		});
 
 		internals.handleIntakeNoteDate();
-		(dateModals[0].onSubmit as (iso: string) => void)("2026-10-15");
+		(dateModals[0].onSubmit as (d: { due: string; scheduled: string }) => void)({
+			due: "2026-09-15",
+			scheduled: "2026-10-15",
+		});
 		await Promise.resolve();
 		await Promise.resolve();
 
 		expect(bridge.setScheduled).toHaveBeenCalledWith("Vorgänge/Vorgang - Acme.md", "2026-10-15");
-		// The date step touches the note, never the group — and it does not end
-		// the stop, so the walk is still on it.
+		expect(bridge.setDue).not.toHaveBeenCalled();
+		// The dates address the note, never the group — and the stop stays open.
 		expect(parseIntakeGroups(app.vault.files.get(vorgang.path) ?? "")).toHaveLength(1);
 		expect(internals.index).toBe(0);
 		expect(internals.presentStop).toHaveBeenCalled();
 	});
 
-	it("leaves the date alone when the step is dismissed", async () => {
+	it("clears a date whose field was emptied instead of writing an empty string", async () => {
+		const { internals, bridge } = setup({ noteIsTask: true, noteScheduled: "2026-09-30", noteDue: "2026-09-15" });
+
+		internals.handleIntakeNoteDate();
+		(dateModals[0].onSubmit as (d: { due: string; scheduled: string }) => void)({ due: "", scheduled: "2026-09-30" });
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(bridge.clearDue).toHaveBeenCalledWith("Vorgänge/Vorgang - Acme.md");
+		expect(bridge.setDue).not.toHaveBeenCalled();
+		expect(bridge.clearScheduled).not.toHaveBeenCalled();
+	});
+
+	it("leaves the dates alone when the dialog is dismissed", async () => {
 		const { internals, bridge } = setup({ noteIsTask: true });
 
 		internals.handleIntakeNoteDate();
@@ -138,6 +160,7 @@ describe("intake stop — the note's own date (⌘G)", () => {
 		await Promise.resolve();
 
 		expect(bridge.setScheduled).not.toHaveBeenCalled();
+		expect(bridge.setDue).not.toHaveBeenCalled();
 		expect(internals.presentStop).toHaveBeenCalled();
 	});
 
@@ -149,7 +172,7 @@ describe("intake stop — the note's own date (⌘G)", () => {
 		expect(dateModals).toHaveLength(0);
 	});
 
-	it("is not chained onto a take-over — that advances without asking", async () => {
+	it("is not chained onto a take-over — ⌘D advances without asking", async () => {
 		const { internals } = setup({ noteIsTask: true, noteScheduled: "2026-09-30" });
 
 		await internals.handleIntakeTakeOver();

@@ -39,6 +39,7 @@ export type TriageStop =
 			noteBasename: string;
 			noteIsTask?: boolean;
 			noteScheduled?: string;
+			noteDue?: string;
 			// True once the group has left the note (⌘S took the last line). The
 			// stop stays open — sorting the intake is a sub-task of working the
 			// Vorgang, and its dates are still to be set — but every action that

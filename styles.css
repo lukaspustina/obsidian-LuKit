@@ -277,6 +277,21 @@
 	margin: 0 0 var(--size-4-2);
 }
 
+.lukit-note-date-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-2);
+}
+
+.lukit-note-date-row span {
+	min-width: 6em;
+}
+
+.lukit-note-date-modal {
+	padding: var(--size-4-3);
+}
+
 .lukit-intake-select-modal {
 	width: min(90vw, 800px);
 	max-width: min(90vw, 800px);

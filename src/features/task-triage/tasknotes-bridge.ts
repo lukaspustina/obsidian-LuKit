@@ -12,6 +12,10 @@ export interface TaskNotesBridge {
 	listTasks(): Promise<TriageTask[]>;
 	complete(path: string): Promise<void>;
 	setScheduled(path: string, date: string): Promise<void>;
+	setDue(path: string, date: string): Promise<void>;
+	// Empty date fields clear the property rather than writing "".
+	clearScheduled(path: string): Promise<void>;
+	clearDue(path: string): Promise<void>;
 	toggleCompleteInstance(path: string, date: string): Promise<void>;
 	toggleSkippedInstance(path: string, date: string): Promise<void>;
 	readNote(path: string): Promise<string>;
@@ -47,6 +51,9 @@ interface TaskNotesApi {
 		list(): Promise<TaskInfo[]>;
 		complete(path: string): Promise<void>;
 		setScheduled(path: string, date: string): Promise<void>;
+		setDue(path: string, date: string): Promise<void>;
+		clearScheduled(path: string): Promise<void>;
+		clearDue(path: string): Promise<void>;
 	};
 	recurring: {
 		toggleCompleteInstance(path: string, date: string): Promise<void>;
@@ -190,6 +197,18 @@ export function createTaskNotesBridge(app: App): TaskNotesBridge {
 
 		async setScheduled(path: string, date: string): Promise<void> {
 			await requireApi().tasks.setScheduled(path, date);
+		},
+
+		async setDue(path: string, date: string): Promise<void> {
+			await requireApi().tasks.setDue(path, date);
+		},
+
+		async clearScheduled(path: string): Promise<void> {
+			await requireApi().tasks.clearScheduled(path);
+		},
+
+		async clearDue(path: string): Promise<void> {
+			await requireApi().tasks.clearDue(path);
 		},
 
 		async toggleCompleteInstance(path: string, date: string): Promise<void> {

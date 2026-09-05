@@ -24,6 +24,8 @@ import {
 import { IntakeSelectModal } from "./intake-select-modal";
 import { TaskTriageModal } from "./task-triage-modal";
 import { TaskTriageDateModal } from "./task-triage-date-modal";
+import { NoteDateModal } from "./note-date-modal";
+import type { NoteDates } from "./note-date-modal";
 
 const PREVIEW_PLACEHOLDER = "(Vorschau nicht verfügbar)";
 
@@ -117,10 +119,9 @@ export class TaskTriageFeature implements LuKitFeature {
 		const reminders = await this.loadDueReminders();
 
 		let taskStops: TriageStop[] = [];
-		// Path → the note's own scheduled date. Loaded before the intake stops
-		// because a Vorgang note is itself a task, and its stop offers to set
-		// that date after a take-over.
-		const noteTasks = new Map<string, string | undefined>();
+		// Path → the note's own dates. Loaded before the intake stops because a
+		// Vorgang note is itself a task, and its stop offers to set them.
+		const noteTasks = new Map<string, { due?: string; scheduled?: string }>();
 		const availability = this.bridge.availability();
 		if (availability.ok) {
 			let all;
@@ -133,7 +134,7 @@ export class TaskTriageFeature implements LuKitFeature {
 				new Notice("Konnte Tasks nicht laden — Triage abgebrochen.");
 				return;
 			}
-			for (const task of all) noteTasks.set(task.path, task.scheduled);
+			for (const task of all) noteTasks.set(task.path, { due: task.due, scheduled: task.scheduled });
 			taskStops = selectTriageTasks(all, this.walkToday).map((task) => ({ kind: "task" as const, task }));
 		} else {
 			// Degradation statt Abbruch: Erinnerungen hängen nicht von TaskNotes ab.
@@ -189,7 +190,7 @@ export class TaskTriageFeature implements LuKitFeature {
 
 	// Due intake groups of every note that may carry a boundary and is not
 	// closed. An unreadable note costs its own groups, never the walk.
-	private async loadDueIntakeStops(noteTasks: Map<string, string | undefined>): Promise<TriageStop[]> {
+	private async loadDueIntakeStops(noteTasks: Map<string, { due?: string; scheduled?: string }>): Promise<TriageStop[]> {
 		const candidates: IntakeStopCandidate[] = [];
 		for (const file of this.plugin.app.vault.getMarkdownFiles()) {
 			const cache = this.plugin.app.metadataCache.getFileCache(file);
@@ -211,7 +212,8 @@ export class TaskTriageFeature implements LuKitFeature {
 			notePath: c.notePath,
 			noteBasename: c.noteBasename,
 			noteIsTask: noteTasks.has(c.notePath),
-			noteScheduled: noteTasks.get(c.notePath),
+			noteScheduled: noteTasks.get(c.notePath)?.scheduled,
+			noteDue: noteTasks.get(c.notePath)?.due,
 		}));
 	}
 
@@ -521,23 +523,42 @@ export class TaskTriageFeature implements LuKitFeature {
 	handleIntakeNoteDate(): void {
 		const stop = this.currentStop();
 		if (stop.kind !== "intake" || stop.noteIsTask !== true) return;
-		new TaskTriageDateModal(
+		new NoteDateModal(
 			this.plugin.app,
-			(dateIso) => {
-				void this.setNoteDate(stop, dateIso);
+			stop.noteBasename,
+			{ due: stop.noteDue ?? "", scheduled: stop.noteScheduled ?? "" },
+			(dates) => {
+				void this.setNoteDates(stop, dates);
 			},
 			() => {
 				void this.presentStop();
 			},
-			stop.noteScheduled === undefined ? undefined : parseIsoDate(stop.noteScheduled),
-			`Datum von „${stop.noteBasename}" setzen…`,
 		).open();
 	}
 
-	private async setNoteDate(stop: IntakeStop, dateIso: string): Promise<void> {
+	// Writes only what changed, and an emptied field clears the property rather
+	// than writing "". A failure costs the date, never the stop.
+	private async setNoteDates(stop: IntakeStop, dates: NoteDates): Promise<void> {
+		const writes: { current: string; next: string; set: (d: string) => Promise<void>; clear: () => Promise<void> }[] = [
+			{
+				current: stop.noteDue ?? "",
+				next: dates.due,
+				set: (d) => this.bridge.setDue(stop.notePath, d),
+				clear: () => this.bridge.clearDue(stop.notePath),
+			},
+			{
+				current: stop.noteScheduled ?? "",
+				next: dates.scheduled,
+				set: (d) => this.bridge.setScheduled(stop.notePath, d),
+				clear: () => this.bridge.clearScheduled(stop.notePath),
+			},
+		];
 		try {
-			await this.bridge.setScheduled(stop.notePath, dateIso);
-			this.stops[this.index] = { ...stop, noteScheduled: dateIso };
+			for (const w of writes) {
+				if (w.current === w.next) continue;
+				await (w.next === "" ? w.clear() : w.set(w.next));
+			}
+			this.stops[this.index] = { ...stop, noteDue: dates.due, noteScheduled: dates.scheduled };
 		} catch (e) {
 			this.logError(e);
 			new Notice("Datum der Notiz konnte nicht gesetzt werden.");
