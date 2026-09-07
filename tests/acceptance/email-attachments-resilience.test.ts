@@ -94,3 +94,36 @@ describe("_resources folder path", () => {
 		expect(internals.resourcesFolderPathFor(vorgang)).toBe("Vorgänge/_resources");
 	});
 });
+
+describe("saveThreadAttachments never throws", () => {
+	// commitThread awaits saveThreadAttachments outside its own try, and by then
+	// the email is already archived — a throw would strand it: out of the inbox
+	// and never written to the Vorgang. Path building is the throwing candidate
+	// (getBasePath on an adapter that is not a FileSystemAdapter).
+	it("degrades to plaintext names and still files when destPath building throws", async () => {
+		const saveAttachments = vi.fn(async () => []);
+		const { app, vorgang, internals } = setup("Vorgänge/Vorgang - X.md", fakeBridge({ saveAttachments }));
+		const adapter = app.vault.adapter as unknown as { getBasePath: () => string };
+		adapter.getBasePath = () => {
+			throw new Error("no filesystem adapter");
+		};
+
+		const assembled = await internals.assembleThread(
+			RAW,
+			"Bitte prüfen",
+			[{ name: "rechnung.pdf", mimeType: "application/pdf", size: 1024 }],
+			vorgang,
+		);
+		expect(assembled).not.toBeNull();
+		if (!assembled) return;
+
+		await expect(internals.commitThread(RAW, assembled, assembled.messages, vorgang)).resolves.toBeUndefined();
+
+		expect(saveAttachments).not.toHaveBeenCalled();
+		const updated = app.vault.files.get(vorgang.path) ?? "";
+		expect(updated).toContain("Bitte prüfen");
+		const anhaengeLine = updated.split("\n").find((l) => l.includes("Anhänge:")) ?? "";
+		expect(anhaengeLine).toContain("Anhänge: rechnung.pdf");
+		expect(anhaengeLine).not.toContain("[[");
+	});
+});

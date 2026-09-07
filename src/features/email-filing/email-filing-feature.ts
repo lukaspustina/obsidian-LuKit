@@ -667,34 +667,37 @@ export class EmailFilingFeature implements LuKitFeature {
 		}
 
 		for (const msg of withAttachments) {
-			const pairs = resolveAttachmentFileNames(existingNames, msg.attachments.map((a) => a.name));
-			for (const { resolved } of pairs) existingNames.add(resolved);
-
-			const messageId = decodeMessageIdFromUrl(msg.messageUrl);
-			if (messageId === null) continue;
-
-			const items = pairs.map(({ original, resolved }) => ({
-				attachmentName: original,
-				destPath: resolveAttachmentDestPath(this.plugin.app, resourcesFolderPath, resolved),
-			}));
-
-			let saved: string[];
+			// The whole per-message body is guarded, not just the bridge call:
+			// building the destination paths can throw too (getBasePath on a
+			// non-FileSystemAdapter), and both commitThread and
+			// commitSelectedThread await this outside their own try — a throw
+			// here would abort a filing whose email is already archived.
 			try {
-				saved = await this.bridge.saveAttachments(accountName, messageId, items);
+				const pairs = resolveAttachmentFileNames(existingNames, msg.attachments.map((a) => a.name));
+				for (const { resolved } of pairs) existingNames.add(resolved);
+
+				const messageId = decodeMessageIdFromUrl(msg.messageUrl);
+				if (messageId === null) continue;
+
+				const items = pairs.map(({ original, resolved }) => ({
+					attachmentName: original,
+					destPath: resolveAttachmentDestPath(this.plugin.app, resourcesFolderPath, resolved),
+				}));
+
+				const saved = await this.bridge.saveAttachments(accountName, messageId, items);
+
+				const remaining = [...saved];
+				const savedNames = new Map<string, string>();
+				for (const { original, resolved } of pairs) {
+					const idx = remaining.indexOf(original);
+					if (idx === -1) continue;
+					savedNames.set(original, resolved);
+					remaining.splice(idx, 1);
+				}
+				if (savedNames.size > 0) msg.savedNames = savedNames;
 			} catch (e) {
 				this.logBridgeError(e);
-				continue;
 			}
-
-			const remaining = [...saved];
-			const savedNames = new Map<string, string>();
-			for (const { original, resolved } of pairs) {
-				const idx = remaining.indexOf(original);
-				if (idx === -1) continue;
-				savedNames.set(original, resolved);
-				remaining.splice(idx, 1);
-			}
-			if (savedNames.size > 0) msg.savedNames = savedNames;
 		}
 	}
 
