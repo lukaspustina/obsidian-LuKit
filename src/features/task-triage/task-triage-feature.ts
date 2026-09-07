@@ -6,6 +6,7 @@ import { formatDate } from "../../shared/date-format";
 import { getDiaryNotePath } from "../../shared/diary-settings";
 import { frontmatterTagsInclude } from "../../shared/frontmatter";
 import { parseIntakeGroups, takeOverGroup, dropGroup, snoozeGroup, findIntakeGroupLine } from "../vorgang/intake-engine";
+import type { IntakeGroup } from "../vorgang/intake-engine";
 import type { IntakeTakeOver } from "../vorgang/intake-engine";
 import { listReminders, removeReminderLine, rescheduleReminderLine, erinnerungenSection } from "../work-diary/work-diary-engine";
 import type { ReminderItem } from "../work-diary/work-diary-engine";
@@ -501,7 +502,8 @@ export class TaskTriageFeature implements LuKitFeature {
 
 	// Re-reads the note and puts the group as it now stands back on the stop, so
 	// the re-presented dialog acts on current line numbers and items. A group
-	// that is gone entirely marks the stop groupDone: the dialog then keeps only
+	// that is gone entirely pulls the note's next intake stop up into this one;
+	// only when the note has none left does the stop go groupDone and keep just
 	// the actions that address the note.
 	private async refreshIntakeStop(stop: IntakeStop): Promise<void> {
 		const file = this.noteFile(stop.notePath);
@@ -513,8 +515,29 @@ export class TaskTriageFeature implements LuKitFeature {
 				this.logError(e);
 			}
 		}
-		const group = content === null ? undefined : parseIntakeGroups(content).find((g) => g.line === stop.group.line);
+		const groups = content === null ? [] : parseIntakeGroups(content);
+		const group = groups.find((g) => g.line === stop.group.line) ?? this.takeSiblingIntakeGroup(stop.notePath, groups);
 		this.stops[this.index] = group === undefined ? { ...stop, groupDone: true } : { ...stop, group, groupDone: false };
+	}
+
+	// A note usually holds several groups, each its own stop further down the
+	// walk. Once the current one is worked off, that stop is carried on here —
+	// the note stays open with all its actions instead of leaving a stop that
+	// can only be skipped, and its own entry leaves the walk so the group is
+	// not offered twice. Only stops after the current index are eligible, so
+	// the walk still moves forward and recorded indices stay valid.
+	private takeSiblingIntakeGroup(notePath: string, groups: IntakeGroup[]): IntakeGroup | undefined {
+		for (let i = this.index + 1; i < this.stops.length; i++) {
+			const candidate = this.stops[i];
+			if (candidate.kind !== "intake" || candidate.notePath !== notePath) continue;
+			// Its line may have gone with a hand edit; leave that stop to fail
+			// on its own turn rather than swallowing it here.
+			const group = groups.find((g) => g.line === candidate.group.line);
+			if (group === undefined) continue;
+			this.stops.splice(i, 1);
+			return group;
+		}
+		return undefined;
 	}
 
 	// Datum der Notiz selbst (nicht der Gruppe): schreibt scheduled über die

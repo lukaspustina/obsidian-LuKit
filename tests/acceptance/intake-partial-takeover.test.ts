@@ -28,6 +28,27 @@ const VORGANG = [
 	"",
 ].join("\n");
 
+// Same note, two groups — the shape that makes a worked-off stop carry the
+// next one instead of going groupDone.
+const TWO_GROUPS = [
+	"---",
+	"tags: [Vorgang]",
+	"---",
+	"",
+	"# Nächste Schritte",
+	"",
+	"#### Unsortiert",
+	"- Aus [[Besprechung - Kickoff]]",
+	"    - Angebot prüfen",
+	"    - Termin vereinbaren",
+	"",
+	"- Aus [[Besprechung - Review]]",
+	"    - Rechnung schicken",
+	"",
+	"# Inhalt",
+	"",
+].join("\n");
+
 interface FeatureInternals {
 	walkActive: boolean;
 	stops: TriageStop[];
@@ -39,10 +60,10 @@ interface FeatureInternals {
 	availableActions: (stop: TriageStop) => { snooze: boolean; skipInstance: boolean };
 }
 
-function setup() {
+function setup(content: string = VORGANG) {
 	const app = createMockApp({});
 	const vorgang = createMockTFile("Vorgänge/Vorgang - Acme.md", { basename: "Vorgang - Acme" });
-	app.vault.register(vorgang, VORGANG);
+	app.vault.register(vorgang, content);
 
 	const plugin = createMockPlugin(makeTestSettings(), app);
 	const feature = new TaskTriageFeature();
@@ -54,11 +75,11 @@ function setup() {
 	internals.stops = [
 		{
 			kind: "intake",
-			group: parseIntakeGroups(VORGANG)[0],
+			group: parseIntakeGroups(content)[0],
 			notePath: vorgang.path,
 			noteBasename: vorgang.basename,
 		} as unknown as TriageStop,
-		{ kind: "intake", group: parseIntakeGroups(VORGANG)[0], notePath: "other.md", noteBasename: "other" } as unknown as TriageStop,
+		{ kind: "intake", group: parseIntakeGroups(content)[0], notePath: "other.md", noteBasename: "other" } as unknown as TriageStop,
 	];
 	internals.index = 0;
 	internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0, takenOver: 0, discarded: 0 };
@@ -121,6 +142,56 @@ describe("intake ⌘S — sorting the intake is a sub-task, not the end of the s
 		expect(stop.groupDone).toBe(true);
 		// Snoozing addresses the group's parent line, which is gone.
 		expect(internals.availableActions(stop).snooze).toBe(false);
+	});
+
+	it("carries the note's next group into the stop when this one is worked off", async () => {
+		const { internals, app, vorgang } = setup(TWO_GROUPS);
+		// Second group of the same note, third stop on an unrelated one.
+		internals.stops.splice(1, 0, {
+			kind: "intake",
+			group: parseIntakeGroups(TWO_GROUPS)[1],
+			notePath: vorgang.path,
+			noteBasename: vorgang.basename,
+		} as unknown as TriageStop);
+
+		await internals.handleIntakeTakeOver({
+			taken: [
+				{ text: "Angebot prüfen", children: [] },
+				{ text: "Termin vereinbaren", children: [] },
+			],
+			keptOwn: [],
+			keptForeign: [],
+		});
+
+		const stop = internals.stops[0] as Extract<TriageStop, { kind: "intake" }>;
+		expect(stop.groupDone).toBe(false);
+		expect(stop.group.source).toBe("Besprechung - Review");
+		expect(stop.group.ownItems.map((i) => i.text)).toEqual(["Rechnung schicken"]);
+		// The group's own stop left the walk — it must not be offered twice.
+		expect(internals.stops).toHaveLength(2);
+		expect(internals.stops[1].kind === "intake" && internals.stops[1].notePath).toBe("other.md");
+		// Its line numbers come from the note as it now stands, not from the
+		// snapshot taken before this stop's write.
+		const groups = parseIntakeGroups(app.vault.files.get(vorgang.path) ?? "");
+		expect(stop.group.lineIndex).toBe(groups[0].lineIndex);
+	});
+
+	it("goes groupDone when the note has no further group of its own", async () => {
+		const { internals } = setup(TWO_GROUPS);
+
+		await internals.handleIntakeTakeOver({
+			taken: [
+				{ text: "Angebot prüfen", children: [] },
+				{ text: "Termin vereinbaren", children: [] },
+			],
+			keptOwn: [],
+			keptForeign: [],
+		});
+
+		// The second group is in the note but not in the walk — a stop is a
+		// group, and only groups that were due became stops.
+		const stop = internals.stops[0] as Extract<TriageStop, { kind: "intake" }>;
+		expect(stop.groupDone).toBe(true);
 	});
 
 	it("reports the take-over, not a skip, when the stop is finally left", async () => {
