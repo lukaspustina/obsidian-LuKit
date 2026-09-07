@@ -630,13 +630,12 @@ export class EmailFilingFeature implements LuKitFeature {
 	}
 
 	// Vault-relative _resources folder for a target Vorgang note: the note's own
-	// folder plus "_resources". Falls back to deriving the folder from the note's
-	// path when `.parent` isn't populated (root-level notes have no parent path).
+	// folder plus "_resources". Derived from the note's path rather than
+	// `.parent`, whose path is "/" for a root-level note and would yield
+	// "//_resources". Normalised here so every consumer works off one string.
 	private resourcesFolderPathFor(vorgang: TFile): string {
-		const parentPath = vorgang.parent?.path;
-		if (parentPath) return `${parentPath}/_resources`;
 		const idx = vorgang.path.lastIndexOf("/");
-		return idx === -1 ? "_resources" : `${vorgang.path.slice(0, idx)}/_resources`;
+		return normalizePath(idx === -1 ? "_resources" : `${vorgang.path.slice(0, idx)}/_resources`);
 	}
 
 	// Saves the attachments of the included messages into the target Vorgang's
@@ -655,8 +654,8 @@ export class EmailFilingFeature implements LuKitFeature {
 		const resourcesFolderPath = this.resourcesFolderPathFor(vorgang);
 		let existingNames: Set<string>;
 		try {
-			if (!(await adapter.exists(normalizePath(resourcesFolderPath)))) {
-				await adapter.mkdir(normalizePath(resourcesFolderPath));
+			if (!(await adapter.exists(resourcesFolderPath))) {
+				await adapter.mkdir(resourcesFolderPath);
 			}
 			const listed = await adapter.list(resourcesFolderPath);
 			existingNames = new Set(listed.files.map((p) => p.split("/").pop() as string));
