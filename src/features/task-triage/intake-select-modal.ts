@@ -23,16 +23,16 @@ interface Row {
 	checkbox: HTMLInputElement;
 	input: HTMLInputElement;
 	prefix: string;
-	original: string;
 }
 
 // One editable row per line of the group — items and the lines nested under
 // them — each with its own checkbox, all preselected. The text is editable, so
-// wording can be fixed on the way out. A ticked line leaves the group, an
-// unticked one stays behind — independently of its neighbours: a ticked child
-// under an unticked parent moves on its own, an unticked child under a ticked
-// parent stays as a line of its own. The walk returns to the stop as long as
-// anything remains, so a group can be worked off in several passes.
+// wording can be fixed on the way out, and emptying a field deletes that line.
+// A ticked line leaves the group, an unticked one stays behind — independently
+// of its neighbours: a ticked child under an unticked parent moves on its own,
+// an unticked child under a ticked parent stays as a line of its own. The walk
+// returns to the stop as long as anything remains, so a group can be worked off
+// in several passes.
 export class IntakeSelectModal extends Modal {
 	private readonly options: IntakeSelectModalOptions;
 	private confirmed = false;
@@ -49,6 +49,10 @@ export class IntakeSelectModal extends Modal {
 		contentEl.empty();
 		contentEl.createEl("h3", { text: "Punkte übernehmen" });
 		contentEl.createEl("p", { text: group.line, cls: "lukit-intake-select-source" });
+		contentEl.createEl("p", {
+			text: "Angehakt wandert hoch, nicht angehakt bleibt in Unsortiert, leeres Feld löscht die Zeile.",
+			cls: "lukit-intake-select-hint",
+		});
 
 		const list = contentEl.createEl("div", { cls: "lukit-intake-select" });
 		// Every line decides for itself. Coupling a child to its parent would
@@ -70,17 +74,28 @@ export class IntakeSelectModal extends Modal {
 			const keptForeign: IntakeItem[] = [];
 			items.forEach(({ itemRow, childRows }, i) => {
 				const kept = i < ownCount ? keptOwn : keptForeign;
-				const takenChildren = childRows.filter((r) => r.checkbox.checked);
-				const keptChildren = childRows.filter((r) => !r.checkbox.checked);
+				// An emptied field deletes its line, ticked or not — it goes
+				// neither up nor back into the group.
+				const live = childRows.filter((r) => valueOf(r) !== "");
+				const takenChildren = live.filter((r) => r.checkbox.checked);
+				const keptChildren = live.filter((r) => !r.checkbox.checked);
 				const lines = (rows: Row[]) => rows.map((r) => r.prefix + valueOf(r));
+				const text = valueOf(itemRow);
+				if (text === "") {
+					// The deleted line takes nothing with it: its children decide
+					// for themselves, as they do whenever they lose their parent.
+					for (const row of takenChildren) taken.push({ text: valueOf(row), children: [] });
+					for (const row of keptChildren) kept.push({ text: valueOf(row), children: [] });
+					return;
+				}
 				if (itemRow.checkbox.checked) {
-					taken.push({ text: valueOf(itemRow), children: lines(takenChildren) });
+					taken.push({ text, children: lines(takenChildren) });
 					// An unticked child of a ticked item loses its parent, so it
 					// stays behind as a line of its own rather than vanishing.
 					for (const row of keptChildren) kept.push({ text: valueOf(row), children: [] });
 					return;
 				}
-				kept.push({ text: valueOf(itemRow), children: lines(keptChildren) });
+				kept.push({ text, children: lines(keptChildren) });
 				// A ticked child of an unticked item moves on its own — usually
 				// exactly what is wanted: the todo, not the person header above it.
 				for (const row of takenChildren) taken.push({ text: valueOf(row), children: [] });
@@ -114,7 +129,7 @@ export class IntakeSelectModal extends Modal {
 		const input = row.createEl("input", { cls: "lukit-intake-select-text" });
 		input.type = "text";
 		input.value = text;
-		return { checkbox, input, prefix, original: text };
+		return { checkbox, input, prefix };
 	}
 
 	onClose(): void {
@@ -125,9 +140,9 @@ export class IntakeSelectModal extends Modal {
 	}
 }
 
-// An emptied field falls back to the original text — deleting the line is what
-// the checkbox is for, and silently writing an empty bullet helps nobody.
+// Emptying a field is how a single line is deleted: the caller drops every row
+// whose text is blank, so nothing is written for it and nothing stays behind.
+// ⌘X remains the way to discard the whole group at once.
 function valueOf(row: Row): string {
-	const typed = row.input.value.trim();
-	return typed === "" ? row.original : typed;
+	return row.input.value.trim();
 }

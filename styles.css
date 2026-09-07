@@ -272,7 +272,8 @@
 	padding-top: var(--size-4-2);
 }
 
-.lukit-intake-select-source {
+.lukit-intake-select-source,
+.lukit-intake-select-hint {
 	color: var(--text-muted);
 	margin: 0 0 var(--size-4-2);
 }
@@ -304,10 +305,6 @@
 
 .lukit-intake-select-text {
 	flex: 1;
-}
-
-.lukit-intake-select-text:disabled {
-	opacity: 0.5;
 }
 
 .lukit-intake-select-child {

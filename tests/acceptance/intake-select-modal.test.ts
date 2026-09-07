@@ -115,10 +115,49 @@ describe("IntakeSelectModal", () => {
 		expect(result?.keptOwn[0]).toEqual({ text: "Max:", children: [] });
 	});
 
-	it("falls back to the original text when a field was emptied", () => {
+	it("deletes the line whose field was emptied — it goes neither up nor back", () => {
 		const modal = open();
-		modal.texts[0].value = "   ";
+		modal.texts[1].value = "   ";
 
-		expect(modal.confirm()?.taken[0].text).toBe("Max:");
+		const result = modal.confirm();
+		expect(result?.taken).toEqual([
+			{ text: "Max:", children: ["    - Termin vereinbaren"] },
+			{ text: "Petra Schneider:", children: ["    - Zahlen liefern"] },
+		]);
+		expect(result?.keptOwn).toEqual([]);
+	});
+
+	it("deletes an emptied line even when it is ticked", () => {
+		const modal = open();
+		modal.texts[1].value = "";
+		modal.checkboxes[1].checked = true;
+
+		const result = modal.confirm();
+		expect(result?.taken[0]).toEqual({ text: "Max:", children: ["    - Termin vereinbaren"] });
+	});
+
+	it("keeps the children of an emptied parent — each deciding for itself", () => {
+		const modal = open();
+		modal.texts[0].value = "";
+		modal.checkboxes[2].checked = false;
+
+		const result = modal.confirm();
+		// The header is gone; its ticked child moved up on its own, the unticked
+		// one stayed behind as a line of its own.
+		expect(result?.taken).toEqual([
+			{ text: "Angebot prüfen", children: [] },
+			{ text: "Petra Schneider:", children: ["    - Zahlen liefern"] },
+		]);
+		expect(result?.keptOwn).toEqual([{ text: "Termin vereinbaren", children: [] }]);
+	});
+
+	it("empties the group when every field was emptied", () => {
+		const modal = open();
+		for (const field of modal.texts) field.value = "";
+
+		const result = modal.confirm();
+		expect(result?.taken).toEqual([]);
+		expect(result?.keptOwn).toEqual([]);
+		expect(result?.keptForeign).toEqual([]);
 	});
 });
