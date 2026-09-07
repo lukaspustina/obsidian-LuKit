@@ -412,7 +412,12 @@ function run() {
     let body = "";
     try { const c = m.content(); if (c != null) body = String(c); } catch (e) {}
     const atts = lukitReadAttachments(m);
-    out.push({ id: m.messageId(), accountName: acct, mailboxName: box, subject: m.subject(), sender: m.sender(), toName: toName, toAddress: toAddr, dateSent: sent, body: body, attachments: atts });
+    // id/subject/sender have no fallback, so a message that cannot answer them
+    // (draft, not-yet-downloaded IMAP message) is dropped rather than aborting
+    // the whole selection.
+    try {
+      out.push({ id: m.messageId(), accountName: acct, mailboxName: box, subject: m.subject(), sender: m.sender(), toName: toName, toAddress: toAddr, dateSent: sent, body: body, attachments: atts });
+    } catch (e) { continue; }
   }
   return JSON.stringify(out);
 }
