@@ -75,15 +75,20 @@ export class TaskTriageModal extends Modal {
 		if (stop.kind !== "intake") return;
 		const group = stop.group;
 
-		contentEl.createEl("h3", { text: group.source === "" ? stop.noteBasename : group.source });
+		// The note is what the stop is about — the group's source (a Besprechung,
+		// an e-mail anchor) only says where its items came from, and as the
+		// headline it made every intake stop read as a due Besprechung.
+		contentEl.createEl("h3", { text: stop.noteBasename });
 
 		const meta = contentEl.createEl("p", { cls: "lukit-triage-meta" });
 		const count = group.ownItems.length + group.foreignItems.length;
 		const due = group.due === null ? "ohne Datum" : formatDate(group.due, locale);
+		const head = [`${position.index + 1}/${position.total}`, "Intake"];
+		if (group.source !== "") {
+			head.push(`Aus: ${group.source}`);
+		}
 		const parts: string[] =
-			stop.groupDone === true
-				? [`${position.index + 1}/${position.total}`, `Intake: ${stop.noteBasename}`, "übernommen"]
-				: [`${position.index + 1}/${position.total}`, `Intake: ${stop.noteBasename}`, `fällig ${due}`, `${count} Punkt(e)`];
+			stop.groupDone === true ? [...head, "übernommen"] : [...head, `fällig ${due}`, `${count} Punkt(e)`];
 		meta.createSpan({ text: parts.join(" · ") });
 
 		const overdue = reminderOverdueLabel(group.due, today, locale);
