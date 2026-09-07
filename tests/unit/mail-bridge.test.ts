@@ -1,31 +1,67 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { EventEmitter } from "events";
 
-// Capture execFile calls without spawning anything. vi.hoisted so the mock
-// factory can reference the spy.
-const { execFileMock } = vi.hoisted(() => ({ execFileMock: vi.fn() }));
-vi.mock("child_process", () => ({ execFile: execFileMock }));
+// Capture spawn calls without starting anything. vi.hoisted so the mock factory
+// can reference the spy.
+const { spawnMock } = vi.hoisted(() => ({ spawnMock: vi.fn() }));
+vi.mock("child_process", () => ({ spawn: spawnMock }));
 
 import { createOsascriptBridge } from "../../src/features/email-filing/mail-bridge";
 
-const callbackWith = (stdout: string) => (_f: string, _a: string[], _o: unknown, cb: (e: Error | null, out: string) => void) => cb(null, stdout);
+interface FakeChild extends EventEmitter {
+	stdout: EventEmitter & { setEncoding(enc: string): void };
+	stderr: EventEmitter & { setEncoding(enc: string): void };
+	stdin: { on(event: string, cb: () => void): void; end(chunk: string): void };
+	/** What runJxa wrote to stdin — the script source, for the argv-safety checks. */
+	script: string;
+}
+
+// A ChildProcess double: records the script written to stdin, then delivers the
+// canned result. runJxa attaches every handler before calling stdin.end(), so
+// emitting from there is safe; the timeout keeps the async shape realistic.
+const fakeSpawn = (result: { stdout?: string; stderr?: string; code?: number | null; signal?: string }) => () => {
+	const stream = () => Object.assign(new EventEmitter(), { setEncoding: () => undefined });
+	const child = new EventEmitter() as FakeChild;
+	child.stdout = stream();
+	child.stderr = stream();
+	child.script = "";
+	child.stdin = {
+		on: () => undefined,
+		end: (chunk: string) => {
+			child.script = chunk;
+			setTimeout(() => {
+				if (result.stdout !== undefined) child.stdout.emit("data", result.stdout);
+				if (result.stderr !== undefined) child.stderr.emit("data", result.stderr);
+				child.emit("close", result.code === undefined ? 0 : result.code, result.signal ?? null);
+			}, 0);
+		},
+	};
+	return child;
+};
+
+const spawnWith = (stdout: string) => fakeSpawn({ stdout });
+const scriptOf = (call = 0): string => (spawnMock.mock.results[call].value as FakeChild).script;
+const argsOf = (call = 0): string[] => (spawnMock.mock.calls[call] as [string, string[]])[1];
 
 describe("createOsascriptBridge — argv safety and mailbox resolution", () => {
 	beforeEach(() => {
-		execFileMock.mockReset();
+		spawnMock.mockReset();
 	});
 
 	it("passes runtime values as argv, never interpolated into the script source", async () => {
-		execFileMock.mockImplementation(callbackWith("ok"));
+		spawnMock.mockImplementation(spawnWith("ok"));
 		const bridge = createOsascriptBridge({ Gmail: "[Gmail]/All Mail" }, "Archive", {}, "Sent");
 		const dangerousId = `x" ; do shell script "rm -rf /" //`;
 
 		await bridge.archive("Gmail", dangerousId);
 
-		const [file, args] = execFileMock.mock.calls[0] as [string, string[]];
+		const [file, args] = spawnMock.mock.calls[0] as [string, string[]];
 		expect(file).toBe("osascript");
-		const script = args[args.indexOf("-e") + 1];
+		// The script travels on stdin, so it must not appear in argv at all.
+		expect(args.slice(0, 3)).toEqual(["-l", "JavaScript", "-"]);
+		expect(args).not.toContain("-e");
 		// The dangerous id must NOT be baked into the script source...
-		expect(script).not.toContain(dangerousId);
+		expect(scriptOf()).not.toContain(dangerousId);
 		// ...it must travel as a separate argv element.
 		expect(args).toContain(dangerousId);
 		// Mailbox resolved from the per-account map, also passed as argv.
@@ -33,23 +69,17 @@ describe("createOsascriptBridge — argv safety and mailbox resolution", () => {
 	});
 
 	it("falls back to defaultArchiveMailbox for an unmapped account", async () => {
-		execFileMock.mockImplementation(callbackWith("ok"));
+		spawnMock.mockImplementation(spawnWith("ok"));
 		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
 
 		await bridge.archive("iCloud", "id-1");
 
-		const [, args] = execFileMock.mock.calls[0] as [string, string[]];
-		expect(args).toContain("Archive");
+		expect(argsOf()).toContain("Archive");
 	});
 
-	it("sanitizes execFile errors — command line and script source never reach the message", async () => {
-		execFileMock.mockImplementation(
-			(_f: string, _a: string[], _o: unknown, cb: (e: Error | null, out: string, err: string) => void) =>
-				cb(
-					new Error("Command failed: osascript -l JavaScript -e function run(argv){ SECRET_SCRIPT }"),
-					"",
-					"execution error: Error: Mail got an error: timed out (-2700)",
-				),
+	it("sanitizes osascript errors — the script source never reaches the message", async () => {
+		spawnMock.mockImplementation(
+			fakeSpawn({ code: 1, stderr: "execution error: Error: Mail got an error: timed out (-2700)" }),
 		);
 		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
 
@@ -59,16 +89,13 @@ describe("createOsascriptBridge — argv safety and mailbox resolution", () => {
 		);
 
 		expect(err).not.toBeNull();
-		expect(err?.message).not.toContain("SECRET_SCRIPT");
+		expect(err?.message).not.toContain("lukitArchiveBox");
 		expect(err?.message).toContain("Mail-Zugriff fehlgeschlagen");
 		expect(err?.message).toContain("-2700");
 	});
 
 	it("maps -1743 in stderr to the automation-permission message", async () => {
-		execFileMock.mockImplementation(
-			(_f: string, _a: string[], _o: unknown, cb: (e: Error | null, out: string, err: string) => void) =>
-				cb(new Error("Command failed: osascript …"), "", "execution error: Fehler (-1743)"),
-		);
+		spawnMock.mockImplementation(fakeSpawn({ code: 1, stderr: "execution error: Fehler (-1743)" }));
 		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
 
 		const err = await bridge.archive("iCloud", "id-1").then(
@@ -79,8 +106,36 @@ describe("createOsascriptBridge — argv safety and mailbox resolution", () => {
 		expect(err?.message).toContain("Automatisierung");
 	});
 
+	it("names the signal when osascript is killed without writing anything", async () => {
+		spawnMock.mockImplementation(fakeSpawn({ code: null, signal: "SIGKILL" }));
+		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
+
+		const err = await bridge.archive("iCloud", "id-1").then(
+			() => null,
+			(e: Error) => e,
+		);
+
+		expect(err?.message).toContain("SIGKILL");
+		expect(err?.message).toContain("EDR");
+	});
+
+	it("rejects when osascript cannot be spawned at all", async () => {
+		spawnMock.mockImplementation(() => {
+			const stream = () => Object.assign(new EventEmitter(), { setEncoding: () => undefined });
+			const child = new EventEmitter() as FakeChild;
+			child.stdout = stream();
+			child.stderr = stream();
+			child.stdin = { on: () => undefined, end: () => undefined };
+			setTimeout(() => child.emit("error", new Error("spawn osascript ENOENT")), 0);
+			return child;
+		});
+		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
+
+		await expect(bridge.archive("iCloud", "id-1")).rejects.toThrow(/nicht startbar/);
+	});
+
 	it("explains a missing archive mailbox with account name and Gmail hint", async () => {
-		execFileMock.mockImplementation(callbackWith("no-mailbox\n"));
+		spawnMock.mockImplementation(spawnWith("no-mailbox\n"));
 		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
 
 		const err = await bridge.archive("Privat Gmail", "id-1").then(
@@ -94,48 +149,38 @@ describe("createOsascriptBridge — argv safety and mailbox resolution", () => {
 	});
 
 	it("archive script resolves the mailbox via the fallback helper, not byName", async () => {
-		execFileMock.mockImplementation(callbackWith("ok"));
+		spawnMock.mockImplementation(spawnWith("ok"));
 		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
 
 		await bridge.archive("Privat Gmail", "id-1");
 
-		const [, args] = execFileMock.mock.calls[0] as [string, string[]];
-		const script = args[args.indexOf("-e") + 1];
+		const script = scriptOf();
 		expect(script).toContain("lukitArchiveBox");
 		expect(script).not.toContain("byName");
 		expect(script).toContain("all mail");
 	});
 
 	it("reports a true/false inbox membership from the script output", async () => {
-		execFileMock.mockImplementation(callbackWith("false\n"));
+		spawnMock.mockImplementation(spawnWith("false\n"));
 		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
 		expect(await bridge.isInInbox("iCloud", "id-1")).toBe(false);
 	});
 
 	it("throws lukit-not-found when the body script reports the message is gone", async () => {
-		execFileMock.mockImplementation(callbackWith(JSON.stringify({ notFound: true })));
+		spawnMock.mockImplementation(spawnWith(JSON.stringify({ notFound: true })));
 		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
 		await expect(bridge.fetchBody("iCloud", "id-1")).rejects.toThrow(/lukit-not-found/);
 	});
 
 	it("returns body and attachments on a successful fetch", async () => {
-		execFileMock.mockImplementation(callbackWith(JSON.stringify({ body: "hi", attachments: [] })));
+		spawnMock.mockImplementation(spawnWith(JSON.stringify({ body: "hi", attachments: [] })));
 		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
 		expect(await bridge.fetchBody("iCloud", "id-1")).toEqual({ body: "hi", attachments: [] });
 	});
 
-	it("surfaces a readable error on TCC denial (-1743)", async () => {
-		execFileMock.mockImplementation(
-			(_f: string, _a: string[], _o: unknown, cb: (e: Error | null, out: string) => void) =>
-				cb(new Error("execution error: Not authorized ... (-1743)"), ""),
-		);
-		const bridge = createOsascriptBridge({}, "Archive", {}, "Sent");
-		await expect(bridge.archive("iCloud", "id-1")).rejects.toThrow(/Automatisierung/);
-	});
-
 	it("derives getSelection direction from the mailbox name (locale-agnostic)", async () => {
-		execFileMock.mockImplementation(
-			callbackWith(
+		spawnMock.mockImplementation(
+			spawnWith(
 				JSON.stringify([
 					{ id: "s1", accountName: "CenterDevice", mailboxName: "Gesendet", subject: "X", sender: "Ich <me@x.de>", toName: "Bob", toAddress: "bob@x.de", dateSent: "2026-07-01T00:00:00Z", body: "b", attachments: [] },
 					{ id: "s2", accountName: "iCloud", mailboxName: "INBOX", subject: "Y", sender: "Alice <alice@x.com>", toName: "", toAddress: "", dateSent: "2026-07-01T00:00:00Z", body: "b", attachments: [] },

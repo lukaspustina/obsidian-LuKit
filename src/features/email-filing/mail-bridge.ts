@@ -1,4 +1,4 @@
-import { execFile } from "child_process";
+import { spawn } from "child_process";
 import type { MailAttachment } from "./email-format-engine";
 
 export interface RawMailMessageMeta {
@@ -106,39 +106,59 @@ export interface MailBridge {
 	): Promise<string[]>;
 }
 
-// Runs a JXA script via `osascript -l JavaScript -e <script> -- <args…>`. All
-// runtime values are passed as trailing argv (read by the script's run(argv)
-// handler) — NEVER interpolated into the script source — so account names,
-// message IDs, and mailbox names cannot inject into the script. execFile spawns
-// no shell.
-function runJxa(script: string, args: string[]): Promise<string> {
+// Runs a JXA script via `osascript -l JavaScript - <args…>`, handing the script
+// to osascript on **stdin**. All runtime values are passed as trailing argv
+// (read by the script's run(argv) handler) — NEVER interpolated into the script
+// source — so account names, message IDs, and mailbox names cannot inject into
+// the script. spawn starts no shell.
+//
+// The script must not travel in argv: an EDR agent (SentinelOne here) scans
+// osascript's inline `-e` payload as "active content" and SIGKILLs the process
+// fail-closed once the payload outgrows its scan buffer (~1 KB) — silently, with
+// no stdout and no stderr. Eight of the ten scripts below are far past that.
+//
+// Exported for the size regression test — nothing outside this module calls it.
+export function runJxa(script: string, args: string[]): Promise<string> {
 	return new Promise((resolve, reject) => {
-		execFile(
-			"osascript",
-			["-l", "JavaScript", "-e", script, ...args],
-			{ maxBuffer: 16 * 1024 * 1024 },
-			(error, stdout, stderr) => {
-				if (error) {
-					const detail = typeof stderr === "string" ? stderr.trim() : "";
-					const msg = typeof error.message === "string" ? error.message : String(error);
-					if (msg.includes("-1743") || detail.includes("-1743")) {
-						reject(
-							new Error(
-								"Mail-Automatisierung verweigert (-1743). Bitte erlaube Obsidian den Zugriff auf Mail in den Systemeinstellungen → Datenschutz → Automatisierung.",
-							),
-						);
-						return;
-					}
-					// Never surface error.message — execFile embeds the full command
-					// line (including the script source) in it. stderr's last line
-					// carries the actual JXA error.
-					const lastLine = detail === "" ? "" : (detail.split("\n").pop() ?? "").trim();
-					reject(new Error(lastLine === "" ? "Mail-Zugriff fehlgeschlagen." : `Mail-Zugriff fehlgeschlagen: ${lastLine}`));
-					return;
-				}
+		const child = spawn("osascript", ["-l", "JavaScript", "-", ...args]);
+		let stdout = "";
+		let stderr = "";
+		child.stdout.setEncoding("utf8");
+		child.stderr.setEncoding("utf8");
+		child.stdout.on("data", (chunk: string) => (stdout += chunk));
+		child.stderr.on("data", (chunk: string) => (stderr += chunk));
+		child.on("error", () => reject(new Error("Mail-Zugriff fehlgeschlagen: osascript nicht startbar.")));
+		child.on("close", (code, signal) => {
+			if (code === 0) {
 				resolve(stdout);
-			},
-		);
+				return;
+			}
+			const detail = stderr.trim();
+			if (detail.includes("-1743")) {
+				reject(
+					new Error(
+						"Mail-Automatisierung verweigert (-1743). Bitte erlaube Obsidian den Zugriff auf Mail in den Systemeinstellungen → Datenschutz → Automatisierung.",
+					),
+				);
+				return;
+			}
+			// A signal with no stderr is the one failure shape carrying zero
+			// diagnostic content — name the likely cause instead of staying mute.
+			if (signal !== null && detail === "") {
+				reject(
+					new Error(
+						`Mail-Zugriff fehlgeschlagen: osascript wurde mit ${signal} beendet — vermutlich durch einen Sicherheits-Agenten (EDR).`,
+					),
+				);
+				return;
+			}
+			const lastLine = detail === "" ? "" : (detail.split("\n").pop() ?? "").trim();
+			reject(new Error(lastLine === "" ? "Mail-Zugriff fehlgeschlagen." : `Mail-Zugriff fehlgeschlagen: ${lastLine}`));
+		});
+		// osascript may die before reading stdin (EDR kill, spawn failure); an
+		// unhandled EPIPE here would surface as an uncaught error event.
+		child.stdin.on("error", () => undefined);
+		child.stdin.end(script);
 	});
 }
 

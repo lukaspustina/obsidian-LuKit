@@ -1055,8 +1055,15 @@ export class EmailFilingFeature implements LuKitFeature {
 	}
 
 	private logBridgeError(e: unknown): void {
-		// PII-safe: log only the error type/name, never subject or sender.
-		console.error("LuKit email-filing: bridge error:", e instanceof Error ? e.name : typeof e);
+		// PII-safe: every bridge error message is built by us — a fixed German
+		// prefix plus osascript's stderr line — and never carries subject or
+		// sender. Node's own error.message (which embeds the command line) is
+		// already discarded in runJxa. Without the message the line reads just
+		// "Error" and says nothing at all.
+		console.error(
+			"LuKit email-filing: bridge error:",
+			e instanceof Error ? `${e.name}: ${e.message}` : typeof e,
+		);
 	}
 
 	renderSettings(containerEl: HTMLElement, plugin: LuKitPlugin): void {
