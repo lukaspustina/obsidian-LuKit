@@ -1,3 +1,4 @@
+// Supersedes part of tests/acceptance/intake-partial-takeover.test.ts (groupDone, sibling carry-over).
 // SDD: specs/sdd/triage-note-stops.md, Phase 1, Test Scenario #12 / Requirement
 // 14: GIVEN a note stop whose only group is fully taken over via ⌘S, WHEN the
 // stop refreshes, THEN `groups` is empty and ⌘S disappears from the key bar

@@ -87,6 +87,6 @@ describe("SDD vorgang-next-steps Phase 4 #3: future snooze hidden", () => {
 		await internals.beginWalk();
 
 		expect(internals.stops).toHaveLength(1);
-		expect(internals.stops[0].kind === "intake" && internals.stops[0].group.line).toBe("- Aus [[Besprechung Due]]");
+		expect(internals.stops[0].kind === "note" && internals.stops[0].groups[0].line).toBe("- Aus [[Besprechung Due]]");
 	});
 });

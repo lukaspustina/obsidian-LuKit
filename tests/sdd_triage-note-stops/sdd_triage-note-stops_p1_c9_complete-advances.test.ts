@@ -1,3 +1,5 @@
+// Supersedes tests/sdd_vorgang-next-steps/..._p4_c6_takeover-advances.test.ts and case 6 of
+// tests/acceptance/intake-note-date.test.ts (⌘D as take-over).
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import { parseIntakeGroups } from "../../src/features/vorgang/intake-engine";

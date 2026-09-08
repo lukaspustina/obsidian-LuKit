@@ -1,3 +1,4 @@
+// Supersedes part of tests/acceptance/intake-partial-takeover.test.ts (⌘D as take-over).
 // SDD: specs/sdd/triage-note-stops.md, Phase 1, Test Scenario #16 / Requirement 15:
 // GIVEN a note stop where ⌘S moves at least one line out of a group, WHEN the
 // stop is later left via ⌘D (or a snooze, or ⌘X), THEN it is counted in that

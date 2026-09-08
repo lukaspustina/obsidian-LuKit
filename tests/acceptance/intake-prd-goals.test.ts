@@ -6,9 +6,9 @@ import {
 	insertIntakeGroup,
 	parseIntakeGroups,
 } from "../../src/features/vorgang/intake-engine";
-import type { IntakeGroup } from "../../src/features/vorgang/intake-engine";
 import { NEXT_STEP_HEADERS } from "../../src/features/vorgang/vorgang-engine";
-import type { TriageStop, TriageTask } from "../../src/features/task-triage/task-triage-engine";
+import type { TriageStop } from "../../src/features/task-triage/task-triage-engine";
+import type { IntakeGroupOutcome } from "../../src/features/task-triage/intake-select-modal";
 import {
 	createMockApp,
 	createMockTFile,
@@ -174,14 +174,17 @@ describe("BesprechungFeature — removed intake item does not return on re-filin
 	});
 });
 
-// --- Walk-level snooze wiring (PRD AC13) ---------------------------------
-
-interface IntakeTriageStop {
-	kind: "intake";
-	group: IntakeGroup;
-	notePath: string;
-	noteBasename: string;
-}
+// --- Walk-level group-outcome wiring (PRD AC13) ---------------------------
+//
+// Phase 1 of triage-note-stops removed handleIntakeSnoozeCustom; a group's own
+// due date is now IntakeGroupOutcome.due, which the batch entry point always
+// receives as null in this phase (the date field itself ships in Phase 2).
+// So the date assertion this test used to make ("the new due date lands on
+// the parent line") cannot be exercised yet — Phase 2 restores it. What still
+// holds, and is what this test now guards, is that the batch entry point
+// threads a due: null outcome through takeOverGroup without touching the
+// sub-bullets, and — like every ⌘S pass — returns to the same stop rather
+// than advancing.
 
 interface FeatureInternals {
 	walkActive: boolean;
@@ -189,23 +192,7 @@ interface FeatureInternals {
 	index: number;
 	counts: Record<string, number>;
 	presentStop: () => Promise<void>;
-	handleIntakeSnoozeCustom: (date: string) => Promise<void>;
-}
-
-function task(overrides: Partial<TriageTask> = {}): TriageTask {
-	return {
-		path: "TaskNotes/Tasks/Kosten pruefen.md",
-		title: "Kosten prüfen",
-		isCompleted: false,
-		due: "2026-07-01",
-		priority: "normal",
-		contexts: [],
-		projects: [],
-		isRecurring: false,
-		completeInstances: [],
-		skippedInstances: [],
-		...overrides,
-	};
+	handleIntakeGroupOutcomes: (outcomes: IntakeGroupOutcome[]) => Promise<void>;
 }
 
 const VORGANG = [
@@ -229,8 +216,8 @@ const VORGANG = [
 
 beforeEach(() => resetNotices());
 
-describe("intake stop — snooze wiring through the pinned walk internals (PRD AC13, SDD requirement 35)", () => {
-	it("writes the new due date onto the parent line and leaves the sub-bullets unchanged", async () => {
+describe("intake stop — group outcome wiring through the pinned walk internals (PRD AC13, SDD requirement 35)", () => {
+	it("threads a due: null outcome through takeOverGroup, leaves the sub-bullets unchanged and stays on the stop", async () => {
 		const app = createMockApp({});
 		const vorgang = createMockTFile("Vorgänge/Vorgang - Acme.md", { basename: "Vorgang - Acme" });
 		app.vault.register(vorgang, VORGANG);
@@ -241,26 +228,40 @@ describe("intake stop — snooze wiring through the pinned walk internals (PRD A
 		const internals = feature as unknown as FeatureInternals;
 
 		const group = parseIntakeGroups(VORGANG)[0];
-		const intakeStop: IntakeTriageStop = { kind: "intake", group, notePath: vorgang.path, noteBasename: vorgang.basename };
+		const noteStop = {
+			kind: "note",
+			notePath: vorgang.path,
+			noteBasename: vorgang.basename,
+			groups: [group],
+		} as unknown as TriageStop;
 
 		internals.presentStop = vi.fn(async () => {});
 		internals.walkActive = true;
-		internals.stops = [intakeStop as unknown as TriageStop, { kind: "task", task: task() }];
+		internals.stops = [noteStop];
 		internals.index = 0;
-		internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };
+		internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0, takenOver: 0 };
 
-		await internals.handleIntakeSnoozeCustom("2026-09-08");
+		await internals.handleIntakeGroupOutcomes([
+			{
+				lineIndex: group.lineIndex,
+				discard: false,
+				due: null,
+				taken: [],
+				keptOwn: [...group.ownItems],
+				keptForeign: [...group.foreignItems],
+			},
+		]);
 
 		const newContent = app.vault.files.get(vorgang.path) ?? "";
 		const lines = newContent.split("\n");
 
-		const parentLine = lines.find((l) => l.startsWith("- Aus [[Besprechung Acme Kickoff]]"));
-		expect(parentLine).toBe("- Aus [[Besprechung Acme Kickoff]], 08.09.2026");
-
+		expect(lines).toContain("- Aus [[Besprechung Acme Kickoff]]");
 		expect(lines).toContain("    - Angebot einholen");
 		expect(lines).toContain("    - Vertrag prüfen");
 
-		expect(internals.index).toBe(1);
+		// ⌘S always returns to the stop — it never advances.
+		expect(internals.index).toBe(0);
 		expect(internals.walkActive).toBe(true);
+		expect(internals.presentStop).toHaveBeenCalled();
 	});
 });

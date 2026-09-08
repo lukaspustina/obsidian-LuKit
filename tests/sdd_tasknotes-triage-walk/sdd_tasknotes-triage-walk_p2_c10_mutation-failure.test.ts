@@ -85,13 +85,13 @@ describe("TaskTriageFeature — mutation failure keeps the walk on the current t
 		await internals.beginWalk();
 
 		expect(internals.index).toBe(0);
-		expect(internals.stops[internals.index]).toEqual({ kind: "task", task: first });
+		expect(internals.stops[internals.index]).toEqual({ kind: "note", notePath: first.path, noteBasename: "Kosten pruefen", task: first, groups: [] });
 
 		await internals.handleComplete();
 
 		expect(lastNotice()).toBeTruthy();
 		expect(internals.index).toBe(0);
-		expect(internals.stops[internals.index]).toEqual({ kind: "task", task: first });
+		expect(internals.stops[internals.index]).toEqual({ kind: "note", notePath: first.path, noteBasename: "Kosten pruefen", task: first, groups: [] });
 		expect(internals.walkActive).toBe(true);
 		expect(internals.counts.completed).toBe(0);
 	});

@@ -82,7 +82,7 @@ describe("TaskTriageFeature.handleSnooze — week preset", () => {
 		const { internals } = setup(bridge);
 
 		const t = task({ path: "A.md", due: "2026-07-01", isRecurring: false });
-		internals.stops = [t].map((t) => ({ kind: "task" as const, task: t }));
+		internals.stops = [t].map((t) => ({ kind: "note" as const, notePath: t.path, noteBasename: "A", task: t, groups: [] }));
 		internals.index = 0;
 		internals.walkActive = true;
 		internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };
@@ -103,7 +103,7 @@ describe("TaskTriageFeature.handleSnooze — week preset", () => {
 		const { internals } = setup(bridge);
 
 		const t = task({ path: "B.md", due: "2026-07-01", isRecurring: false });
-		internals.stops = [t].map((t) => ({ kind: "task" as const, task: t }));
+		internals.stops = [t].map((t) => ({ kind: "note" as const, notePath: t.path, noteBasename: "B", task: t, groups: [] }));
 		internals.index = 0;
 		internals.walkActive = true;
 		internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };

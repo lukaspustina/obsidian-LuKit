@@ -1,12 +1,28 @@
 import { App, Modal } from "obsidian";
-import type { IntakeGroup, IntakeItem, IntakeTakeOver } from "../vorgang/intake-engine";
+import type { IntakeGroup, IntakeItem } from "../vorgang/intake-engine";
+
+/** What the picker decided about one group of the stop. */
+export interface IntakeGroupOutcome {
+	// Identifies the group in the note — IntakeGroup's own identity field, the
+	// one takeOverGroup/dropGroup/snoozeGroup resolve by. Not the rendered
+	// line: two groups filed the same day from sources with the same generated
+	// section name produce byte-identical `line`s.
+	lineIndex: number;
+	// Wins over everything else in the group: taken/keptOwn/keptForeign and due
+	// are ignored when it is true.
+	discard: boolean;
+	// A due date for the group's parent line; null means no change. The date
+	// field itself ships in Phase 2, so this is always null today.
+	due: string | null;
+	taken: IntakeItem[];
+	keptOwn: IntakeItem[];
+	keptForeign: IntakeItem[];
+}
 
 export interface IntakeSelectModalOptions {
-	// The group whose lines are offered for selection — all preselected.
-	group: IntakeGroup;
-	// What leaves the group and what stays behind, both with their (possibly
-	// edited) text — exactly what takeOverGroup writes.
-	onConfirm: (selection: IntakeTakeOver) => void;
+	// One section per group, in the stop's group order.
+	groups: IntakeGroup[];
+	onConfirm: (outcomes: IntakeGroupOutcome[]) => void;
 	// Dismissed (Esc or click-outside): nothing is written, the triage stop is
 	// presented again unchanged.
 	onCancel: () => void;
@@ -25,14 +41,22 @@ interface Row {
 	prefix: string;
 }
 
-// One editable row per line of the group — items and the lines nested under
-// them — each with its own checkbox, all preselected. The text is editable, so
-// wording can be fixed on the way out, and emptying a field deletes that line.
-// A ticked line leaves the group, an unticked one stays behind — independently
-// of its neighbours: a ticked child under an unticked parent moves on its own,
-// an unticked child under a ticked parent stays as a line of its own. The walk
-// returns to the stop as long as anything remains, so a group can be worked off
-// in several passes.
+interface GroupSection {
+	group: IntakeGroup;
+	items: { itemRow: Row; childRows: Row[] }[];
+	ownCount: number;
+	discardBox: HTMLInputElement;
+}
+
+// One editable row per line of every group the stop carries — items and the
+// lines nested under them — each with its own checkbox, all preselected. The
+// text is editable, so wording can be fixed on the way out, and emptying a
+// field deletes that line. A ticked line leaves the group, an unticked one
+// stays behind — independently of its neighbours: a ticked child under an
+// unticked parent moves on its own, an unticked child under a ticked parent
+// stays as a line of its own. Per group there is one control that discards it
+// whole. The walk returns to the stop as long as anything remains, so a note's
+// intake can be worked off in several passes.
 export class IntakeSelectModal extends Modal {
 	private readonly options: IntakeSelectModalOptions;
 	private confirmed = false;
@@ -44,64 +68,21 @@ export class IntakeSelectModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		const { group } = this.options;
 		this.modalEl.addClass("lukit-intake-select-modal");
 		contentEl.empty();
 		contentEl.createEl("h3", { text: "Punkte übernehmen" });
-		contentEl.createEl("p", { text: group.line, cls: "lukit-intake-select-source" });
 		contentEl.createEl("p", {
-			text: "Angehakt wandert hoch, nicht angehakt bleibt in Unsortiert, leeres Feld löscht die Zeile.",
+			text: "Angehakt wandert hoch, nicht angehakt bleibt in Unsortiert, leeres Feld löscht die Zeile. „Gruppe verwerfen“ löscht die ganze Gruppe.",
 			cls: "lukit-intake-select-hint",
 		});
 
-		const list = contentEl.createEl("div", { cls: "lukit-intake-select" });
-		// Every line decides for itself. Coupling a child to its parent would
-		// block the common case: taking the todos out from under a person header
-		// and leaving the header behind.
-		const items = [...group.ownItems, ...group.foreignItems].map((item) => ({
-			itemRow: this.renderRow(list, "", item.text),
-			childRows: item.children.map((child) => {
-				const { prefix, text } = splitChildLine(child);
-				return this.renderRow(list, prefix, text, true);
-			}),
-		}));
+		const sections = this.options.groups.map((group) => this.renderGroupSection(contentEl, group));
 
-		const ownCount = group.ownItems.length;
 		const submit = (): void => {
 			this.confirmed = true;
-			const taken: IntakeItem[] = [];
-			const keptOwn: IntakeItem[] = [];
-			const keptForeign: IntakeItem[] = [];
-			items.forEach(({ itemRow, childRows }, i) => {
-				const kept = i < ownCount ? keptOwn : keptForeign;
-				// An emptied field deletes its line, ticked or not — it goes
-				// neither up nor back into the group.
-				const live = childRows.filter((r) => valueOf(r) !== "");
-				const takenChildren = live.filter((r) => r.checkbox.checked);
-				const keptChildren = live.filter((r) => !r.checkbox.checked);
-				const lines = (rows: Row[]) => rows.map((r) => r.prefix + valueOf(r));
-				const text = valueOf(itemRow);
-				if (text === "") {
-					// The deleted line takes nothing with it: its children decide
-					// for themselves, as they do whenever they lose their parent.
-					for (const row of takenChildren) taken.push({ text: valueOf(row), children: [] });
-					for (const row of keptChildren) kept.push({ text: valueOf(row), children: [] });
-					return;
-				}
-				if (itemRow.checkbox.checked) {
-					taken.push({ text, children: lines(takenChildren) });
-					// An unticked child of a ticked item loses its parent, so it
-					// stays behind as a line of its own rather than vanishing.
-					for (const row of keptChildren) kept.push({ text: valueOf(row), children: [] });
-					return;
-				}
-				kept.push({ text, children: lines(keptChildren) });
-				// A ticked child of an unticked item moves on its own — usually
-				// exactly what is wanted: the todo, not the person header above it.
-				for (const row of takenChildren) taken.push({ text: valueOf(row), children: [] });
-			});
+			const outcomes = sections.map((section) => this.outcomeOf(section));
 			this.close();
-			this.options.onConfirm({ taken, keptOwn, keptForeign });
+			this.options.onConfirm(outcomes);
 		};
 
 		const buttons = contentEl.createEl("div", { cls: "lukit-intake-select-buttons" });
@@ -117,6 +98,69 @@ export class IntakeSelectModal extends Modal {
 			submit();
 			return false;
 		});
+	}
+
+	private renderGroupSection(contentEl: HTMLElement, group: IntakeGroup): GroupSection {
+		// The parent line heads its section — with several groups on one note,
+		// it is the only thing telling their items apart.
+		contentEl.createEl("p", { text: group.line, cls: "lukit-intake-select-source" });
+
+		const list = contentEl.createEl("div", { cls: "lukit-intake-select" });
+		// Every line decides for itself. Coupling a child to its parent would
+		// block the common case: taking the todos out from under a person header
+		// and leaving the header behind.
+		const items = [...group.ownItems, ...group.foreignItems].map((item) => ({
+			itemRow: this.renderRow(list, "", item.text),
+			childRows: item.children.map((child) => {
+				const { prefix, text } = splitChildLine(child);
+				return this.renderRow(list, prefix, text, true);
+			}),
+		}));
+
+		// After the rows, so the checkbox order stays "one per line" — the
+		// discard box is the group's last control, not its first.
+		const discardRow = contentEl.createEl("div", { cls: "lukit-intake-select-discard" });
+		const discardBox = discardRow.createEl("input");
+		discardBox.type = "checkbox";
+		discardBox.checked = false;
+		discardRow.createEl("label", { text: "Gruppe verwerfen" });
+
+		return { group, items, ownCount: group.ownItems.length, discardBox };
+	}
+
+	private outcomeOf(section: GroupSection): IntakeGroupOutcome {
+		const taken: IntakeItem[] = [];
+		const keptOwn: IntakeItem[] = [];
+		const keptForeign: IntakeItem[] = [];
+		section.items.forEach(({ itemRow, childRows }, i) => {
+			const kept = i < section.ownCount ? keptOwn : keptForeign;
+			// An emptied field deletes its line, ticked or not — it goes
+			// neither up nor back into the group.
+			const live = childRows.filter((r) => valueOf(r) !== "");
+			const takenChildren = live.filter((r) => r.checkbox.checked);
+			const keptChildren = live.filter((r) => !r.checkbox.checked);
+			const lines = (rows: Row[]) => rows.map((r) => r.prefix + valueOf(r));
+			const text = valueOf(itemRow);
+			if (text === "") {
+				// The deleted line takes nothing with it: its children decide
+				// for themselves, as they do whenever they lose their parent.
+				for (const row of takenChildren) taken.push({ text: valueOf(row), children: [] });
+				for (const row of keptChildren) kept.push({ text: valueOf(row), children: [] });
+				return;
+			}
+			if (itemRow.checkbox.checked) {
+				taken.push({ text, children: lines(takenChildren) });
+				// An unticked child of a ticked item loses its parent, so it
+				// stays behind as a line of its own rather than vanishing.
+				for (const row of keptChildren) kept.push({ text: valueOf(row), children: [] });
+				return;
+			}
+			kept.push({ text, children: lines(keptChildren) });
+			// A ticked child of an unticked item moves on its own — usually
+			// exactly what is wanted: the todo, not the person header above it.
+			for (const row of takenChildren) taken.push({ text: valueOf(row), children: [] });
+		});
+		return { lineIndex: section.group.lineIndex, discard: section.discardBox.checked, due: null, taken, keptOwn, keptForeign };
 	}
 
 	private renderRow(list: HTMLElement, prefix: string, text: string, isChild = false): Row {
@@ -142,7 +186,7 @@ export class IntakeSelectModal extends Modal {
 
 // Emptying a field is how a single line is deleted: the caller drops every row
 // whose text is blank, so nothing is written for it and nothing stays behind.
-// ⌘X remains the way to discard the whole group at once.
+// The group's own discard box is the way to drop all of them at once.
 function valueOf(row: Row): string {
 	return row.input.value.trim();
 }

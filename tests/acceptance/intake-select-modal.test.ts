@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { IntakeSelectModal } from "../../src/features/task-triage/intake-select-modal";
-import type { IntakeGroup, IntakeTakeOver } from "../../src/features/vorgang/intake-engine";
+import type { IntakeGroupOutcome } from "../../src/features/task-triage/intake-select-modal";
+import type { IntakeGroup } from "../../src/features/vorgang/intake-engine";
 import { createMockApp } from "../helpers/obsidian-mocks";
 import { __fireEvent } from "../helpers/obsidian-stub";
 
@@ -20,11 +21,11 @@ function allEls(el: { children?: unknown[] }): Record<string, never>[] {
 }
 
 function open() {
-	let confirmed: IntakeTakeOver | null = null;
+	let confirmed: IntakeGroupOutcome[] | null = null;
 	const modal = new IntakeSelectModal(createMockApp({}) as never, {
-		group: GROUP,
-		onConfirm: (selection) => {
-			confirmed = selection;
+		groups: [GROUP],
+		onConfirm: (outcomes) => {
+			confirmed = outcomes;
 		},
 		onCancel: () => undefined,
 	});
@@ -41,11 +42,12 @@ function open() {
 		confirm: () => {
 			const btn = els.find((e) => e.tag === "button" && e.texts.includes("Übernehmen"));
 			__fireEvent(btn as never, "click");
-			return confirmed;
+			return confirmed?.[0] ?? null;
 		},
 		rows: els.filter((e) => e.cls.startsWith("lukit-intake-select-item")),
 		texts: els.filter((e) => e.cls === "lukit-intake-select-text"),
 		checkboxes: els.filter((e) => e.type === "checkbox"),
+		source: els.find((e) => e.cls === "lukit-intake-select-source"),
 	};
 }
 
@@ -159,5 +161,20 @@ describe("IntakeSelectModal", () => {
 		expect(result?.taken).toEqual([]);
 		expect(result?.keptOwn).toEqual([]);
 		expect(result?.keptForeign).toEqual([]);
+	});
+
+	it("ticking the discard box yields discard: true", () => {
+		const modal = open();
+		// The discard box is the group's last control, after its five item rows.
+		modal.checkboxes[5].checked = true;
+
+		const result = modal.confirm();
+		expect(result?.discard).toBe(true);
+	});
+
+	it("renders the group's line as its section header", () => {
+		const { source } = open();
+
+		expect(source?.texts).toContain(GROUP.line);
 	});
 });

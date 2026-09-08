@@ -79,7 +79,7 @@ describe("TaskTriageFeature.handleSkipInstance", () => {
 
 		const recurringTask = task({ path: "R.md", isRecurring: true, scheduled: "2026-07-02" });
 		internals.walkActive = true;
-		internals.stops = [recurringTask].map((t) => ({ kind: "task" as const, task: t }));
+		internals.stops = [recurringTask].map((t) => ({ kind: "note" as const, notePath: t.path, noteBasename: "R", task: t, groups: [] }));
 		internals.index = 0;
 		internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };
 

@@ -1,3 +1,4 @@
+// Supersedes the counting cases of tests/acceptance/intake-partial-takeover.test.ts.
 // SDD: specs/sdd/triage-note-stops.md, Phase 1, Test Scenario / Requirement 15:
 // GIVEN a note stop where ⌘S moves at least one line out of a group, WHEN the
 // stop is later left via Esc, THEN it is counted as übernommen, not

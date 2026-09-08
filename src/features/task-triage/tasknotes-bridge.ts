@@ -18,7 +18,6 @@ export interface TaskNotesBridge {
 	clearDue(path: string): Promise<void>;
 	toggleCompleteInstance(path: string, date: string): Promise<void>;
 	toggleSkippedInstance(path: string, date: string): Promise<void>;
-	readNote(path: string): Promise<string>;
 	openInNewTab(path: string): Promise<void>;
 }
 
@@ -217,10 +216,6 @@ export function createTaskNotesBridge(app: App): TaskNotesBridge {
 
 		async toggleSkippedInstance(path: string, date: string): Promise<void> {
 			await requireApi().recurring.toggleSkippedInstance(path, date);
-		},
-
-		async readNote(path: string): Promise<string> {
-			return app.vault.cachedRead(resolveFile(path));
 		},
 
 		async openInNewTab(path: string): Promise<void> {

@@ -62,4 +62,22 @@ describe("SDD triage-note-stops Phase 1 #1: one stop per note", () => {
 		expect(stop.groups.map((g) => g.lineIndex)).toEqual([10, 16]);
 		expect(stop.groups).toEqual([groupA, groupB]);
 	});
+
+	// Requirement 1's carry clause. A Vorgang whose own date lies in the future
+	// reaches the walk through its intake alone — but the stop must still carry
+	// the task, or ⌘D, ⌘G and the snoozes are withdrawn on exactly the notes the
+	// walk exists for. A non-due task never makes a note qualify on its own.
+	it("carries a note's task even when only its intake group is due", () => {
+		const notDue = makeTask({ due: "2026-12-01" });
+		const stops = selectNoteStops([], [makeCandidate(makeGroup())], [notDue]);
+
+		expect(stops).toHaveLength(1);
+		expect(stops[0].task).toEqual(notDue);
+	});
+
+	it("does not let a non-due task create a stop of its own", () => {
+		const lonely = makeTask({ path: "Vorgänge/Vorgang Ohne Intake.md", due: "2026-12-01" });
+
+		expect(selectNoteStops([], [], [lonely])).toEqual([]);
+	});
 });

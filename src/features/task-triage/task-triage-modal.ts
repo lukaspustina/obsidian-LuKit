@@ -1,8 +1,8 @@
 import { App, Component, MarkdownRenderer, Modal } from "obsidian";
 import { formatDate } from "../../shared/date-format";
 import type { DateLocale } from "../../shared/date-format";
-import { overdueLabel, reminderOverdueLabel, formatProjectLink, parseIsoDate } from "./task-triage-engine";
-import type { TriageStop, SnoozeKind } from "./task-triage-engine";
+import { overdueLabel, reminderOverdueLabel, formatProjectLink, parseIsoDate, noteStopHeadline } from "./task-triage-engine";
+import type { TriageStop, TriageTask, SnoozeKind } from "./task-triage-engine";
 
 export interface TaskTriageModalOptions {
 	stop: TriageStop;
@@ -17,10 +17,8 @@ export interface TaskTriageModalOptions {
 	onSnooze: (kind: SnoozeKind) => void;
 	onSnoozeCustom: () => void;
 	onSkipInstance: () => void;
-	// Used at intake stops only: ⌘X discards the group, ⌘S opens the item
-	// selection. Both are separate callbacks because ⌘X means something other
-	// than "skip today's instance" there.
-	onIntakeDiscard: () => void;
+	// ⌘S opens the selection over the note's intake groups; offered only while
+	// the stop has at least one.
 	onIntakeSelect: () => void;
 	// Datum der Notiz selbst (nur wenn sie eine TaskNote ist) — beendet den Stop
 	// nicht, anders als jede andere Aktion hier.
@@ -62,40 +60,23 @@ export class TaskTriageModal extends Modal {
 		const { stop } = this.options;
 		if (stop.kind === "reminder") {
 			this.renderReminderHeader();
-		} else if (stop.kind === "intake") {
-			this.renderIntakeHeader();
-		} else {
-			this.renderTaskHeader();
+			return;
 		}
+		if (stop.task === undefined) {
+			this.renderTasklessNoteHeader(stop.noteBasename, stop.groups.length);
+			return;
+		}
+		this.renderTaskHeader(stop.task);
 	}
 
-	private renderIntakeHeader(): void {
+	// A note TaskNotes does not know has no dates, no priority and no recurrence
+	// to show — what it has is its intake, so the count stands in their place.
+	private renderTasklessNoteHeader(basename: string, groupCount: number): void {
 		const { contentEl } = this;
-		const { stop, locale, today, position } = this.options;
-		if (stop.kind !== "intake") return;
-		const group = stop.group;
-
-		// The note is what the stop is about — the group's source (a Besprechung,
-		// an e-mail anchor) only says where its items came from, and as the
-		// headline it made every intake stop read as a due Besprechung.
-		contentEl.createEl("h3", { text: stop.noteBasename });
-
+		const { position } = this.options;
+		contentEl.createEl("h3", { text: noteStopHeadline(basename, groupCount) });
 		const meta = contentEl.createEl("p", { cls: "lukit-triage-meta" });
-		const count = group.ownItems.length + group.foreignItems.length;
-		const due = group.due === null ? "ohne Datum" : formatDate(group.due, locale);
-		const head = [`${position.index + 1}/${position.total}`, "Intake"];
-		if (group.source !== "") {
-			head.push(`Aus: ${group.source}`);
-		}
-		const parts: string[] =
-			stop.groupDone === true ? [...head, "übernommen"] : [...head, `fällig ${due}`, `${count} Punkt(e)`];
-		meta.createSpan({ text: parts.join(" · ") });
-
-		const overdue = reminderOverdueLabel(group.due, today, locale);
-		if (overdue !== "") {
-			meta.createSpan({ text: " · " });
-			meta.createSpan({ text: overdue, cls: "lukit-triage-overdue" });
-		}
+		meta.createSpan({ text: `${position.index + 1}/${position.total}` });
 	}
 
 	private renderReminderHeader(): void {
@@ -118,11 +99,9 @@ export class TaskTriageModal extends Modal {
 		}
 	}
 
-	private renderTaskHeader(): void {
+	private renderTaskHeader(task: TriageTask): void {
 		const { contentEl } = this;
-		const { stop, locale, today, position } = this.options;
-		if (stop.kind !== "task") return;
-		const task = stop.task;
+		const { locale, today, position } = this.options;
 
 		contentEl.createEl("h3", { text: task.title });
 
@@ -166,11 +145,22 @@ export class TaskTriageModal extends Modal {
 		this.previewEl.setText("Lade Vorschau…");
 	}
 
+	// What the stop carries decides which keys it offers — the same gates back
+	// registerActionKeys and renderInstructions, so bindings and hint bar can
+	// never disagree. A reminder keeps ⌘D but has neither a note date nor an
+	// intake.
+	private gates(): { hasTask: boolean; hasGroups: boolean; hasNoteDate: boolean } {
+		const { stop } = this.options;
+		if (stop.kind !== "note") return { hasTask: true, hasGroups: false, hasNoteDate: false };
+		const hasTask = stop.task !== undefined;
+		return { hasTask, hasGroups: stop.groups.length > 0, hasNoteDate: hasTask };
+	}
+
 	private registerActionKeys(): void {
 		const { actions } = this.options;
-		const groupGone = this.options.stop.kind === "intake" && this.options.stop.groupDone === true;
+		const { hasTask, hasGroups, hasNoteDate } = this.gates();
 
-		if (!groupGone) {
+		if (hasTask) {
 			this.scope.register(["Mod"], "D", () => {
 				this.act(this.options.onComplete);
 				return false;
@@ -203,24 +193,18 @@ export class TaskTriageModal extends Modal {
 			});
 		}
 
-		const stop = this.options.stop;
-		if (stop.kind === "intake") {
-			if (!groupGone) {
-				this.scope.register(["Mod"], "X", () => {
-					this.act(this.options.onIntakeDiscard);
-					return false;
-				});
-				this.scope.register(["Mod"], "S", () => {
-					this.act(this.options.onIntakeSelect);
-					return false;
-				});
-			}
-			if (stop.noteIsTask === true) {
-				this.scope.register(["Mod"], "G", () => {
-					this.act(this.options.onIntakeNoteDate);
-					return false;
-				});
-			}
+		if (hasGroups) {
+			this.scope.register(["Mod"], "S", () => {
+				this.act(this.options.onIntakeSelect);
+				return false;
+			});
+		}
+
+		if (hasNoteDate) {
+			this.scope.register(["Mod"], "G", () => {
+				this.act(this.options.onIntakeNoteDate);
+				return false;
+			});
 		}
 
 		this.scope.register([], "Enter", () => {
@@ -236,11 +220,10 @@ export class TaskTriageModal extends Modal {
 
 	private renderInstructions(): void {
 		const { actions } = this.options;
-		const isIntake = this.options.stop.kind === "intake";
-		const groupGone = this.options.stop.kind === "intake" && this.options.stop.groupDone === true;
+		const { hasTask, hasGroups, hasNoteDate } = this.gates();
 		const instructions: { command: string; purpose: string }[] = [{ command: "↵", purpose: "Öffnen & Stopp" }];
-		if (!groupGone) {
-			instructions.push({ command: "⌘D", purpose: isIntake ? "Übernehmen" : "Erledigt" });
+		if (hasTask) {
+			instructions.push({ command: "⌘D", purpose: "Erledigt" });
 		}
 		if (actions.snooze) {
 			instructions.push(
@@ -253,14 +236,11 @@ export class TaskTriageModal extends Modal {
 		if (actions.skipInstance) {
 			instructions.push({ command: "⌘X", purpose: "Heute auslassen" });
 		}
-		const stop = this.options.stop;
-		if (stop.kind === "intake") {
-			if (!groupGone) {
-				instructions.push({ command: "⌘S", purpose: "Punkte auswählen…" }, { command: "⌘X", purpose: "Verwerfen" });
-			}
-			if (stop.noteIsTask === true) {
-				instructions.push({ command: "⌘G", purpose: "Datum der Notiz…" });
-			}
+		if (hasGroups) {
+			instructions.push({ command: "⌘S", purpose: "Punkte auswählen…" });
+		}
+		if (hasNoteDate) {
+			instructions.push({ command: "⌘G", purpose: "Datum der Notiz…" });
 		}
 		instructions.push({ command: "esc", purpose: "Überspringen" }, { command: "⌘.", purpose: "Stopp" });
 

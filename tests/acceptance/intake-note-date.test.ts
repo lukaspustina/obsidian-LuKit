@@ -18,7 +18,7 @@ vi.mock("../../src/features/task-triage/note-date-modal", () => ({
 
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import { parseIntakeGroups } from "../../src/features/vorgang/intake-engine";
-import type { TriageStop } from "../../src/features/task-triage/task-triage-engine";
+import type { TriageStop, TriageTask } from "../../src/features/task-triage/task-triage-engine";
 import type { TaskNotesBridge } from "../../src/features/task-triage/tasknotes-bridge";
 import {
 	createMockApp,
@@ -68,11 +68,27 @@ interface FeatureInternals {
 	counts: Record<string, number>;
 	bridge: TaskNotesBridge;
 	presentStop: () => Promise<void>;
-	handleIntakeTakeOver: () => Promise<void>;
 	handleIntakeNoteDate: () => void;
 }
 
-function setup(stopExtras: Record<string, unknown>) {
+function task(overrides: Partial<TriageTask> = {}): TriageTask {
+	return {
+		path: "Vorgänge/Vorgang - Acme.md",
+		title: "Vorgang - Acme",
+		isCompleted: false,
+		contexts: [],
+		projects: [],
+		isRecurring: false,
+		completeInstances: [],
+		skippedInstances: [],
+		...overrides,
+	};
+}
+
+// undefined => a note stop without a task (TaskNotes does not know it), e.g. a
+// Person note; an object (possibly empty) => the note carries a task with
+// those due/scheduled overrides.
+function setup(taskOverrides?: Partial<TriageTask>) {
 	const app = createMockApp({});
 	const vorgang = createMockTFile("Vorgänge/Vorgang - Acme.md", { basename: "Vorgang - Acme" });
 	app.vault.register(vorgang, VORGANG);
@@ -88,15 +104,15 @@ function setup(stopExtras: Record<string, unknown>) {
 	internals.walkActive = true;
 	internals.stops = [
 		{
-			kind: "intake",
-			group: parseIntakeGroups(VORGANG)[0],
+			kind: "note",
 			notePath: vorgang.path,
 			noteBasename: vorgang.basename,
-			...stopExtras,
+			groups: [parseIntakeGroups(VORGANG)[0]],
+			task: taskOverrides === undefined ? undefined : task(taskOverrides),
 		} as unknown as TriageStop,
 	];
 	internals.index = 0;
-	internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0, takenOver: 0, discarded: 0 };
+	internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0, takenOver: 0 };
 	return { internals, bridge, app, vorgang };
 }
 
@@ -107,7 +123,7 @@ beforeEach(() => {
 
 describe("intake stop — the note's own dates (⌘G)", () => {
 	it("offers Fällig and Geplant prefilled with the note's current values", () => {
-		const { internals } = setup({ noteIsTask: true, noteScheduled: "2026-09-30", noteDue: "2026-09-15" });
+		const { internals } = setup({ scheduled: "2026-09-30", due: "2026-09-15" });
 
 		internals.handleIntakeNoteDate();
 
@@ -118,9 +134,8 @@ describe("intake stop — the note's own dates (⌘G)", () => {
 
 	it("writes only what changed and returns to the same stop", async () => {
 		const { internals, bridge, app, vorgang } = setup({
-			noteIsTask: true,
-			noteScheduled: "2026-09-30",
-			noteDue: "2026-09-15",
+			scheduled: "2026-09-30",
+			due: "2026-09-15",
 		});
 
 		internals.handleIntakeNoteDate();
@@ -140,7 +155,7 @@ describe("intake stop — the note's own dates (⌘G)", () => {
 	});
 
 	it("clears a date whose field was emptied instead of writing an empty string", async () => {
-		const { internals, bridge } = setup({ noteIsTask: true, noteScheduled: "2026-09-30", noteDue: "2026-09-15" });
+		const { internals, bridge } = setup({ scheduled: "2026-09-30", due: "2026-09-15" });
 
 		internals.handleIntakeNoteDate();
 		(dateModals[0].onSubmit as (d: { due: string; scheduled: string }) => void)({ due: "", scheduled: "2026-09-30" });
@@ -153,7 +168,7 @@ describe("intake stop — the note's own dates (⌘G)", () => {
 	});
 
 	it("leaves the dates alone when the dialog is dismissed", async () => {
-		const { internals, bridge } = setup({ noteIsTask: true });
+		const { internals, bridge } = setup({});
 
 		internals.handleIntakeNoteDate();
 		(dateModals[0].onCancel as () => void)();
@@ -165,19 +180,15 @@ describe("intake stop — the note's own dates (⌘G)", () => {
 	});
 
 	it("does nothing for a note TaskNotes does not know (e.g. a Person note)", () => {
-		const { internals } = setup({ noteIsTask: false });
+		const { internals } = setup(undefined);
 
 		internals.handleIntakeNoteDate();
 
 		expect(dateModals).toHaveLength(0);
 	});
 
-	it("is not chained onto a take-over — ⌘D advances without asking", async () => {
-		const { internals } = setup({ noteIsTask: true, noteScheduled: "2026-09-30" });
-
-		await internals.handleIntakeTakeOver();
-
-		expect(dateModals).toHaveLength(0);
-		expect(internals.counts.takenOver).toBe(1);
-	});
+	// "⌘D advances without asking" is superseded by
+	// tests/sdd_triage-note-stops/sdd_triage-note-stops_p1_c9_complete-advances.test.ts —
+	// ⌘D now completes the note's task and advances, it no longer chains onto
+	// a take-over (that concept is gone; see also p1_c16_explicit-action-bucket).
 });

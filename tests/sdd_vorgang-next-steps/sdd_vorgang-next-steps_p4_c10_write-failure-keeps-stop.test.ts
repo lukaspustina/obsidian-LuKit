@@ -3,6 +3,7 @@ import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-fe
 import { parseIntakeGroups } from "../../src/features/vorgang/intake-engine";
 import type { IntakeGroup } from "../../src/features/vorgang/intake-engine";
 import type { TriageStop } from "../../src/features/task-triage/task-triage-engine";
+import type { IntakeGroupOutcome } from "../../src/features/task-triage/intake-select-modal";
 import {
 	createMockApp,
 	createMockTFile,
@@ -14,20 +15,16 @@ import {
 } from "../helpers/obsidian-mocks";
 
 // SDD vorgang-next-steps, Phase 4, Test Scenario 10 / Requirement 38: a
-// failing vault write on ⌘D shows a Notice, keeps the walk on the same
-// intake stop, and leaves the note byte-identical to before the attempt —
+// failing vault write on ⌘S shows a Notice, keeps the walk on the same
+// note stop, and leaves the note byte-identical to before the attempt —
 // mirroring the existing reminder/task mutation-failure contract
 // (mutateReminder's shape in task-triage-feature.ts).
-//
-// `TaskTriageFeature.handleIntakeTakeOver` does not exist yet, so this fails
-// today with "internals.handleIntakeTakeOver is not a function" — the
-// correct RED, not a syntax error.
 
-interface IntakeTriageStop {
-	kind: "intake";
-	group: IntakeGroup;
+interface NoteTriageStop {
+	kind: "note";
 	notePath: string;
 	noteBasename: string;
+	groups: IntakeGroup[];
 }
 
 interface FeatureInternals {
@@ -36,7 +33,7 @@ interface FeatureInternals {
 	index: number;
 	counts: Record<string, number>;
 	presentStop: () => Promise<void>;
-	handleIntakeTakeOver: (selectedIndices?: number[]) => Promise<void>;
+	handleIntakeGroupOutcomes: (outcomes: IntakeGroupOutcome[]) => Promise<void>;
 }
 
 const VORGANG = [
@@ -74,15 +71,23 @@ describe("intake stop — a failing write on ⌘D keeps the stop and shows a Not
 		const internals = feature as unknown as FeatureInternals;
 
 		const group = parseIntakeGroups(VORGANG)[0];
-		const intakeStop: IntakeTriageStop = { kind: "intake", group, notePath: vorgang.path, noteBasename: vorgang.basename };
+		const noteStop: NoteTriageStop = { kind: "note", notePath: vorgang.path, noteBasename: vorgang.basename, groups: [group] };
 
 		internals.presentStop = vi.fn(async () => {});
 		internals.walkActive = true;
-		internals.stops = [intakeStop as unknown as TriageStop];
+		internals.stops = [noteStop as unknown as TriageStop];
 		internals.index = 0;
 		internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };
 
-		await internals.handleIntakeTakeOver();
+		const outcome: IntakeGroupOutcome = {
+			lineIndex: group.lineIndex,
+			discard: false,
+			due: null,
+			taken: [...group.ownItems],
+			keptOwn: [],
+			keptForeign: [],
+		};
+		await internals.handleIntakeGroupOutcomes([outcome]);
 
 		expect(lastNotice()).toBeTruthy();
 		expect(internals.index).toBe(0);

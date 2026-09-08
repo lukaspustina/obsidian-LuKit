@@ -33,11 +33,11 @@ import {
 // fails today with "internals.handleIntakeSelect is not a function" — the
 // correct RED, not a syntax error.
 
-interface IntakeTriageStop {
-	kind: "intake";
-	group: IntakeGroup;
+interface NoteTriageStop {
+	kind: "note";
 	notePath: string;
 	noteBasename: string;
+	groups: IntakeGroup[];
 }
 
 interface FeatureInternals {
@@ -84,11 +84,11 @@ describe("intake stop — dismissing ⌘S selection without confirming mutates n
 		const internals = feature as unknown as FeatureInternals;
 
 		const group = parseIntakeGroups(VORGANG)[0];
-		const intakeStop: IntakeTriageStop = { kind: "intake", group, notePath: vorgang.path, noteBasename: vorgang.basename };
+		const noteStop: NoteTriageStop = { kind: "note", notePath: vorgang.path, noteBasename: vorgang.basename, groups: [group] };
 
 		internals.presentStop = vi.fn(async () => {});
 		internals.walkActive = true;
-		internals.stops = [intakeStop as unknown as TriageStop];
+		internals.stops = [noteStop as unknown as TriageStop];
 		internals.index = 0;
 
 		internals.handleIntakeSelect();

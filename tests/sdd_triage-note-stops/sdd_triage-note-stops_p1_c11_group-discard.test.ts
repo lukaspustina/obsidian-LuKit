@@ -1,3 +1,4 @@
+// Supersedes part of tests/acceptance/intake-partial-takeover.test.ts (groupDone).
 // SDD: specs/sdd/triage-note-stops.md, Phase 1, Test Scenario #11 / Requirement
 // 11 (+ 13, 14, 4): GIVEN a note stop with one group, WHEN its section is
 // marked discard and confirmed, THEN all its lines (own + foreign) are
@@ -19,7 +20,7 @@
 // shape is constructed here and cast through `as unknown as TriageStop`, the
 // same forward-reference convention sdd_triage-note-stops_p1_c3/c12 use.
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import { TaskTriageModal } from "../../src/features/task-triage/task-triage-modal";
 import { parseIntakeGroups } from "../../src/features/vorgang/intake-engine";
@@ -76,7 +77,7 @@ function setup() {
 	const internals = feature as unknown as FeatureInternals;
 
 	const group = parseIntakeGroups(VORGANG)[0];
-	internals.presentStop = async () => {};
+	internals.presentStop = vi.fn(async () => {});
 	internals.stops = [
 		{
 			kind: "note",

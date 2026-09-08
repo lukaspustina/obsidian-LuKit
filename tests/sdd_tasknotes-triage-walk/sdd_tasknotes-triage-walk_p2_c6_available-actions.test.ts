@@ -38,7 +38,8 @@ describe("TaskTriageFeature.availableActions", () => {
 	it("hides snooze and shows skip-instance for a recurring task", () => {
 		const { internals } = setup(fakeBridge());
 
-		const actions = internals.availableActions({ kind: "task", task: task({ isRecurring: true }) });
+		const t1 = task({ isRecurring: true });
+		const actions = internals.availableActions({ kind: "note", notePath: t1.path, noteBasename: "Kosten pruefen", task: t1, groups: [] });
 
 		expect(actions).toEqual({ snooze: false, skipInstance: true });
 	});
@@ -46,7 +47,8 @@ describe("TaskTriageFeature.availableActions", () => {
 	it("shows snooze and hides skip-instance for a non-recurring task", () => {
 		const { internals } = setup(fakeBridge());
 
-		const actions = internals.availableActions({ kind: "task", task: task({ isRecurring: false }) });
+		const t2 = task({ isRecurring: false });
+		const actions = internals.availableActions({ kind: "note", notePath: t2.path, noteBasename: "Kosten pruefen", task: t2, groups: [] });
 
 		expect(actions).toEqual({ snooze: true, skipInstance: false });
 	});

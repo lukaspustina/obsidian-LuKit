@@ -88,6 +88,6 @@ describe("SDD vorgang-next-steps Phase 4 #4: done-tag excludes intake groups", (
 		await internals.beginWalk();
 
 		expect(internals.stops).toHaveLength(1);
-		expect(internals.stops[0].kind === "intake" && internals.stops[0].group.line).toBe("- Aus [[Besprechung Offen]]");
+		expect(internals.stops[0].kind === "note" && internals.stops[0].groups[0].line).toBe("- Aus [[Besprechung Offen]]");
 	});
 });

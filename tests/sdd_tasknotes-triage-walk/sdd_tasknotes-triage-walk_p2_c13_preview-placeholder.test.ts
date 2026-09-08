@@ -56,8 +56,8 @@ interface FeatureInternals {
 	handleStop: () => void;
 }
 
-function setup(bridge: TaskNotesBridge) {
-	const app = createMockApp();
+function setup(bridge: TaskNotesBridge, initialFiles?: Record<string, string>) {
+	const app = createMockApp(initialFiles);
 	const plugin = createMockPlugin(makeTestSettings(), app);
 	const feature = new TaskTriageFeature();
 	feature.onload(asLuKitPlugin(plugin));
@@ -71,20 +71,18 @@ function setup(bridge: TaskNotesBridge) {
 beforeEach(() => resetNotices());
 
 describe("TaskTriageFeature.loadPreview — preview-unreadable placeholder", () => {
-	it("resolves to a non-empty placeholder when readNote rejects, instead of throwing", async () => {
-		const readNote = vi.fn(async () => {
-			throw new Error("io");
-		});
-		const { internals } = setup(fakeBridge({ readNote }));
+	it("resolves to a non-empty placeholder when the note cannot be read, instead of throwing", async () => {
+		const { internals } = setup(fakeBridge());
+		const t = task();
 
-		const preview = await internals.loadPreview({ kind: "task", task: task() });
+		const preview = await internals.loadPreview({ kind: "note", notePath: t.path, noteBasename: "Kosten pruefen", task: t, groups: [] });
 
 		expect(typeof preview).toBe("string");
 		expect(preview.length).toBeGreaterThan(0);
 		expect(preview).not.toBe("# Fakten und Pointer\nSome real body content");
 	});
 
-	it("returns the trimmed preview when readNote resolves with a Vorgang-style body", async () => {
+	it("returns the trimmed preview when the note holds a Vorgang-style body", async () => {
 		const body = [
 			"---",
 			"tags: [Vorgang]",
@@ -95,10 +93,10 @@ describe("TaskTriageFeature.loadPreview — preview-unreadable placeholder", () 
 			"##### Neuester Abschnitt, 02.07.2026",
 			"- Eintrag",
 		].join("\n");
-		const readNote = vi.fn(async () => body);
-		const { internals } = setup(fakeBridge({ readNote }));
+		const t = task();
+		const { internals } = setup(fakeBridge(), { [t.path]: body });
 
-		const preview = await internals.loadPreview({ kind: "task", task: task() });
+		const preview = await internals.loadPreview({ kind: "note", notePath: t.path, noteBasename: "Kosten pruefen", task: t, groups: [] });
 
 		expect(preview).toContain("Wichtiger Fakt zur Sache");
 	});

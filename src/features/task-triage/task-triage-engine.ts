@@ -22,30 +22,22 @@ export interface TriageTask {
 
 export type SnoozeKind = "tomorrow" | "week" | "nextMonday";
 
-// One stop of the triage walk: a TaskNotes task, a diary reminder, or an
-// intake group below a Vorgang note's "#### Unsortiert" boundary.
-export type TriageStop =
-	| { kind: "task"; task: TriageTask }
-	| { kind: "reminder"; reminder: ReminderItem }
-	// noteIsTask/noteScheduled describe the note the group sits in, not the
-	// group: a Vorgang is itself a TaskNote (note_type: tasknote) and carries
-	// its own scheduled date, while a Person note — which can hold an intake
-	// too — is not a task and has none. Optional: a stop built before the task
-	// list was known simply offers no note date.
-	| {
-			kind: "intake";
-			group: IntakeGroup;
-			notePath: string;
-			noteBasename: string;
-			noteIsTask?: boolean;
-			noteScheduled?: string;
-			noteDue?: string;
-			// True once the group has left the note (⌘S took the last line). The
-			// stop stays open — sorting the intake is a sub-task of working the
-			// Vorgang, and its dates are still to be set — but every action that
-			// addresses the group is withdrawn, since its parent line is gone.
-			groupDone?: boolean;
-	  };
+// One note that qualifies for a stop: it carries a task, at least one due
+// group, or both.
+export interface NoteStop {
+	notePath: string;
+	noteBasename: string;
+	// Absent when TaskNotes does not know the note — a Person note carries an
+	// intake but has no dates and no completion.
+	task?: TriageTask;
+	// The note's due groups in file order; empty once they are all worked off
+	// or deferred past today, which withdraws ⌘S and nothing else.
+	groups: IntakeGroup[];
+}
+
+// One stop of the triage walk: a diary reminder, or a note — the note being
+// both its TaskNotes task and its due intake groups at once.
+export type TriageStop = { kind: "reminder"; reminder: ReminderItem } | ({ kind: "note" } & NoteStop);
 
 // One group gathered during walk setup, before due filtering and ordering —
 // carries the note it came from, which IntakeGroup itself does not know.
@@ -143,6 +135,80 @@ function cmpDue(a: Date | null, b: Date | null): number {
 function cmpPath(a: string, b: string): number {
 	if (a === b) return 0;
 	return a < b ? -1 : 1;
+}
+
+function basenameOf(path: string): string {
+	return path.replace(/^.*\//, "").replace(/\.md$/, "");
+}
+
+// Earliest group due date as ISO; undefined when every group is dateless.
+function earliestGroupDue(groups: IntakeGroup[]): string | undefined {
+	let earliest: string | undefined;
+	for (const group of groups) {
+		if (group.due === null) continue;
+		const iso = formatDate(group.due, "iso");
+		if (earliest === undefined || iso < earliest) earliest = iso;
+	}
+	return earliest;
+}
+
+// The note's own date: its task's, or — for a note without a task or with a
+// fully dateless one — the earliest date among its groups.
+function stopScheduled(stop: NoteStop): string | undefined {
+	return stop.task?.scheduled ?? stop.task?.due ?? earliestGroupDue(stop.groups);
+}
+
+function stopDue(stop: NoteStop): string | undefined {
+	return stop.task?.due ?? earliestGroupDue(stop.groups);
+}
+
+// The join point of the walk: due tasks and due intake candidates become one
+// stop per note. Due-ness is decided upstream (selectTriageTasks /
+// selectDueIntakeGroups), so the ordering here needs no clock.
+export function selectNoteStops(
+	tasks: TriageTask[],
+	candidates: IntakeStopCandidate[],
+	// Tasks that are not themselves due. They never make a note qualify, but a
+	// note that qualified through its intake still carries its task, so ⌘D and
+	// the date keys work there (Requirement 1).
+	otherTasks: TriageTask[] = [],
+): NoteStop[] {
+	const byPath = new Map<string, NoteStop>();
+	// Candidates first, so the note's real TFile basename wins over the one
+	// derived from a task path.
+	for (const candidate of candidates) {
+		const stop = byPath.get(candidate.notePath) ?? {
+			notePath: candidate.notePath,
+			noteBasename: candidate.noteBasename,
+			groups: [],
+		};
+		stop.groups.push(candidate.group);
+		byPath.set(candidate.notePath, stop);
+	}
+	for (const task of tasks) {
+		const stop = byPath.get(task.path) ?? { notePath: task.path, noteBasename: basenameOf(task.path), groups: [] };
+		stop.task = task;
+		byPath.set(task.path, stop);
+	}
+
+	for (const task of otherTasks) {
+		const stop = byPath.get(task.path);
+		if (stop !== undefined && stop.task === undefined) stop.task = task;
+	}
+
+	const stops = [...byPath.values()];
+	// Candidates arrive in due-date order; the stop presents its groups the way
+	// they stand in the note.
+	for (const stop of stops) stop.groups.sort((a, b) => a.lineIndex - b.lineIndex);
+	return stops.sort(
+		(a, b) => cmpDate(stopScheduled(a), stopScheduled(b)) || cmpDate(stopDue(a), stopDue(b)) || cmpPath(a.notePath, b.notePath),
+	);
+}
+
+// Headline of a note stop without a task: the note itself plus how much intake
+// is waiting on it (singular/plural as everywhere else in the plugin).
+export function noteStopHeadline(basename: string, groupCount: number): string {
+	return `${basename} · ${groupCount} ${groupCount === 1 ? "Gruppe" : "Gruppen"}`;
 }
 
 // Überfällig-Label für ein einzelnes Erinnerungs-Datum (überladungsfrei neben

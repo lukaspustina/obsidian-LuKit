@@ -1,3 +1,5 @@
+// Supersedes tests/sdd_vorgang-next-steps/..._p4_c7_selection-subset.test.ts and part of
+// tests/acceptance/intake-partial-takeover.test.ts (single-group IntakeTakeOver payload).
 // SDD: specs/sdd/triage-note-stops.md, Phase 1, Test Scenario #10 / Requirements 9, 10, 13, 14:
 // GIVEN a note stop with two groups, WHEN ⌘S confirms with only one group's
 // lines fully ticked, THEN that group's lines move into the curated part and
@@ -182,5 +184,45 @@ describe("SDD triage-note-stops Phase 1 #10: ⌘S confirm on a note stop with tw
 		expect(refreshed.notePath).toBe(NOTE_PATH);
 		expect(refreshed.groups).toHaveLength(1);
 		expect(refreshed.groups[0].source).toBe("Besprechung - Review");
+	});
+
+	// A subset INSIDE one group: this is the content outcome the deleted
+	// tests/sdd_vorgang-next-steps/..._p4_c7_selection-subset.test.ts pinned. The
+	// case above is all-or-nothing per group and does not cover it — a ticked
+	// line moves while its unticked sibling stays in the rewritten group.
+	it("moves only the ticked lines of a group and rewrites the group from the rest", async () => {
+		const { internals, app, vorgang } = setup();
+		const [groupKickoff, groupReview] = parseIntakeGroups(TWO_GROUPS);
+
+		const mixed: IntakeGroupOutcome = {
+			lineIndex: groupKickoff.lineIndex,
+			discard: false,
+			due: null,
+			taken: [groupKickoff.ownItems[0]],
+			keptOwn: [groupKickoff.ownItems[1]],
+			keptForeign: [],
+		};
+
+		await internals.handleIntakeGroupOutcomes([mixed]);
+
+		const finalContent = app.vault.files.get(vorgang.path) ?? "";
+		const lines = finalContent.split("\n");
+		const boundaryIndex = lines.findIndex((l) => l.trim() === "#### Unsortiert");
+
+		// The ticked line is above the boundary as a top-level bullet …
+		const takenIndex = lines.indexOf("- Angebot prüfen");
+		expect(takenIndex).toBeGreaterThan(-1);
+		expect(takenIndex).toBeLessThan(boundaryIndex);
+		// … and the unticked one is not.
+		expect(lines.indexOf("- Termin vereinbaren")).toBe(-1);
+
+		// The group survives, rewritten from what was kept.
+		const remaining = parseIntakeGroups(finalContent);
+		expect(remaining).toHaveLength(2);
+		const kickoff = remaining.find((g) => g.source === "Besprechung - Kickoff");
+		expect(kickoff?.ownItems).toEqual([groupKickoff.ownItems[1]]);
+		// The untouched sibling is byte-identical.
+		const review = remaining.find((g) => g.source === "Besprechung - Review");
+		expect(review?.ownItems).toEqual(groupReview.ownItems);
 	});
 });

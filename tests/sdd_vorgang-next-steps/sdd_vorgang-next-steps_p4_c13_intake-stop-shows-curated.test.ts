@@ -63,10 +63,10 @@ describe("TaskTriageFeature.loadPreview — intake stop preview (Req 41, P4 C13)
 
 		const group: IntakeGroup = buildIntakeGroup(["Angebot einholen"], "Besprechung Acme Kickoff", []);
 		const stop = {
-			kind: "intake",
-			group,
+			kind: "note",
 			notePath,
 			noteBasename: "Acme Kickoff",
+			groups: [group],
 		} as unknown as TriageStop;
 
 		const preview = await internals.loadPreview(stop);

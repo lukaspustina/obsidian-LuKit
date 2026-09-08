@@ -3,6 +3,7 @@ import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-fe
 import { parseIntakeGroups } from "../../src/features/vorgang/intake-engine";
 import type { IntakeGroup } from "../../src/features/vorgang/intake-engine";
 import type { TriageStop } from "../../src/features/task-triage/task-triage-engine";
+import type { IntakeGroupOutcome } from "../../src/features/task-triage/intake-select-modal";
 import {
 	createMockApp,
 	createMockTFile,
@@ -13,19 +14,16 @@ import {
 } from "../helpers/obsidian-mocks";
 
 // SDD vorgang-next-steps, Phase 4, Test Scenario 9 / Requirement 34:
-// discarding the middle of three intake groups (⌘X) removes only that group —
-// the curated part above the boundary is byte-identical AND the first and
-// third groups are each byte-for-byte identical to their pre-discard bytes.
-//
-// `TaskTriageFeature.handleIntakeDiscard` and the "intake" TriageStop kind do
-// not exist yet, so this fails today with "internals.handleIntakeDiscard is
-// not a function" — the correct RED, not a syntax error.
+// discarding the middle of three intake groups (via a `discard: true`
+// IntakeGroupOutcome) removes only that group — the curated part above the
+// boundary is byte-identical AND the first and third groups are each
+// byte-for-byte identical to their pre-discard bytes.
 
-interface IntakeTriageStop {
-	kind: "intake";
-	group: IntakeGroup;
+interface NoteTriageStop {
+	kind: "note";
 	notePath: string;
 	noteBasename: string;
+	groups: IntakeGroup[];
 }
 
 interface FeatureInternals {
@@ -33,7 +31,7 @@ interface FeatureInternals {
 	stops: TriageStop[];
 	index: number;
 	presentStop: () => Promise<void>;
-	handleIntakeDiscard: () => Promise<void>;
+	handleIntakeGroupOutcomes: (outcomes: IntakeGroupOutcome[]) => Promise<void>;
 }
 
 const GROUP_A = ["- Aus [[Besprechung A]]", "    - Punkt A1"];
@@ -76,7 +74,7 @@ describe("intake stop — ⌘X discard leaves sibling groups byte-identical (SDD
 		expect(groups).toHaveLength(3);
 		const middle = groups[1];
 		expect(middle.source).toBe("Besprechung B");
-		const intakeStop: IntakeTriageStop = { kind: "intake", group: middle, notePath: vorgang.path, noteBasename: vorgang.basename };
+		const noteStop: NoteTriageStop = { kind: "note", notePath: vorgang.path, noteBasename: vorgang.basename, groups };
 
 		const curatedBefore = VORGANG.slice(0, VORGANG.indexOf("#### Unsortiert"));
 		const groupABlock = GROUP_A.join("\n");
@@ -84,10 +82,18 @@ describe("intake stop — ⌘X discard leaves sibling groups byte-identical (SDD
 
 		internals.presentStop = vi.fn(async () => {});
 		internals.walkActive = true;
-		internals.stops = [intakeStop as unknown as TriageStop];
+		internals.stops = [noteStop as unknown as TriageStop];
 		internals.index = 0;
 
-		await internals.handleIntakeDiscard();
+		const outcome: IntakeGroupOutcome = {
+			lineIndex: middle.lineIndex,
+			discard: true,
+			due: null,
+			taken: [],
+			keptOwn: [],
+			keptForeign: [],
+		};
+		await internals.handleIntakeGroupOutcomes([outcome]);
 
 		const newContent = app.vault.files.get(vorgang.path) ?? "";
 		expect(newContent.slice(0, newContent.indexOf("#### Unsortiert"))).toBe(curatedBefore);

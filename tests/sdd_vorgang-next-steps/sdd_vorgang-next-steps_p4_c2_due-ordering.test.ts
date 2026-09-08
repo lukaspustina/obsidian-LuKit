@@ -88,7 +88,7 @@ describe("SDD vorgang-next-steps Phase 4 #2: due ordering among intake stops", (
 
 		expect(internals.stops).toHaveLength(2);
 		const [first, second] = internals.stops;
-		expect(first.kind === "intake" && first.group.line).toBe("- Aus [[Besprechung Snoozed]], 01.07.2026");
-		expect(second.kind === "intake" && second.group.line).toBe("- Aus [[Besprechung Dateless]]");
+		expect(first.kind === "note" && first.groups[0].line).toBe("- Aus [[Besprechung Snoozed]], 01.07.2026");
+		expect(second.kind === "note" && second.groups[0].line).toBe("- Aus [[Besprechung Dateless]]");
 	});
 });

@@ -3,6 +3,7 @@ import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-fe
 import { parseIntakeGroups } from "../../src/features/vorgang/intake-engine";
 import type { IntakeGroup } from "../../src/features/vorgang/intake-engine";
 import type { TriageStop } from "../../src/features/task-triage/task-triage-engine";
+import type { IntakeGroupOutcome } from "../../src/features/task-triage/intake-select-modal";
 import {
 	createMockApp,
 	createMockTFile,
@@ -19,16 +20,12 @@ import {
 // snoozeGroup return null (Data Models). The walk must show a German Notice
 // and report the failure without crashing, exactly like the
 // reminder-line-missing case mutateReminder already handles.
-//
-// `TaskTriageFeature.handleIntakeTakeOver` does not exist yet, so this fails
-// today with "internals.handleIntakeTakeOver is not a function" — the
-// correct RED, not a syntax error.
 
-interface IntakeTriageStop {
-	kind: "intake";
-	group: IntakeGroup;
+interface NoteTriageStop {
+	kind: "note";
 	notePath: string;
 	noteBasename: string;
+	groups: IntakeGroup[];
 }
 
 interface FeatureInternals {
@@ -37,7 +34,7 @@ interface FeatureInternals {
 	index: number;
 	counts: Record<string, number>;
 	presentStop: () => Promise<void>;
-	handleIntakeTakeOver: (selectedIndices?: number[]) => Promise<void>;
+	handleIntakeGroupOutcomes: (outcomes: IntakeGroupOutcome[]) => Promise<void>;
 }
 
 const VORGANG = [
@@ -93,15 +90,23 @@ describe("intake stop — a stale group parent line yields null, not a crash (SD
 		const internals = feature as unknown as FeatureInternals;
 
 		const group = parseIntakeGroups(VORGANG)[0];
-		const intakeStop: IntakeTriageStop = { kind: "intake", group, notePath: vorgang.path, noteBasename: vorgang.basename };
+		const noteStop: NoteTriageStop = { kind: "note", notePath: vorgang.path, noteBasename: vorgang.basename, groups: [group] };
 
 		internals.presentStop = vi.fn(async () => {});
 		internals.walkActive = true;
-		internals.stops = [intakeStop as unknown as TriageStop];
+		internals.stops = [noteStop as unknown as TriageStop];
 		internals.index = 0;
 		internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0 };
 
-		await expect(internals.handleIntakeTakeOver()).resolves.toBeUndefined();
+		const outcome: IntakeGroupOutcome = {
+			lineIndex: group.lineIndex,
+			discard: false,
+			due: null,
+			taken: [...group.ownItems],
+			keptOwn: [],
+			keptForeign: [],
+		};
+		await expect(internals.handleIntakeGroupOutcomes([outcome])).resolves.toBeUndefined();
 
 		expect(lastNotice()).toBeTruthy();
 		expect(internals.index).toBe(0);

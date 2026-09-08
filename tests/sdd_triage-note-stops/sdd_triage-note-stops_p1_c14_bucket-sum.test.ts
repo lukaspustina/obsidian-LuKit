@@ -1,3 +1,5 @@
+// Supersedes the bucket-sum halves of tests/sdd_vorgang-next-steps/..._p4_c14_summary-counts.test.ts
+// and tests/sdd_tasknotes-triage-walk/..._p2_c11_summary-sums.test.ts.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskTriageFeature } from "../../src/features/task-triage/task-triage-feature";
 import { selectNoteStops } from "../../src/features/task-triage/task-triage-engine";

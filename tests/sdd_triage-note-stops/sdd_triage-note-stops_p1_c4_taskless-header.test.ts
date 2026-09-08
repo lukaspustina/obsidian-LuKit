@@ -1,3 +1,4 @@
+// Supersedes tests/acceptance/intake-stop-header.test.ts (the `Intake · Aus: <Quelle> · fällig …` meta line).
 import { describe, it, expect } from "vitest";
 import { TaskTriageModal } from "../../src/features/task-triage/task-triage-modal";
 import type { TriageStop } from "../../src/features/task-triage/task-triage-engine";

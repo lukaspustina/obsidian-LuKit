@@ -184,7 +184,7 @@ describe("TaskTriageFeature.handleOpenAndStop — intake stop whose parent line 
 
 		const group = parseIntakeGroups(VORGANG)[0];
 		internals.walkActive = true;
-		internals.stops = [{ kind: "intake", group, notePath: vorgang.path, noteBasename: vorgang.basename }];
+		internals.stops = [{ kind: "note", notePath: vorgang.path, noteBasename: vorgang.basename, groups: [group] }];
 		internals.index = 0;
 
 		await (internals as unknown as { handleOpenAndStop: () => Promise<void> }).handleOpenAndStop();

@@ -86,6 +86,6 @@ describe("TaskTriageFeature.handleOpenAndStop", () => {
 		expect(openInNewTab).toHaveBeenCalledTimes(1);
 		expect(openInNewTab).toHaveBeenCalledWith("A.md");
 		expect(internals.walkActive).toBe(false);
-		expect(lastNotice()).toBe("Triage beendet: 0 erledigt, 0 verschoben, 0 ausgelassen, 0 übersprungen, 3 offen");
+		expect(lastNotice()).toBe("Triage beendet: 0 erledigt, 0 verschoben, 0 ausgelassen, 0 übersprungen, 0 übernommen, 3 offen");
 	});
 });

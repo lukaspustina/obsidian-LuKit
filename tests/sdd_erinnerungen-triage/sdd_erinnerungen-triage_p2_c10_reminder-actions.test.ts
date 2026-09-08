@@ -115,9 +115,13 @@ describe("SDD erinnerungen-triage Phase 2 #10: availableActions Gegensatz Erinne
 	it("liefert für einen recurring Task-Stop { snooze: false, skipInstance: true } (Gegensatz bleibt erhalten)", () => {
 		const { internals } = setup(fakeBridge());
 
+		const recurringTaskStopTask = task({ isRecurring: true });
 		const recurringTaskStop: TriageStop = {
-			kind: "task",
-			task: task({ isRecurring: true }),
+			kind: "note",
+			notePath: recurringTaskStopTask.path,
+			noteBasename: "Kosten pruefen",
+			task: recurringTaskStopTask,
+			groups: [],
 		};
 
 		expect(internals.availableActions(recurringTaskStop)).toEqual({ snooze: false, skipInstance: true });

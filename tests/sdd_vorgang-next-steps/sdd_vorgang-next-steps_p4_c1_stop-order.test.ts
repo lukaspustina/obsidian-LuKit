@@ -121,7 +121,13 @@ describe("SDD vorgang-next-steps Phase 4 #1: stop order", () => {
 		await internals.beginWalk();
 
 		expect(internals.stops).toHaveLength(4);
-		expect(internals.stops.map((s) => s.kind)).toEqual(["reminder", "intake", "intake", "task"]);
+		expect(internals.stops.map((s) => s.kind)).toEqual(["reminder", "note", "note", "note"]);
+		// Kosten pruefen is dated (due 2026-07-01); both Vorgang notes' groups are dateless.
+		expect(internals.stops.slice(1).map((s) => (s as unknown as { notePath: string }).notePath)).toEqual([
+			"TaskNotes/Tasks/Kosten pruefen.md",
+			"Vorgänge/Vorgang A.md",
+			"Vorgänge/Vorgang B.md",
+		]);
 		expect(internals.walkActive).toBe(true);
 	});
 });

@@ -101,7 +101,7 @@ describe("sdd_erinnerungen-triage p2 c8: kein Tagebuch-Pfad", () => {
 		await internals.beginWalk();
 
 		expect(internals.stops.length).toBe(1);
-		expect(internals.stops[0].kind).toBe("task");
+		expect(internals.stops[0].kind).toBe("note");
 		expect(internals.walkActive).toBe(true);
 		expect(noticeMessages().some((m) => m.includes("Tagebuch"))).toBe(false);
 	});

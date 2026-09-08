@@ -107,7 +107,7 @@ describe("SDD erinnerungen-triage Phase 2 #1: stop order", () => {
 				internals.stops[0].reminder.line === "- Zahnarzt anrufen, 01.07.2026",
 		).toBe(true);
 		expect(internals.stops[1].kind).toBe("reminder");
-		expect(internals.stops[2].kind).toBe("task");
+		expect(internals.stops[2].kind).toBe("note");
 		expect(internals.walkActive).toBe(true);
 	});
 });
