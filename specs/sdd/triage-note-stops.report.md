@@ -43,8 +43,9 @@ Full suite: 245 files / 932 tests green. `npm run build` clean.
   recurring exclusion should be stated explicitly.
 - R16 says doneTag exclusion works "as today"; today only the intake half was filtered. Repaired
   in phase — the task half is filtered now, which is what c8 pins.
-- R15's exit enumeration omits Enter (open & stop). `handleOpenAndStop` finishes the walk without
-  counting, so a stop whose intake was worked and then left via Enter reports `offen`.
+- R15's exit enumeration omits Enter (open & stop) and ⌘.. Both finished the walk without counting,
+  so a stop whose intake was worked and then left that way reported `offen` — fixed in a9fb6b0,
+  where `finishWalk` consumes `takenOverStops` for the current index. The SDD text still omits them.
 - The `selectNoteStops` signature in Data Models still shows the dropped `today` parameter; the
   implemented signature is `(dueTasks, candidates, otherTasks = [])`.
 
@@ -106,9 +107,10 @@ Full suite: 253 files / 941 tests. `npm run build` clean.
 ### Reviewer Findings
 
 **Blockers**: none. The reviewer verified by code path, not by the green result: the skip rule
-`outcome.discard || !keepsAnything(outcome)` is an exact mirror of `takeOverGroup`'s own removal
-rule, so no outcome shape exists where a group survives but its snooze is skipped, or a group is
-gone but the snooze runs and reports a missing parent line.
+`outcome.discard || !keepsAnything(outcome)` was an exact mirror of `takeOverGroup`'s own removal
+rule at the time. Two later findings amended it: an itemless group needs `hasItems` to be told
+apart from a group whose rows were all emptied (233131e), and the snooze must resolve against the
+group as the take-over left it, not its prior snapshot (the independent review's MAJOR).
 
 **SDD Amendments Needed** (advisory, `affected_phase: 2`, `repaired_in_phase: no`):
 

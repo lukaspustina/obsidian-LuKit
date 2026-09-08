@@ -74,11 +74,16 @@ const ON_DISK = [
 ].join("\n");
 
 // Two groups whose parent lines are byte-identical — the same source filed
-// twice on one day. After a partial take-over rewrites the first one, its
-// snapshot's items no longer match either block, so findParentIndex cannot
-// disambiguate and snoozeGroup is the call that returns null. This is the
-// only shape in which Phase 2's own abort branch is the one that fires:
-// everywhere else takeOverGroup fails first and the batch never reaches it.
+// twice on one day, or carried in by vorgang-merge. The take-over leaves the
+// first group holding exactly what the second one holds, so findParentIndex
+// then matches BOTH and snoozeGroup is the call that returns null. This is
+// the shape in which Phase 2's own abort branch fires: everywhere else
+// takeOverGroup fails first and the batch never reaches it.
+//
+// The fixture was sharpened on 2026-09-08: it previously gave the two groups
+// different items, which was ambiguous only while the snooze resolved against
+// the PRE-take-over snapshot — the defect the independent review found. Now
+// the ambiguity has to be real.
 const TWIN_LINES = [
 	"---",
 	"tags: [Vorgang]",
@@ -92,7 +97,7 @@ const TWIN_LINES = [
 	"    - Termin vereinbaren",
 	"",
 	"- Aus [[Besprechung - Kickoff]]",
-	"    - Rechnung schicken",
+	"    - Termin vereinbaren",
 	"",
 	"# Inhalt",
 	"",

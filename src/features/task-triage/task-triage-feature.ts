@@ -502,7 +502,17 @@ export class TaskTriageFeature implements LuKitFeature {
 					// The itemless group above survived untouched, so its date
 					// still has a line to land on.
 					if (outcome.due === null || outcome.discard || (!keepsAnything(outcome) && !untouched)) continue;
-					const snoozed = snoozeGroup(working, group, parseIsoDate(outcome.due), this.plugin.settings.dateLocale);
+					// Resolve the snooze against the group AS THE TAKE-OVER LEFT
+					// IT. Passing the pre-take-over snapshot let findParentIndex
+					// fall through to content matching, where the rewritten group
+					// no longer matches its own old item list — so on a note with
+					// two byte-identical groups the date landed on the sibling and
+					// that sibling's own take-over then undid the first one, with
+					// no Notice. Found by the independent review pass, 2026-09-08.
+					const afterTakeOver = untouched
+						? group
+						: { ...group, ownItems: outcome.keptOwn, foreignItems: outcome.keptForeign };
+					const snoozed = snoozeGroup(working, afterTakeOver, parseIsoDate(outcome.due), this.plugin.settings.dateLocale);
 					if (snoozed === null) {
 						applied = false;
 						return content;
