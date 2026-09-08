@@ -102,7 +102,7 @@ describe("SDD triage-note-stops Phase 1 #14: bucket sum incl. one unvisited stop
 			task("D.md", "2026-06-28", false), // Esc → übersprungen
 			task("E.md", "2026-06-29", false), // unvisited when ⌘. ends the walk → offen
 		];
-		internals.stops = selectNoteStops(tasks, [], TODAY).map((s) => ({ kind: "note" as const, ...s }) as unknown as TriageStop);
+		internals.stops = selectNoteStops(tasks, []).map((s) => ({ kind: "note" as const, ...s }) as unknown as TriageStop);
 		internals.index = 0;
 		internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0, takenOver: 0, discarded: 0 };
 		expect(internals.stops).toHaveLength(5);

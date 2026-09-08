@@ -52,7 +52,7 @@ describe("SDD triage-note-stops Phase 1 #1: one stop per note", () => {
 		// accidentally happen to satisfy the "file order" assertion below.
 		const candidates: IntakeStopCandidate[] = [makeCandidate(groupB), makeCandidate(groupA)];
 
-		const stops: NoteStop[] = selectNoteStops([task], candidates, today);
+		const stops: NoteStop[] = selectNoteStops([task], candidates);
 
 		expect(stops).toHaveLength(1);
 		const [stop] = stops;

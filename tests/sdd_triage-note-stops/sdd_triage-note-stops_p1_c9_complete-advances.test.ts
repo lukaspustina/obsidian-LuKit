@@ -119,7 +119,7 @@ function setup(bridge: TaskNotesBridge, taskOverrides: Partial<TriageTask> = {})
 	const candidates: IntakeStopCandidate[] = [
 		{ group: parseIntakeGroups(VORGANG)[0], notePath: NOTE_PATH, noteBasename: NOTE_BASENAME },
 	];
-	const noteStops = selectNoteStops([task(taskOverrides), otherTask()], candidates, TODAY);
+	const noteStops = selectNoteStops([task(taskOverrides), otherTask()], candidates);
 	internals.stops = noteStops.map((s) => ({ kind: "note" as const, ...s }) as unknown as TriageStop);
 	internals.index = internals.stops.findIndex((s) => (s as unknown as { notePath: string }).notePath === NOTE_PATH);
 	internals.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0, takenOver: 0, discarded: 0 };

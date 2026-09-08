@@ -10,7 +10,7 @@
 // object still carries a separate "discarded" bucket instead of the flat
 // six-bucket scheme (erledigt/verschoben/ausgelassen/übersprungen/
 // übernommen/offen) Requirement 15 specifies. The negative half of this file
-// additionally pins a real behaviour change: today, `handleIntakeTakeOver`
+// additionally pins a real behaviour change: today, `handleIntakeGroupOutcomes`
 // marks `takenOverStops` whenever a selection was confirmed at all — even one
 // that moves nothing (all lines kept). Requirement 15 narrows this to "moved
 // at least one line", so a confirmed-but-empty ⌘S pass must NOT be counted as

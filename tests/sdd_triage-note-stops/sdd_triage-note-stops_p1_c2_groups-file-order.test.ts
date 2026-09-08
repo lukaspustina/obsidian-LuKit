@@ -46,7 +46,7 @@ describe("SDD triage-note-stops Phase 1 #2: groups ordered by file position", ()
 		// could accidentally satisfy the assertion below.
 		const candidates: IntakeStopCandidate[] = [makeCandidate(groupLate), makeCandidate(groupEarly)];
 
-		const stops: NoteStop[] = selectNoteStops([], candidates, today);
+		const stops: NoteStop[] = selectNoteStops([], candidates);
 
 		expect(stops).toHaveLength(1);
 		const [stop] = stops;

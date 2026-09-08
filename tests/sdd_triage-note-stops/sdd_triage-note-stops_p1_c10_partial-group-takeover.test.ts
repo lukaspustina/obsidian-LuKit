@@ -5,14 +5,14 @@
 // are byte-identical; the walk returns to the same stop with
 // `groups.length === 1`.
 //
-// TriageStop has no "note" kind yet, and handleIntakeTakeOver still takes a
+// TriageStop has no "note" kind yet, and handleIntakeGroupOutcomes still takes a
 // single optional IntakeTakeOver rather than the batched IntakeGroupOutcome[]
 // the SDD's Data Models section describes for the multi-group ⌘S confirm. The
 // NoteStop shape is built through the real join point (selectNoteStops, per
 // the p1_c9 convention) and cast through `as unknown as TriageStop`; the
 // IntakeGroupOutcome type is defined locally here since intake-select-modal.ts
 // does not export it yet. This is the intended RED state: today's
-// handleIntakeTakeOver has no "note"-kind branch and no multi-group batching,
+// handleIntakeGroupOutcomes has no "note"-kind branch and no multi-group batching,
 // so calling it with an outcomes array is a type error at build time and,
 // against the real (uncast) internals, a no-op at runtime.
 
@@ -93,7 +93,7 @@ interface FeatureInternals {
 	index: number;
 	counts: Record<string, number>;
 	presentStop: () => Promise<void>;
-	handleIntakeTakeOver: (outcomes: IntakeGroupOutcome[]) => Promise<void>;
+	handleIntakeGroupOutcomes: (outcomes: IntakeGroupOutcome[]) => Promise<void>;
 }
 
 function setup() {
@@ -115,7 +115,7 @@ function setup() {
 		...parseIntakeGroups(TWO_GROUPS).map((group) => ({ group, notePath: NOTE_PATH, noteBasename: NOTE_BASENAME })),
 		...parseIntakeGroups(OTHER).map((group) => ({ group, notePath: OTHER_PATH, noteBasename: OTHER_BASENAME })),
 	];
-	const noteStops = selectNoteStops([], candidates, TODAY);
+	const noteStops = selectNoteStops([], candidates);
 	internals.stops = noteStops.map((s) => ({ kind: "note" as const, ...s }) as unknown as TriageStop);
 	internals.index = internals.stops.findIndex((s) => (s as unknown as { notePath: string }).notePath === NOTE_PATH);
 	internals.presentStop = vi.fn(async () => {});
@@ -152,7 +152,7 @@ describe("SDD triage-note-stops Phase 1 #10: ⌘S confirm on a note stop with tw
 			keptForeign: [],
 		};
 
-		await internals.handleIntakeTakeOver([kickoffOutcome, reviewOutcome]);
+		await internals.handleIntakeGroupOutcomes([kickoffOutcome, reviewOutcome]);
 
 		const finalContent = app.vault.files.get(vorgang.path) ?? "";
 		const lines = finalContent.split("\n");

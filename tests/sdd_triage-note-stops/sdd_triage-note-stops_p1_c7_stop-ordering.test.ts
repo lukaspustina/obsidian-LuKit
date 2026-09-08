@@ -52,7 +52,7 @@ describe("SDD triage-note-stops Phase 1 #7: note-stop ordering", () => {
 		// B: earlier scheduled, later due.
 		const taskB = makeTask("Vorgänge/Vorgang B.md", { scheduled: "2026-09-10", due: "2026-09-20" });
 
-		const stops = selectNoteStops([taskA, taskB], [], today);
+		const stops = selectNoteStops([taskA, taskB], []);
 
 		expect(pathsOf(stops)).toEqual(["Vorgänge/Vorgang B.md", "Vorgänge/Vorgang A.md"]);
 	});
@@ -61,7 +61,7 @@ describe("SDD triage-note-stops Phase 1 #7: note-stop ordering", () => {
 		const taskA = makeTask("Vorgänge/Vorgang A.md", { due: "2026-09-20" });
 		const taskB = makeTask("Vorgänge/Vorgang B.md", { due: "2026-09-08" });
 
-		const stops = selectNoteStops([taskA, taskB], [], today);
+		const stops = selectNoteStops([taskA, taskB], []);
 
 		expect(pathsOf(stops)).toEqual(["Vorgänge/Vorgang B.md", "Vorgänge/Vorgang A.md"]);
 	});
@@ -88,7 +88,7 @@ describe("SDD triage-note-stops Phase 1 #7: note-stop ordering", () => {
 			makeCandidate("Vorgänge/Vorgang Gruppe.md", "Vorgang Gruppe", groupNoteEarlyGroup),
 		];
 
-		const stops = selectNoteStops([taskNote], candidates, today);
+		const stops = selectNoteStops([taskNote], candidates);
 
 		expect(pathsOf(stops)).toEqual(["Vorgänge/Vorgang Gruppe.md", "Vorgänge/Vorgang Task.md"]);
 	});
@@ -114,7 +114,7 @@ describe("SDD triage-note-stops Phase 1 #7: note-stop ordering", () => {
 			makeCandidate("Vorgänge/Vorgang Fallback.md", "Vorgang Fallback", dateglessGroup),
 		];
 
-		const stops = selectNoteStops([dateyTask, dateglessTask], candidates, today);
+		const stops = selectNoteStops([dateyTask, dateglessTask], candidates);
 
 		expect(pathsOf(stops)).toEqual(["Vorgänge/Vorgang Fallback.md", "Vorgänge/Vorgang Datiert.md"]);
 	});
@@ -124,7 +124,7 @@ describe("SDD triage-note-stops Phase 1 #7: note-stop ordering", () => {
 		const datelessGroup = makeGroup({ line: "- Aus [[Besprechung Ohne Datum]]", lineIndex: 4, due: null });
 		const candidates: IntakeStopCandidate[] = [makeCandidate("Vorgänge/Vorgang Ohne Datum.md", "Vorgang Ohne Datum", datelessGroup)];
 
-		const stops = selectNoteStops([datedTask], candidates, today);
+		const stops = selectNoteStops([datedTask], candidates);
 
 		expect(pathsOf(stops)).toEqual(["Vorgänge/Vorgang Datiert.md", "Vorgänge/Vorgang Ohne Datum.md"]);
 	});
@@ -137,7 +137,7 @@ describe("SDD triage-note-stops Phase 1 #7: note-stop ordering", () => {
 			makeCandidate("Vorgänge/Vorgang A.md", "Vorgang A", groupA),
 		];
 
-		const stops = selectNoteStops([], candidates, today);
+		const stops = selectNoteStops([], candidates);
 
 		expect(pathsOf(stops)).toEqual(["Vorgänge/Vorgang A.md", "Vorgänge/Vorgang Z.md"]);
 	});

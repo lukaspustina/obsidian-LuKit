@@ -127,8 +127,8 @@ describe("SDD triage-note-stops Phase 1 #8: doneTag excludes a note from the wal
 
 		await internals.beginWalk();
 
-		expect(internals.stops.some((s) => s.kind === "task" && s.task.path === DONE_TASK_PATH)).toBe(false);
-		expect(internals.stops.some((s) => s.kind === "task" && s.task.path === OPEN_TASK_PATH)).toBe(true);
+		expect(internals.stops.some((s) => s.kind === "note" && s.notePath === DONE_TASK_PATH)).toBe(false);
+		expect(internals.stops.some((s) => s.kind === "note" && s.task?.path === OPEN_TASK_PATH)).toBe(true);
 	});
 
 	it("produces no intake stop for a doneTag note even though it holds a due intake group", async () => {
@@ -139,7 +139,7 @@ describe("SDD triage-note-stops Phase 1 #8: doneTag excludes a note from the wal
 
 		await internals.beginWalk();
 
-		expect(internals.stops.some((s) => s.kind === "intake" && s.notePath === DONE_INTAKE_PATH)).toBe(false);
-		expect(internals.stops.some((s) => s.kind === "intake" && s.notePath === OPEN_INTAKE_PATH)).toBe(true);
+		expect(internals.stops.some((s) => s.kind === "note" && s.notePath === DONE_INTAKE_PATH)).toBe(false);
+		expect(internals.stops.some((s) => s.kind === "note" && s.notePath === OPEN_INTAKE_PATH && s.groups.length > 0)).toBe(true);
 	});
 });
