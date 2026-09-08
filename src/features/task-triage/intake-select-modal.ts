@@ -53,8 +53,10 @@ interface GroupSection {
 // One editable row per line of every group the stop carries — items and the
 // lines nested under them — each with its own checkbox, all preselected. The
 // text is editable, so wording can be fixed on the way out, and emptying a
-// field deletes that line. A ticked line leaves the group, an unticked one
-// stays behind — independently of its neighbours: a ticked child under an
+// field deletes that line. Rows start UNTICKED — a confirm moves only what was
+// ticked, so setting a date or a discard on one group leaves its siblings
+// alone; the section header's "alle" box ticks a whole group at once. A ticked
+// line leaves the group, an unticked one stays behind — independently of its neighbours: a ticked child under an
 // unticked parent moves on its own, an unticked child under a ticked parent
 // stays as a line of its own. Per group there is one control that discards it
 // whole. The walk returns to the stop as long as anything remains, so a note's
@@ -74,11 +76,15 @@ export class IntakeSelectModal extends Modal {
 		contentEl.empty();
 		contentEl.createEl("h3", { text: "Punkte übernehmen" });
 		contentEl.createEl("p", {
-			text: "Angehakt wandert hoch, nicht angehakt bleibt in Unsortiert, leeres Feld löscht die Zeile. Ein Datum verschiebt die ganze Gruppe, „Gruppe verwerfen“ löscht sie.",
+			text: "Angehakt wandert hoch, alles andere bleibt in Unsortiert — „alle“ hakt eine ganze Gruppe an. Ein leeres Feld löscht die Zeile, ein Datum verschiebt die Gruppe, „Gruppe verwerfen“ löscht sie.",
 			cls: "lukit-intake-select-hint",
 		});
 
-		const sections = this.options.groups.map((group) => this.renderGroupSection(contentEl, group));
+		// One scroll container around all the sections, not one per group: the
+		// lists stack, so capping each of them separately pushed the buttons off
+		// screen on a note with several groups.
+		const groupsEl = contentEl.createEl("div", { cls: "lukit-intake-select-groups" });
+		const sections = this.options.groups.map((group) => this.renderGroupSection(groupsEl, group));
 
 		const submit = (): void => {
 			this.confirmed = true;
@@ -104,8 +110,14 @@ export class IntakeSelectModal extends Modal {
 
 	private renderGroupSection(contentEl: HTMLElement, group: IntakeGroup): GroupSection {
 		// The parent line heads its section — with several groups on one note,
-		// it is the only thing telling their items apart.
-		contentEl.createEl("p", { text: group.line, cls: "lukit-intake-select-source" });
+		// it is the only thing telling their items apart. Its "alle" box keeps
+		// "take this whole group over" at one gesture now that rows start empty.
+		const header = contentEl.createEl("div", { cls: "lukit-intake-select-header" });
+		const allBox = header.createEl("input");
+		allBox.type = "checkbox";
+		allBox.checked = false;
+		header.createEl("label", { text: "alle" });
+		header.createEl("span", { text: group.line, cls: "lukit-intake-select-source" });
 
 		const list = contentEl.createEl("div", { cls: "lukit-intake-select" });
 		// Every line decides for itself. Coupling a child to its parent would
@@ -137,6 +149,13 @@ export class IntakeSelectModal extends Modal {
 		discardBox.type = "checkbox";
 		discardBox.checked = false;
 		discardRow.createEl("label", { text: "Gruppe verwerfen" });
+
+		allBox.addEventListener("change", () => {
+			for (const { itemRow, childRows } of items) {
+				itemRow.checkbox.checked = allBox.checked;
+				for (const child of childRows) child.checkbox.checked = allBox.checked;
+			}
+		});
 
 		return { group, items, ownCount: group.ownItems.length, discardBox, dueInput };
 	}
@@ -189,7 +208,11 @@ export class IntakeSelectModal extends Modal {
 		});
 		const checkbox = row.createEl("input");
 		checkbox.type = "checkbox";
-		checkbox.checked = true;
+		// Unticked by default. Preselecting was right while ⌘S showed one group
+		// and confirming meant "take it over"; over several groups it made every
+		// confirm take the whole note's intake — a typed date then reached a
+		// group that had already been removed and was dropped.
+		checkbox.checked = false;
 		const input = row.createEl("input", { cls: "lukit-intake-select-text" });
 		input.type = "text";
 		input.value = text;

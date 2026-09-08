@@ -296,11 +296,47 @@
 .lukit-intake-select-modal {
 	width: min(90vw, 800px);
 	max-width: min(90vw, 800px);
+	max-height: 85vh;
 }
 
-.lukit-intake-select {
-	max-height: 50vh;
+/* One list per group, so the sections stack: the modal body scrolls as a
+   whole and each list grows to its content. Capping every list separately
+   (as it was while ⌘S showed a single group) pushed the buttons off screen
+   on a note with several groups. */
+.lukit-intake-select-modal .modal-content {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.lukit-intake-select-groups {
+	flex: 1 1 auto;
+	min-height: 0;
 	overflow-y: auto;
+}
+
+.lukit-intake-select-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-top: var(--size-4-3);
+}
+
+.lukit-intake-select-header .lukit-intake-select-source {
+	margin: 0;
+}
+
+.lukit-intake-select-due,
+.lukit-intake-select-discard {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin: var(--size-4-1) 0 0 var(--size-4-4);
+	color: var(--text-muted);
+}
+
+.lukit-intake-select-date {
+	max-width: 12em;
 }
 
 .lukit-intake-select-text {

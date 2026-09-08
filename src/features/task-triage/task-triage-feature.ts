@@ -12,6 +12,7 @@ import type { ReminderItem } from "../work-diary/work-diary-engine";
 import { createTaskNotesBridge, type TaskNotesBridge, type BridgeAvailability } from "./tasknotes-bridge";
 import {
 	selectTriageTasks,
+	isOpenToday,
 	selectDueReminders,
 	selectDueIntakeGroups,
 	selectNoteStops,
@@ -149,7 +150,7 @@ export class TaskTriageFeature implements LuKitFeature {
 			// dueTasks, but the stop still has to carry it — otherwise ⌘D, ⌘G and
 			// the snoozes are withdrawn on exactly the notes this walk is for.
 			const due = new Set(dueTasks.map((task) => task.path));
-			otherTasks = open.filter((task) => !due.has(task.path));
+			otherTasks = open.filter((task) => !due.has(task.path) && isOpenToday(task, this.walkToday));
 		} else {
 			// Degradation statt Abbruch: Erinnerungen hängen nicht von TaskNotes ab.
 			new Notice(this.availabilityMessage(availability));
@@ -672,6 +673,13 @@ export class TaskTriageFeature implements LuKitFeature {
 	}
 
 	private finishWalk(): void {
+		// A stop the walk never revisits still has to report what happened to it:
+		// ⌘. and Enter leave the current stop without a counting action, and if
+		// ⌘S moved lines out of its intake, that work is a take-over, not "offen".
+		if (this.walkActive && this.takenOverStops.has(this.index)) {
+			this.takenOverStops.delete(this.index);
+			this.counts.takenOver++;
+		}
 		const { completed, snoozed, instancesSkipped, skipped, takenOver } = this.counts;
 		const remaining = this.stops.length - (completed + snoozed + instancesSkipped + skipped + takenOver);
 		// Always all six buckets, zeros included: a summary whose shape depends

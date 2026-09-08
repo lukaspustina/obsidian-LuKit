@@ -20,7 +20,11 @@ function allEls(el: { children?: unknown[] }): Record<string, never>[] {
 	return out;
 }
 
-function open() {
+// autoTick mirrors the modal's own pre-2026-09-08 default (every row
+// preselected). Pass { autoTick: false } to see the modal's actual current
+// starting state — every row unticked.
+function open(opts: { autoTick?: boolean } = {}) {
+	const { autoTick = true } = opts;
 	let confirmed: IntakeGroupOutcome[] | null = null;
 	const modal = new IntakeSelectModal(createMockApp({}) as never, {
 		groups: [GROUP],
@@ -37,16 +41,35 @@ function open() {
 		value?: string;
 		checked?: boolean;
 		texts: string[];
+		children: unknown[];
 	}[];
+	const rows = els.filter((e) => e.cls.startsWith("lukit-intake-select-item"));
+	// A row's own checkbox, found via its parent rather than a flat checkbox
+	// list — the header's "alle" box now renders before the rows, so a flat
+	// list would offset every row's index by one.
+	const checkboxOf = (el?: { children: unknown[] }) =>
+		(el?.children as { type?: string; checked?: boolean }[] | undefined)?.find((c) => c.type === "checkbox");
+	const lineBoxes = rows.map((r) => checkboxOf(r as { children: unknown[] }));
+	const header = els.find((e) => e.cls === "lukit-intake-select-header");
+	const discardRow = els.find((e) => e.cls === "lukit-intake-select-discard");
+	if (autoTick) {
+		// Rows start unticked as of 2026-09-08 (see intake-select-modal.ts).
+		// Ticking every one here restores the modal's pre-2026-09-08 starting
+		// condition, so the tests below keep expressing their intent by
+		// UNticking the lines they mean to leave behind.
+		for (const box of lineBoxes) if (box) box.checked = true;
+	}
 	return {
 		confirm: () => {
 			const btn = els.find((e) => e.tag === "button" && e.texts.includes("Übernehmen"));
 			__fireEvent(btn as never, "click");
 			return confirmed?.[0] ?? null;
 		},
-		rows: els.filter((e) => e.cls.startsWith("lukit-intake-select-item")),
+		rows,
 		texts: els.filter((e) => e.cls === "lukit-intake-select-text"),
-		checkboxes: els.filter((e) => e.type === "checkbox"),
+		lineBoxes,
+		allBox: checkboxOf(header as { children: unknown[] } | undefined),
+		discardBox: checkboxOf(discardRow as { children: unknown[] } | undefined),
 		source: els.find((e) => e.cls === "lukit-intake-select-source"),
 	};
 }
@@ -77,7 +100,7 @@ describe("IntakeSelectModal", () => {
 
 	it("keeps an unticked child behind — with its parent, when the parent leaves", () => {
 		const modal = open();
-		modal.checkboxes[2].checked = false;
+		modal.lineBoxes[2]!.checked = false;
 
 		const result = modal.confirm();
 		expect(result?.taken[0]).toEqual({ text: "Max:", children: ["    - Angebot prüfen"] });
@@ -87,7 +110,7 @@ describe("IntakeSelectModal", () => {
 
 	it("keeps a whole block behind when the item and its children are unticked", () => {
 		const modal = open();
-		for (const i of [0, 1, 2]) modal.checkboxes[i].checked = false;
+		for (const i of [0, 1, 2]) modal.lineBoxes[i]!.checked = false;
 
 		const result = modal.confirm();
 		expect(result?.keptOwn).toEqual([
@@ -98,8 +121,8 @@ describe("IntakeSelectModal", () => {
 
 	it("keeps a foreign item in the foreign block, so Warte auf survives a partial pass", () => {
 		const modal = open();
-		modal.checkboxes[3].checked = false;
-		modal.checkboxes[4].checked = false;
+		modal.lineBoxes[3]!.checked = false;
+		modal.lineBoxes[4]!.checked = false;
 
 		const result = modal.confirm();
 		expect(result?.keptOwn).toEqual([]);
@@ -110,7 +133,7 @@ describe("IntakeSelectModal", () => {
 
 	it("moves a ticked child on its own when its parent stays behind", () => {
 		const modal = open();
-		modal.checkboxes[0].checked = false;
+		modal.lineBoxes[0]!.checked = false;
 
 		const result = modal.confirm();
 		expect(result?.taken).toContainEqual({ text: "Angebot prüfen", children: [] });
@@ -132,7 +155,7 @@ describe("IntakeSelectModal", () => {
 	it("deletes an emptied line even when it is ticked", () => {
 		const modal = open();
 		modal.texts[1].value = "";
-		modal.checkboxes[1].checked = true;
+		modal.lineBoxes[1]!.checked = true;
 
 		const result = modal.confirm();
 		expect(result?.taken[0]).toEqual({ text: "Max:", children: ["    - Termin vereinbaren"] });
@@ -141,7 +164,7 @@ describe("IntakeSelectModal", () => {
 	it("keeps the children of an emptied parent — each deciding for itself", () => {
 		const modal = open();
 		modal.texts[0].value = "";
-		modal.checkboxes[2].checked = false;
+		modal.lineBoxes[2]!.checked = false;
 
 		const result = modal.confirm();
 		// The header is gone; its ticked child moved up on its own, the unticked
@@ -165,8 +188,7 @@ describe("IntakeSelectModal", () => {
 
 	it("ticking the discard box yields discard: true", () => {
 		const modal = open();
-		// The discard box is the group's last control, after its five item rows.
-		modal.checkboxes[5].checked = true;
+		modal.discardBox!.checked = true;
 
 		const result = modal.confirm();
 		expect(result?.discard).toBe(true);
@@ -176,5 +198,30 @@ describe("IntakeSelectModal", () => {
 		const { source } = open();
 
 		expect(source?.texts).toContain(GROUP.line);
+	});
+
+	it("starts every row unticked, so confirming untouched leaves the whole group behind", () => {
+		const modal = open({ autoTick: false });
+
+		const result = modal.confirm();
+		expect(result?.taken).toEqual([]);
+		expect(result?.keptOwn).toEqual([
+			{ text: "Max:", children: ["    - Angebot prüfen", "    - Termin vereinbaren"] },
+		]);
+		expect(result?.keptForeign).toEqual([{ text: "Petra Schneider:", children: ["    - Zahlen liefern"] }]);
+	});
+
+	it("ticks every row of the group when the header's alle box is ticked", () => {
+		const modal = open({ autoTick: false });
+		modal.allBox!.checked = true;
+		__fireEvent(modal.allBox as never, "change");
+
+		const result = modal.confirm();
+		expect(result?.taken).toEqual([
+			{ text: "Max:", children: ["    - Angebot prüfen", "    - Termin vereinbaren"] },
+			{ text: "Petra Schneider:", children: ["    - Zahlen liefern"] },
+		]);
+		expect(result?.keptOwn).toEqual([]);
+		expect(result?.keptForeign).toEqual([]);
 	});
 });

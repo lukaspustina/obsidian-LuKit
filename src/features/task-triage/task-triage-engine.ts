@@ -86,7 +86,15 @@ function cmpDate(a: string | undefined, b: string | undefined): number {
 function isTriageCandidate(task: TriageTask, today: string): boolean {
 	const dateGate = (task.due !== undefined && task.due <= today) || (task.scheduled !== undefined && task.scheduled <= today);
 	if (!dateGate) return false;
+	return isOpenToday(task, today);
+}
 
+// Everything isTriageCandidate asks except the date. A note that qualified
+// through its intake carries its task whatever its date, but attaching one
+// that is already done for today would put a live ⌘D on it — and ⌘D on a
+// recurring task whose instance is complete toggles it back OPEN while
+// reporting "erledigt".
+export function isOpenToday(task: TriageTask, today: string): boolean {
 	if (task.isRecurring) {
 		if (task.completeInstances.includes(today)) return false;
 		if (task.skippedInstances.includes(today)) return false;
