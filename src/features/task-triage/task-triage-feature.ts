@@ -5,7 +5,7 @@ import { LUKIT_ICON_ID, type LuKitFeature, type HelpEntry } from "../../types";
 import { formatDate } from "../../shared/date-format";
 import { getDiaryNotePath } from "../../shared/diary-settings";
 import { frontmatterTagsInclude } from "../../shared/frontmatter";
-import { parseIntakeGroups, takeOverGroup, dropGroup, findIntakeGroupLine } from "../vorgang/intake-engine";
+import { parseIntakeGroups, takeOverGroup, dropGroup, snoozeGroup, findIntakeGroupLine } from "../vorgang/intake-engine";
 import type { IntakeGroup } from "../vorgang/intake-engine";
 import { listReminders, removeReminderLine, rescheduleReminderLine, erinnerungenSection } from "../work-diary/work-diary-engine";
 import type { ReminderItem } from "../work-diary/work-diary-engine";
@@ -51,6 +51,13 @@ function mayHoldIntake(cache: CachedMetadata | null): boolean {
 	const headings = cache?.headings;
 	if (!Array.isArray(headings)) return true;
 	return headings.some((h) => h.level === 4 && h.heading.trim() === INTAKE_BOUNDARY_HEADING);
+}
+
+// Whether a group's outcome leaves the group standing. Mirrors takeOverGroup's
+// own rule: an empty selection on both sides removes the group entirely, which
+// is what decides whether a date still has a line to be written onto.
+function keepsAnything(outcome: IntakeGroupOutcome): boolean {
+	return outcome.keptOwn.length > 0 || outcome.keptForeign.length > 0;
 }
 
 export class TaskTriageFeature implements LuKitFeature {
@@ -470,6 +477,20 @@ export class TaskTriageFeature implements LuKitFeature {
 						return content;
 					}
 					working = result.newContent;
+
+					// The group's own date lands after its take-over, on the
+					// line that rewrite left behind — a snooze first would be
+					// overwritten by renderGroup's verbatim rewrite. Skipped
+					// when the take-over kept nothing: the group is gone, and
+					// its date with it, so snoozing would only report the
+					// parent line missing.
+					if (outcome.due === null || outcome.discard || !keepsAnything(outcome)) continue;
+					const snoozed = snoozeGroup(working, group, parseIsoDate(outcome.due), this.plugin.settings.dateLocale);
+					if (snoozed === null) {
+						applied = false;
+						return content;
+					}
+					working = snoozed.newContent;
 				}
 				return working;
 			});

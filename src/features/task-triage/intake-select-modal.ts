@@ -11,8 +11,9 @@ export interface IntakeGroupOutcome {
 	// Wins over everything else in the group: taken/keptOwn/keptForeign and due
 	// are ignored when it is true.
 	discard: boolean;
-	// A due date for the group's parent line; null means no change. The date
-	// field itself ships in Phase 2, so this is always null today.
+	// A due date for the group's parent line as an ISO string; null means no
+	// change. Set-only: there is no affordance to clear a group's date, so a
+	// blank field can only ever mean "leave it as it stands".
 	due: string | null;
 	taken: IntakeItem[];
 	keptOwn: IntakeItem[];
@@ -46,6 +47,7 @@ interface GroupSection {
 	items: { itemRow: Row; childRows: Row[] }[];
 	ownCount: number;
 	discardBox: HTMLInputElement;
+	dueInput: HTMLInputElement;
 }
 
 // One editable row per line of every group the stop carries — items and the
@@ -72,7 +74,7 @@ export class IntakeSelectModal extends Modal {
 		contentEl.empty();
 		contentEl.createEl("h3", { text: "Punkte übernehmen" });
 		contentEl.createEl("p", {
-			text: "Angehakt wandert hoch, nicht angehakt bleibt in Unsortiert, leeres Feld löscht die Zeile. „Gruppe verwerfen“ löscht die ganze Gruppe.",
+			text: "Angehakt wandert hoch, nicht angehakt bleibt in Unsortiert, leeres Feld löscht die Zeile. Ein Datum verschiebt die ganze Gruppe, „Gruppe verwerfen“ löscht sie.",
 			cls: "lukit-intake-select-hint",
 		});
 
@@ -118,14 +120,25 @@ export class IntakeSelectModal extends Modal {
 		}));
 
 		// After the rows, so the checkbox order stays "one per line" — the
-		// discard box is the group's last control, not its first.
+		// group's own controls come last, not first.
+		//
+		// Blank by default, and blank means "leave the group's date alone": the
+		// same native control NoteDateModal uses, so its value is an ISO date or
+		// "". A group is deferred by typing one, never cleared by emptying the
+		// field — clearing a group's date back to due-now is out of scope.
+		const dueRow = contentEl.createEl("div", { cls: "lukit-intake-select-due" });
+		dueRow.createEl("label", { text: "Verschieben auf" });
+		const dueInput = dueRow.createEl("input", { cls: "lukit-intake-select-date" });
+		dueInput.type = "date";
+		dueInput.value = "";
+
 		const discardRow = contentEl.createEl("div", { cls: "lukit-intake-select-discard" });
 		const discardBox = discardRow.createEl("input");
 		discardBox.type = "checkbox";
 		discardBox.checked = false;
 		discardRow.createEl("label", { text: "Gruppe verwerfen" });
 
-		return { group, items, ownCount: group.ownItems.length, discardBox };
+		return { group, items, ownCount: group.ownItems.length, discardBox, dueInput };
 	}
 
 	private outcomeOf(section: GroupSection): IntakeGroupOutcome {
@@ -160,7 +173,14 @@ export class IntakeSelectModal extends Modal {
 			// exactly what is wanted: the todo, not the person header above it.
 			for (const row of takenChildren) taken.push({ text: valueOf(row), children: [] });
 		});
-		return { lineIndex: section.group.lineIndex, discard: section.discardBox.checked, due: null, taken, keptOwn, keptForeign };
+		return {
+			lineIndex: section.group.lineIndex,
+			discard: section.discardBox.checked,
+			due: section.dueInput.value === "" ? null : section.dueInput.value,
+			taken,
+			keptOwn,
+			keptForeign,
+		};
 	}
 
 	private renderRow(list: HTMLElement, prefix: string, text: string, isChild = false): Row {
