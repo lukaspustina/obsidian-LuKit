@@ -1,7 +1,9 @@
 # SDD Implementation Report: triage-note-stops.md
 
 **Date**: 2026-09-08
-**Phases run**: 1 (Phase 2 in progress)
+**Phases run**: 1, 2
+**Overall status**: all-shipped
+**SDD amendments suggested**: 7 (advisory)
 
 ## Phase 1: One Stop per Note
 
@@ -86,3 +88,59 @@ but it is a visible change to the order the walk offers.
 7. Open a Person note stop (intake, no task) → expected: only `⌘S ↵ esc ⌘.`, header reads
    `<Basisname> · N Gruppen`.
 8. End the walk with ⌘. → expected: a summary naming all six buckets, including the zeros.
+
+
+## Phase 2: A Date per Block
+
+**Status**: shipped
+**Commit**: 1da9621
+**Test Baseline**: db26cc3 (`.adlc/cycle/triage-note-stops/test-commit-2`)
+
+### Acceptance Criteria
+
+All 8 criteria pass. Seven were red at the baseline; c8 (the batch aborts whole when a parent line
+is missing) already passed, because Phase 1's single-write loop implements it and `snoozeGroup`
+resolves its parent line through the same `findParentIndex` — kept as a regression guard.
+Full suite: 253 files / 941 tests. `npm run build` clean.
+
+### Reviewer Findings
+
+**Blockers**: none. The reviewer verified by code path, not by the green result: the skip rule
+`outcome.discard || !keepsAnything(outcome)` is an exact mirror of `takeOverGroup`'s own removal
+rule, so no outcome shape exists where a group survives but its snooze is skipped, or a group is
+gone but the snooze runs and reports a missing parent line.
+
+**SDD Amendments Needed** (advisory, `affected_phase: 2`, `repaired_in_phase: no`):
+
+- Phase 2's first scenario says a date-only confirm leaves sub-bullets "byte-identical". True only
+  for canonically formatted groups: a date-only confirm still routes through `takeOverGroup`,
+  which normalises hand-indentation and drops interior blank lines. **Operationally: a ⌘S confirm
+  can reformat a hand-edited group even when it only sets a date.**
+- R13's claim that `findParentIndex` survives a group's second resolution does not hold for two
+  groups with byte-identical parent lines after a partial take-over — the confirm aborts whole
+  with a Notice. Fails closed, nothing corrupted, but the SDD overstates the guarantee.
+
+**Deferred**: none. **Nits**: 6, of which two were acted on — `CLAUDE.md` still documented the
+pre-blocker-fix `selectNoteStops(tasks, candidates)` signature and said it takes no third
+argument; `README.md` did not mention the new per-group date control.
+
+### Behavioral Verification
+
+Not executed, same justification as Phase 1: the criteria address an Obsidian modal and this
+repository has no headless driver. `npm run build` clean, `adlc auto verify-gate --dir .` exit 0.
+
+## Manual Test Plan — Phase 2 additions
+
+9. At a note stop with two due groups, press ⌘S, set a date on one group only, confirm →
+   expected: that group's `- Aus …` line carries the date, its lines stay, the other group is
+   untouched, and the walk returns to the same stop with the deferred group gone from it.
+10. Start a fresh walk → expected: the deferred group appears nowhere until its date arrives.
+11. Tick every line of a group **and** set a date on it, confirm → expected: the lines move up,
+    the group is gone, and no error Notice appears.
+12. Mark one group discard and give another a date in the same confirm → expected: both land, and
+    the note is written once.
+
+## How to Resume
+
+Nothing is blocked. Both phases are shipped and committed. What remains is the manual smoke test
+in Obsidian — until it is run, the live behaviour of both phases is unproven.
