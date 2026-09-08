@@ -51,7 +51,7 @@ interface GroupSection {
 }
 
 // One editable row per line of every group the stop carries — items and the
-// lines nested under them — each with its own checkbox, all preselected. The
+// lines nested under them — each with its own checkbox. The
 // text is editable, so wording can be fixed on the way out, and emptying a
 // field deletes that line. Rows start UNTICKED — a confirm moves only what was
 // ticked, so setting a date or a discard on one group leaves its siblings

@@ -61,6 +61,10 @@ function keepsAnything(outcome: IntakeGroupOutcome): boolean {
 	return outcome.keptOwn.length > 0 || outcome.keptForeign.length > 0;
 }
 
+function hasItems(group: IntakeGroup): boolean {
+	return group.ownItems.length > 0 || group.foreignItems.length > 0;
+}
+
 export class TaskTriageFeature implements LuKitFeature {
 	id = "task-triage";
 	private plugin!: LuKitPlugin;
@@ -466,7 +470,17 @@ export class TaskTriageFeature implements LuKitFeature {
 					// earlier pass; the dialog's own outcome for it is stale.
 					const group = stop.groups.find((g) => g.lineIndex === outcome.lineIndex);
 					if (group === undefined) continue;
-					const result = outcome.discard
+					// An itemless group (⌘K on an email filing writes one, and it
+					// is dateless, so it is always due) has no rows to tick, so an
+					// untouched section yields empty arrays throughout. That reads
+					// to takeOverGroup as "nothing was kept" and would delete the
+					// group's line — the one thing an untouched confirm must not
+					// do. A group whose rows were all emptied by hand is a
+					// different case: it HAD items, and deleting it is the point.
+					const untouched = !outcome.discard && outcome.taken.length === 0 && !keepsAnything(outcome) && !hasItems(group);
+					const result = untouched
+						? { newContent: working }
+						: outcome.discard
 						? dropGroup(working, group)
 						: takeOverGroup(working, group, {
 								taken: outcome.taken,
@@ -485,7 +499,9 @@ export class TaskTriageFeature implements LuKitFeature {
 					// when the take-over kept nothing: the group is gone, and
 					// its date with it, so snoozing would only report the
 					// parent line missing.
-					if (outcome.due === null || outcome.discard || !keepsAnything(outcome)) continue;
+					// The itemless group above survived untouched, so its date
+					// still has a line to land on.
+					if (outcome.due === null || outcome.discard || (!keepsAnything(outcome) && !untouched)) continue;
 					const snoozed = snoozeGroup(working, group, parseIsoDate(outcome.due), this.plugin.settings.dateLocale);
 					if (snoozed === null) {
 						applied = false;
