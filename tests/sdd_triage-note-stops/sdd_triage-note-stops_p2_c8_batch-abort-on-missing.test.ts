@@ -73,6 +73,31 @@ const ON_DISK = [
 	"",
 ].join("\n");
 
+// Two groups whose parent lines are byte-identical — the same source filed
+// twice on one day. After a partial take-over rewrites the first one, its
+// snapshot's items no longer match either block, so findParentIndex cannot
+// disambiguate and snoozeGroup is the call that returns null. This is the
+// only shape in which Phase 2's own abort branch is the one that fires:
+// everywhere else takeOverGroup fails first and the batch never reaches it.
+const TWIN_LINES = [
+	"---",
+	"tags: [Vorgang]",
+	"---",
+	"",
+	"# Nächste Schritte",
+	"",
+	"#### Unsortiert",
+	"- Aus [[Besprechung - Kickoff]]",
+	"    - Angebot prüfen",
+	"    - Termin vereinbaren",
+	"",
+	"- Aus [[Besprechung - Kickoff]]",
+	"    - Rechnung schicken",
+	"",
+	"# Inhalt",
+	"",
+].join("\n");
+
 interface FeatureInternals {
 	walkActive: boolean;
 	stops: TriageStop[];
@@ -82,12 +107,12 @@ interface FeatureInternals {
 	handleIntakeGroupOutcomes: (outcomes: IntakeGroupOutcome[]) => Promise<void>;
 }
 
-function setup() {
+function setup(onDisk: string = ON_DISK, stopView: string = TWO_GROUPS) {
 	const app = createMockApp({});
 	const vorgang = createMockTFile(NOTE_PATH, { basename: NOTE_BASENAME });
 	// Registered content is what handleIntakeGroupOutcomes actually reads and
 	// writes — the already-shrunk version, distinct from the stop's groups.
-	app.vault.register(vorgang, ON_DISK);
+	app.vault.register(vorgang, onDisk);
 
 	const plugin = createMockPlugin(makeTestSettings(), app);
 	const feature = new TaskTriageFeature();
@@ -97,7 +122,7 @@ function setup() {
 	// The stop carries both groups, parsed from the pre-removal content — this
 	// mirrors a walk that read the note once, before something else removed
 	// the second group.
-	const candidates: IntakeStopCandidate[] = parseIntakeGroups(TWO_GROUPS).map((group) => ({
+	const candidates: IntakeStopCandidate[] = parseIntakeGroups(stopView).map((group) => ({
 		group,
 		notePath: NOTE_PATH,
 		noteBasename: NOTE_BASENAME,
@@ -146,6 +171,34 @@ describe("SDD triage-note-stops Phase 2 #8: ⌘S confirm aborts the whole batch 
 		// change — because the batch is all-or-nothing.
 		expect(app.vault.files.get(vorgang.path)).toBe(ON_DISK);
 
+		expect(lastNotice()).toBeTruthy();
+		expect(internals.index).toBe(0);
+		expect(internals.walkActive).toBe(true);
+	});
+
+	// The sub-case the verify pass found uncovered: above, takeOverGroup fails
+	// first and the batch never reaches Phase 2's own snoozeGroup null-check.
+	// Here the take-over succeeds and the snooze is the call that cannot
+	// resolve its parent line — the batch must still abort whole.
+	it("aborts whole when the snooze, not the take-over, is the call that cannot resolve", async () => {
+		const { internals, app, vorgang } = setup(TWIN_LINES, TWIN_LINES);
+		const [groupFirst] = parseIntakeGroups(TWIN_LINES);
+
+		const outcome: IntakeGroupOutcome = {
+			lineIndex: groupFirst.lineIndex,
+			discard: false,
+			due: FUTURE_DATE_ISO,
+			// Keeps something, so the group survives the take-over and the
+			// snooze branch is actually reached.
+			taken: [groupFirst.ownItems[0]],
+			keptOwn: [groupFirst.ownItems[1]],
+			keptForeign: [],
+		};
+
+		await internals.handleIntakeGroupOutcomes([outcome]);
+
+		// The take-over's own change is rolled back with the failed snooze.
+		expect(app.vault.files.get(vorgang.path)).toBe(TWIN_LINES);
 		expect(lastNotice()).toBeTruthy();
 		expect(internals.index).toBe(0);
 		expect(internals.walkActive).toBe(true);
