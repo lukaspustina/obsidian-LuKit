@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-09-13
+
+### Added
+- **Nächste Schritte als Intake im Vorgang** — Beim Ablegen einer Besprechung oder eines E-Mail-Threads landen deren Aufgaben unter `#### Unsortiert` in `# Nächste Schritte` der Zielnotiz, eine Gruppe je Quelle (`- Aus [[Quelle]]`). Aufgaben, die laut der neuen Einstellung „Eigene Namen" jemand anderem gehören, stehen getrennt unter `- Warte auf:` (5a6df53, 977d6ff, 0317753).
+- **Fällige Aufgaben durchgehen: Intake-Stops** — Der Triage-Walk arbeitet die Intake-Gruppen ab, vor den Tasks: ⌘D übernimmt die ganze Gruppe in die kuratierten nächsten Schritte, ⌘X verwirft sie, ⌘1–⌘3/⌘T verschieben sie, ⌘S öffnet die Punktauswahl (91cb570).
+- **Punktauswahl mit editierbaren Feldern (⌘S)** — Jede Zeile der Gruppe, Punkte wie Unterpunkte, bekommt eine Checkbox und ein Textfeld; der Text lässt sich vor dem Übernehmen korrigieren. Nicht angehakte Zeilen bleiben in der Gruppe, und der Walk kehrt danach zum selben Vorgang zurück — das Sortieren ist ein Schritt innerhalb des Stops, nicht sein Ende (b34e873, 4f49d9b, edc701b).
+- **Datum der Notiz am Intake-Stop (⌘G)** — Fällig und Geplant der Vorgang-Notiz in einem Dialog, beide vorbelegt; ein geleertes Feld löscht das Datum. Nur für Notizen, die TaskNotes kennt (ec33383, f9aa130).
+- **Ziel-Vorgang in der E-Mail-Vorschau** — Eine Seitenspalte zeigt den aktuellen Stand der Zielnotiz (Fakten, neueste Abschnitte, unsortierte nächste Schritte); ⌘P blendet sie um. Anhänge nennen zusätzlich ihre Größe (95fff64).
+
+### Changed
+- **Dialoge nutzen den Platz, den sie reservieren** — Die E-Mail-Vorschau wächst mit dem Thread statt 85 % der Bildschirmhöhe leer zu lassen, zeigt die Nachrichtentexte vollständig statt bei sechs Zeilen abzuschneiden, und die Buttons bleiben unten sichtbar (65ca703).
+- **Zielnotiz-Picker zweispaltig** — Trefferliste links, Vorschau rechts, beide unabhängig scrollbar, statt einer Vorschau, die die Liste auf ein Viertel zusammendrückt (bf2dd99).
+- **Kleine Dialoge** — Punktauswahl scrollt bei vielen Einträgen, das Hilfe-Fenster nutzt seine Breite, Button-Leisten sind einheitlich ausgerichtet (2a9d63f).
+
+### Fixed
+- **E-Mail-Zugriff unter EDR-Software** — Die JXA-Skripte gehen jetzt über stdin an `osascript` statt als Inline-Argument. SentinelOne hat die Inline-Payload als „active content" gescannt und den Prozess ab etwa 1 KB fail-closed abgeschossen — ohne Ausgabe auf stdout *oder* stderr, weshalb jede Meldung zu einem nichtssagenden „Mail-Zugriff fehlgeschlagen" degradierte. Acht der zehn Skripte lagen darüber (c303668).
+- **Vorschauen zeigen formatiertes Markdown** — Überschriften, Listen und Links in der Triage- und der E-Mail-Vorschau waren unformatiert, weil der Container Obsidians `markdown-rendered`-Klasse fehlte (c713241).
+- **Personen-Gruppierung aus Besprechungsnotizen** — Granola gliedert die nächsten Schritte unter einer `<Name>:`-Zeile mit unindentierten Bullets darunter; diese Zuordnung ging beim Ablegen verloren und alles wurde zur flachen Liste. Trennlinien (`---`) wandern nicht mehr als Punkt mit (a1961b3).
+- **Anhänge brechen keine Ablage mehr ab**, der `_resources`-Ordner wird aus dem Pfad der Zielnotiz abgeleitet, und unlesbare Nachrichten fallen aus der Mail-Auswahl heraus, statt den Vorgang zu stoppen (c9f4e89, 6dc6c9c, 56fcb9c).
+
 ## [1.22.0] - 2026-07-29
 
 ### Added
