@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-09-21
+
+### Added
+- Der Triage-Walk macht einen Stop pro **Notiz** statt je einen pro fälliger Intake-Gruppe und pro fälliger TaskNote — ein Vorgang, der beides ist, wird einmal vorgelegt, und die Tastenleiste wechselt die Form nicht mehr mitten im Stop (ae65f08)
+- Datum pro Intake-Block: ⌘S öffnet alle fälligen Gruppen einer Notiz auf einmal, jede mit eigenem Datumsfeld und Verwerfen-Kästchen, sodass ein Block zurückgestellt werden kann, während die anderen sortiert werden (341d42d)
+- Ein leergemachtes Textfeld löscht die Zeile — der einzige Weg, einen einzelnen Punkt loszuwerden (cad0f04)
+- Ein abgearbeiteter Stop zieht die nächste Gruppe derselben Notiz nach (61d8753, in diesem Release von „ein Stop pro Notiz" abgelöst)
+
+### Fixed
+- Das Datum einer Gruppe landet auf dieser Gruppe und nicht auf einer byte-gleichen Zwillingsgruppe, deren Übernahme die erste still rückgängig machte (1c04db3)
+- Die mehrgruppige Auswahl übernimmt nur noch Angehaktes: vorher nahm jedes Bestätigen den gesamten Intake der Notiz und verschluckte dabei ein getipptes Datum (7a9aaf8)
+- Eine leere Intake-Gruppe überlebt ein Bestätigen, bei dem nichts angehakt wurde (49667e8)
+- Der Kopf eines Intake-Stops nennt den Vorgang statt der Quelle der Gruppe, die ihn wie eine fällige Besprechung aussehen ließ (0aaf8eb)
+
+### Changed
+- Die Reihenfolge der Stops folgt dem Datum der Notiz, ersatzweise dem frühesten Datum ihrer Gruppen — eine heute fällige Gruppe auf einem Dezember-Vorgang kommt damit zuletzt statt zuerst
+- ⌘D bedeutet am Notiz-Stop „erledigt" statt „Gruppe übernehmen", ⌘X „heutige Instanz auslassen" statt „Gruppe verwerfen"; Verwerfen ist jetzt das Kästchen pro Gruppe im ⌘S-Dialog
+- Die Abschluss-Meldung nennt immer alle sechs Buckets, Nullen inklusive
+
 ## [1.23.0] - 2026-09-13
 
 ### Added
