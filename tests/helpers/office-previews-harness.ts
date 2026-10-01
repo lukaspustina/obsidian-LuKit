@@ -270,6 +270,16 @@ export interface Harness {
 
 export function createHarness(opts: HarnessOptions = {}): Harness {
 	vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+	// crypto.subtle.digest resolves on a native thread, outside the fake clock, so
+	// a hash started inside advance() would not finish there. The stub resolves
+	// as a microtask with the same digest.
+	const digestSpy = vi.spyOn(crypto.subtle, "digest").mockImplementation(
+		async (_alg: AlgorithmIdentifier, data: BufferSource): Promise<ArrayBuffer> => {
+			const view = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+			const out = createHash("sha256").update(view).digest();
+			return out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength);
+		},
+	);
 	resetNotices();
 	if (opts.platform) __setPlatform(opts.platform);
 
@@ -583,7 +593,10 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 		},
 		async advance(ms) { await vi.advanceTimersByTimeAsync(ms); },
 		async settle() {
-			for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(0);
+			// A zero-delay timer is due 1 ms later (Node semantics, mirrored by the
+			// fake clock), so each round advances 1 ms; 20 rounds cover a reconcile
+			// that yields once per file.
+			for (let i = 0; i < 20; i++) await vi.advanceTimersByTimeAsync(1);
 		},
 		async start() {
 			h.layoutReady();
@@ -617,6 +630,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 		},
 		unload() { feature.onunload(); },
 		dispose() {
+			digestSpy.mockRestore();
 			vi.useRealTimers();
 			__resetPlatform();
 			resetNotices();

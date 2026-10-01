@@ -74,6 +74,7 @@ describe("mergeSettings", () => {
 				sentMailboxes: { Gmail: "[Gmail]/Sent Mail" },
 				defaultSentMailbox: "Gesendet",
 			},
+			officePreviews: { enabled: true, folder: "Vorschau" },
 		};
 		const merged = mergeSettings(input);
 		expect(merged).toEqual(input);

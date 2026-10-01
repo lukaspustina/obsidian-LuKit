@@ -11,8 +11,10 @@ describe("SDD office-previews p2 c4", () => {
 	describe("feature: three due jobs", () => {
 		let h: Harness;
 
-		beforeEach(() => {
+		beforeEach(async () => {
 			h = createHarness();
+			// Listeners exist only after layout ready (requirement 33); run the empty startup reconcile first.
+			await h.start();
 		});
 
 		afterEach(() => {

@@ -3,6 +3,9 @@ import type { DateLocale } from "./shared/date-format";
 import { isDateLocale } from "./shared/date-format";
 import type { EmailFilingSettings } from "./features/email-filing/email-filing-settings";
 import { DEFAULT_EMAIL_FILING_SETTINGS } from "./features/email-filing/email-filing-settings";
+import type { OfficePreviewSettings } from "./features/office-previews/office-previews-settings";
+import { DEFAULT_OFFICE_PREVIEW_SETTINGS } from "./features/office-previews/office-previews-settings";
+import { normalizePreviewFolder } from "./features/office-previews/office-previews-engine";
 
 export interface WorkDiarySettings {
 	diaryNotePath: string;
@@ -58,6 +61,7 @@ export interface LuKitSettings {
 	workDiary: WorkDiarySettings;
 	besprechung: BesprechungSettings;
 	emailFiling: EmailFilingSettings;
+	officePreviews: OfficePreviewSettings;
 }
 
 export const LUKIT_ICON_ID = "lukit-logo";
@@ -81,6 +85,7 @@ export const DEFAULT_SETTINGS: LuKitSettings = {
 		selfNameStopwords: [],
 	},
 	emailFiling: DEFAULT_EMAIL_FILING_SETTINGS,
+	officePreviews: DEFAULT_OFFICE_PREVIEW_SETTINGS,
 };
 
 export function mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings {
@@ -92,6 +97,7 @@ export function mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings {
 			console.warn(`LuKit: invalid dateLocale "${saved.dateLocale}" — falling back to "${DEFAULT_SETTINGS.dateLocale}"`);
 		}
 	}
+	const officePreviews = { ...DEFAULT_OFFICE_PREVIEW_SETTINGS, ...(saved.officePreviews ?? {}) };
 	return {
 		...DEFAULT_SETTINGS,
 		...saved,
@@ -105,5 +111,6 @@ export function mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings {
 			sentMailboxes: { ...DEFAULT_EMAIL_FILING_SETTINGS.sentMailboxes, ...(saved.emailFiling?.sentMailboxes ?? {}) },
 			walkAccounts: { ...DEFAULT_EMAIL_FILING_SETTINGS.walkAccounts, ...(saved.emailFiling?.walkAccounts ?? {}) },
 		},
+		officePreviews: { ...officePreviews, folder: normalizePreviewFolder(officePreviews.folder) },
 	};
 }
