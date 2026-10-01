@@ -80,6 +80,9 @@ export class TaskTriageFeature implements LuKitFeature {
 	// Pinned once per walk so a walk crossing midnight keeps mutating the
 	// instances/dates the selection (and the visible modal) was based on.
 	walkToday = "";
+	// "due" is the vault walk; "note" triages one chosen note, so its stop
+	// carries every intake group regardless of date and keeps them on refresh.
+	walkScope: "due" | "note" = "due";
 	private modal?: TaskTriageModal;
 
 	todayIso: () => string = () => formatDate(new Date(), "iso");
@@ -92,6 +95,14 @@ export class TaskTriageFeature implements LuKitFeature {
 			name: "Vorgänge: Fällige Aufgaben durchgehen",
 			icon: LUKIT_ICON_ID,
 			callback: () => this.startWalk(),
+		});
+		plugin.addCommand({
+			id: "task-triage-current",
+			name: "Vorgang: Aufgaben durchgehen",
+			icon: LUKIT_ICON_ID,
+			callback: () => {
+				void this.beginNoteWalk(this.plugin.app.workspace.getActiveFile());
+			},
 		});
 	}
 
@@ -111,6 +122,12 @@ export class TaskTriageFeature implements LuKitFeature {
 				description:
 					"Geht fällige Tagebuch-Erinnerungen und danach jede fällige Notiz durch — eine Notiz ist ein Stop, mit ihrer TaskNotes-Task und ihren fälligen Intake-Gruppen zusammen. Pro Stop: erledigen, verschieben, heutige Instanz auslassen (nur wiederkehrende Tasks), Datum der Notiz setzen, Punkte auswählen (nur mit Intake-Gruppen), öffnen & stoppen oder überspringen. Ohne TaskNotes (≥ 4.10.0) läuft der Walk ohne Tasks.",
 			},
+			{
+				commandId: "task-triage-current",
+				displayName: "Vorgang: Aufgaben durchgehen",
+				description:
+					"Wie „Fällige Aufgaben durchgehen“, aber nur für die aktive Notiz und unabhängig vom Datum: ein Stop mit der offenen TaskNotes-Task der Notiz und allen ihren Intake-Gruppen, auch den noch nicht fälligen.",
+			},
 		];
 	}
 
@@ -127,6 +144,7 @@ export class TaskTriageFeature implements LuKitFeature {
 		// Claim the walk before the (potentially long) listing await so a
 		// second command invocation cannot start a concurrent walk.
 		this.walkActive = true;
+		this.walkScope = "due";
 		this.walkToday = this.todayIso();
 		const loading = new Notice("Sammle fällige Aufgaben…", 0);
 
@@ -173,6 +191,54 @@ export class TaskTriageFeature implements LuKitFeature {
 		}
 
 		this.stops = stops;
+		this.index = 0;
+		this.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0, takenOver: 0 };
+		this.takenOverStops.clear();
+		await this.presentStop();
+	}
+
+	// One stop for the given note: its open task (if TaskNotes knows it) and
+	// every intake group in file order, due or not — choosing the note is the
+	// filter, so the date one is skipped.
+	async beginNoteWalk(file: TFile | null): Promise<void> {
+		if (this.walkActive) {
+			new Notice("Triage läuft bereits.");
+			return;
+		}
+		if (file === null) {
+			new Notice("Keine aktive Notiz geöffnet.");
+			return;
+		}
+		if (this.isDone(this.plugin.app.metadataCache.getFileCache(file))) {
+			new Notice(`„${file.basename}“ ist bereits abgeschlossen.`);
+			return;
+		}
+		this.walkActive = true;
+		this.walkScope = "note";
+		this.walkToday = this.todayIso();
+
+		let task: TriageTask | undefined;
+		if (this.bridge.availability().ok) {
+			try {
+				const found = await this.bridge.getTask(file.path);
+				if (found !== null && isOpenToday(found, this.walkToday)) task = found;
+			} catch (e) {
+				this.logError(e);
+			}
+		}
+		let groups: IntakeGroup[] = [];
+		try {
+			groups = parseIntakeGroups(await this.plugin.app.vault.read(file)).sort((a, b) => a.lineIndex - b.lineIndex);
+		} catch (e) {
+			this.logError(e);
+		}
+		if (task === undefined && groups.length === 0) {
+			this.walkActive = false;
+			new Notice(`„${file.basename}“ hat weder eine offene Aufgabe noch Intake-Gruppen.`);
+			return;
+		}
+
+		this.stops = [{ kind: "note", notePath: file.path, noteBasename: file.basename, task, groups }];
 		this.index = 0;
 		this.counts = { completed: 0, snoozed: 0, instancesSkipped: 0, skipped: 0, takenOver: 0 };
 		this.takenOverStops.clear();
@@ -550,13 +616,15 @@ export class TaskTriageFeature implements LuKitFeature {
 			}
 		}
 		const parsed = content === null ? [] : parseIntakeGroups(content);
-		const groups = selectDueIntakeGroups(
-			parsed.map((group) => ({ group, notePath: stop.notePath, noteBasename: stop.noteBasename })),
-			this.walkToday,
-		)
-			.map((candidate) => candidate.group)
-			// selectDueIntakeGroups orders by due date; the stop shows file order.
-			.sort((a, b) => a.lineIndex - b.lineIndex);
+		const kept =
+			this.walkScope === "note"
+				? parsed
+				: selectDueIntakeGroups(
+						parsed.map((group) => ({ group, notePath: stop.notePath, noteBasename: stop.noteBasename })),
+						this.walkToday,
+					).map((candidate) => candidate.group);
+		// selectDueIntakeGroups orders by due date; the stop shows file order.
+		const groups = kept.sort((a, b) => a.lineIndex - b.lineIndex);
 		this.stops[this.index] = { ...stop, groups };
 	}
 

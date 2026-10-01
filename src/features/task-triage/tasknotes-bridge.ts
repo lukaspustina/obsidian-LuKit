@@ -10,6 +10,8 @@ export type BridgeAvailability =
 export interface TaskNotesBridge {
 	availability(): BridgeAvailability;
 	listTasks(): Promise<TriageTask[]>;
+	// The task note at `path`, or null when TaskNotes does not know it.
+	getTask(path: string): Promise<TriageTask | null>;
 	complete(path: string): Promise<void>;
 	setScheduled(path: string, date: string): Promise<void>;
 	setDue(path: string, date: string): Promise<void>;
@@ -98,6 +100,22 @@ function normalizeDate(value: string | undefined): string | undefined {
 	return value.slice(0, 10);
 }
 
+function toTriageTask(task: TaskInfo, statuses: StatusConfig[]): TriageTask {
+	return {
+		path: task.path,
+		title: task.title,
+		isCompleted: statuses.find((s) => s.value === task.status)?.isCompleted ?? false,
+		due: normalizeDate(task.due),
+		scheduled: normalizeDate(task.scheduled),
+		priority: task.priority,
+		contexts: task.contexts ?? [],
+		projects: task.projects ?? [],
+		isRecurring: !!task.recurrence,
+		completeInstances: task.complete_instances ?? [],
+		skippedInstances: task.skipped_instances ?? [],
+	};
+}
+
 export function createTaskNotesBridge(app: App): TaskNotesBridge {
 	function pluginRegistry(): PluginsAccessor {
 		return (app as unknown as AppWithPlugins).plugins;
@@ -174,20 +192,13 @@ export function createTaskNotesBridge(app: App): TaskNotesBridge {
 			const api = requireApi();
 			const infos = await fetchTaskInfos(api);
 			const statuses = api.catalog.statuses();
+			return infos.map((task) => toTriageTask(task, statuses));
+		},
 
-			return infos.map((task) => ({
-				path: task.path,
-				title: task.title,
-				isCompleted: statuses.find((s) => s.value === task.status)?.isCompleted ?? false,
-				due: normalizeDate(task.due),
-				scheduled: normalizeDate(task.scheduled),
-				priority: task.priority,
-				contexts: task.contexts ?? [],
-				projects: task.projects ?? [],
-				isRecurring: !!task.recurrence,
-				completeInstances: task.complete_instances ?? [],
-				skippedInstances: task.skipped_instances ?? [],
-			}));
+		async getTask(path: string): Promise<TriageTask | null> {
+			const api = requireApi();
+			const info = await api.tasks.get(path);
+			return info === null ? null : toTriageTask(info, api.catalog.statuses());
 		},
 
 		async complete(path: string): Promise<void> {
