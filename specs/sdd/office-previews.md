@@ -73,9 +73,9 @@ Distribution across Macs without locks: every Mac with LuKit may render. Before 
 20. The system shall, after moving or deleting a preview, remove each emptied parent folder below the preview folder, never the preview folder itself and never a folder outside it.
 21. The system shall store `officePreviews.enabled` and `officePreviews.folder` in the synced plugin settings, and the device cache and failure memory in device-local storage (`app.saveLocalStorage`).
 22. The system shall keep whatever image Quick Look returns as the preview, including a generic file icon for a protected or broken document; only a timeout, a non-zero exit or a missing image counts as a failure.
-23. The system shall, when a source file is created in the vault within 10 seconds after an `editor-drop` or `editor-paste` event in a Markdown editor, treat it as dropped into that editor's note.
+23. The system shall observe `editor-drop` and `editor-paste` without preventing their default handling, record the note and the file names from the event's `DataTransfer.files`, and treat a source file created within 10 seconds afterwards as dropped into that note when its basename equals a recorded name or that name with Obsidian's collision suffix (`Angebot 1.docx`).
 24. The system shall render a dropped source immediately, bypassing the random delay and the failure memory.
-25. The system shall, once the dropped source's preview exists, insert `![[<preview basename>]]` on a new line directly below the line that holds the source's link or embed in that note, located by searching the note's current content at insertion time (never by an offset recorded at drop time), through the editor API so a single undo removes it.
+25. The system shall, once the dropped source's preview exists, locate the line holding the source's link or embed by searching the note's current content at insertion time (never by an offset recorded at drop time), turn an embed `![[<source>]]` on it into a link `[[<source>]]` so the document stays openable by click, and insert `![[<preview basename>]]` on a new line directly below — as one editor change, so a single undo reverts both.
 26. The system shall fall back to `vault.process` on the note when the note is no longer open in an editor, and shall insert nothing when the note no longer contains a link to the source or already contains an embed of its preview.
 27. The system shall insert nothing for a dropped source whose render failed, and show a German Notice naming the document.
 
@@ -174,7 +174,11 @@ Phase complete when: acceptance tests cover drop → immediate render → embed 
 
 ### Test Scenarios
 
-- GIVEN an `editor-drop` in note N WHEN `_resources/Angebot.docx` is created 1 s later THEN it is rendered without delay and `![[Angebot.docx.png]]` is inserted on the line below `![[Angebot.docx]]` in N.
+- GIVEN an `editor-drop` of `Angebot.docx` in note N WHEN `_resources/Angebot.docx` is created 1 s later THEN it is rendered without delay, the line `![[Angebot.docx]]` becomes `[[Angebot.docx]]`, and `![[Angebot.docx.png]]` is inserted on the line below.
+- GIVEN the note already holds a plain link `[[Angebot.docx]]` WHEN the embed is inserted THEN the link line stays unchanged.
+- GIVEN an `editor-drop` of `Angebot.docx` while `_resources/Angebot.docx` exists WHEN Obsidian creates `_resources/Angebot 1.docx` THEN it is matched to the drop.
+- GIVEN an `editor-drop` of `Angebot.docx` WHEN an unrelated `Bericht.docx` is created within 10 s THEN it is not matched and is queued with the random delay.
+- GIVEN the embed was inserted WHEN the user undoes once THEN both the link conversion and the preview line are reverted.
 - GIVEN the user typed three lines above the link before the render finished WHEN the embed is inserted THEN it lands directly below the link, not at the drop-time offset.
 - GIVEN N was closed before the render finished WHEN the embed is inserted THEN it is written through `vault.process` below the link.
 - GIVEN the user deleted the link before the render finished WHEN the render finishes THEN N is not changed.
@@ -195,6 +199,8 @@ Phase complete when: acceptance tests cover drop → immediate render → embed 
 | Ownership | Marker inside the image | File name pattern alone: cannot tell a LuKit preview from a user's image |
 | Protected documents | Keep Quick Look's output, even a generic icon | Detecting icons and recording a failure: extra code for a rare case the operator accepts |
 | Embedding after drag & drop | LuKit inserts the preview embed automatically below the dropped link (operator decision, 2026-10-01 — deliberately overrides the handover's "notes are not changed automatically" for this one case) | Command at the cursor: one keystroke per drop. Render-time swap of the grey embed: LuKit is `isDesktopOnly`, so mobile would show the grey block. Manual embedding only: typing long names per drop |
+| Form after the drop | `[[Angebot.docx]]` (clickable, opens the document) with `![[Angebot.docx.png]]` below (operator decision) | Keep Obsidian's `![[Angebot.docx]]`: a grey box above the image whose click behaviour is unverified |
+| Matching a created file to a drop | File name from `DataTransfer.files` (with collision suffix) within 10 s | Time window alone: any file synced in during the window would be embedded into the note |
 | Locating the insertion point | Search the note's current content for the link at insertion time | Offset recorded at drop time: wrong as soon as the user keeps typing while the render runs |
 | Orphans | Delete only on a `delete` event | Startup orphan sweep: a device that excludes Office files from selective sync would see every preview as orphaned and delete them all |
 
