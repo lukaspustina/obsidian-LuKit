@@ -1,11 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { SUPPORTED_EXTENSIONS } from "../../src/features/office-previews/office-previews-engine";
 
 const EXPECTED = ["docx", "doc", "xlsx", "xls", "pptx", "ppt", "pages", "numbers", "key", "odt", "ods", "odp"];
 const ALLOWED = ["pass", "fail", "no sample"];
-const REPORT_PATH = join(process.cwd(), "specs", "sdd", "office-previews.report.md");
+// The experiment is recorded in the SDD itself, which /sdd-finish archives to
+// specs/done/sdd/office-previews-<date>.md (the report is deleted there).
+function sddPath(): string {
+	const active = join(process.cwd(), "specs", "sdd", "office-previews.md");
+	if (existsSync(active)) return active;
+	const done = join(process.cwd(), "specs", "done", "sdd");
+	const archived = existsSync(done) ? readdirSync(done).filter((f) => /^office-previews-\d{4}-\d{2}-\d{2}\.md$/.test(f)).sort() : [];
+	return archived.length > 0 ? join(done, archived[archived.length - 1]) : active;
+}
+const REPORT_PATH = sddPath();
 
 function experimentSection(report: string): string[] | null {
 	const lines = report.split("\n");
