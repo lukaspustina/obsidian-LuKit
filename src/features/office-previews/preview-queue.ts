@@ -45,6 +45,7 @@ export class PreviewQueue {
 	rename(oldPath: string, newPath: string): void {
 		const job = this.jobs.get(oldPath);
 		if (job === undefined) return;
+		this.remove(newPath);
 		this.jobs.delete(oldPath);
 		this.jobs.set(newPath, job);
 	}

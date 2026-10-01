@@ -71,6 +71,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 	/** Sources verified current in reconcile or rendered by this device since load. */
 	private readonly current = new Set<string>();
 	private disposed = false;
+	/** Rename and delete events are handled one at a time, in event order. */
+	private lifecycle: Promise<void> = Promise.resolve();
 
 	constructor(deps: Partial<OfficePreviewsDeps> = {}) {
 		const random = deps.random ?? Math.random;
@@ -259,6 +261,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		const kind = imageExtFor(path);
 		const result = await this.deps.renderer.render(this.absPath(path), kind, RENDER_TIMEOUT_MS);
 		if (this.disposed) return;
+		// Renamed or deleted during the render: the lifecycle events own the path now.
+		if (this.sourceFile(path) !== file || file.path !== path) return;
 		if (!result.ok) {
 			this.current.delete(path);
 			this.cache?.setFailure(path, this.failure(sha256, result.reason));
@@ -300,11 +304,102 @@ export class OfficePreviewsFeature implements LuKitFeature {
 
 	private onDelete(file: TAbstractFile): void {
 		if (!this.enabled() || !(file instanceof TFile)) return;
-		this.retryCollisionAt(file.path);
+		const path = file.path;
+		this.retryCollisionAt(path);
+		if (this.isSource(path)) this.serialise(() => this.handleDelete(path));
 	}
 
-	private onRename(_file: TAbstractFile, _oldPath: string): void {
-		// Source rename handling arrives with the lifecycle phase.
+	private onRename(file: TAbstractFile, oldPath: string): void {
+		if (!this.enabled() || !(file instanceof TFile)) return;
+		const newPath = file.path;
+		if (!this.isSource(oldPath)) {
+			if (this.isSource(newPath)) this.schedule(newPath);
+			return;
+		}
+		if (!this.isSource(newPath)) {
+			// The document left the preview's scope; its preview stays (requirement 17).
+			this.forget(oldPath);
+			this.cache?.removeEntry(oldPath);
+			return;
+		}
+		// Bookkeeping moves at event time, so a debounce or job that comes due
+		// while earlier renames are still being applied is not lost.
+		const hadDebounce = this.debounce.has(oldPath);
+		const wasCurrent = this.current.has(oldPath);
+		this.queue?.rename(oldPath, newPath);
+		this.forget(oldPath);
+		this.cache?.moveEntry(oldPath, newPath);
+		if (hadDebounce) this.schedule(newPath);
+		this.serialise(() => this.handleRename(oldPath, newPath, wasCurrent));
+	}
+
+	private serialise(task: () => Promise<void>): void {
+		this.lifecycle = this.lifecycle.then(async () => {
+			if (this.disposed) return;
+			try {
+				await task();
+			} catch {
+				console.warn("LuKit office previews: a rename or delete could not be applied to its preview.");
+			}
+		});
+	}
+
+	/** Drops debounce, queued job and current-set membership; the queue and cache are moved separately. */
+	private forget(path: string): void {
+		const pending = this.debounce.get(path);
+		if (pending !== undefined) this.deps.clearTimeout(pending);
+		this.debounce.delete(path);
+		this.queue?.remove(path);
+		this.current.delete(path);
+	}
+
+	/** Requirement 15: drop bookkeeping; delete the preview only when it carries the marker. */
+	private async handleDelete(path: string): Promise<void> {
+		this.forget(path);
+		this.cache?.removeEntry(path);
+		const mirror = mirrorPath(path, this.folder());
+		if ((await this.store?.inspect(mirror))?.kind !== "marked" || this.disposed) return;
+		await this.store?.remove(mirror);
+		if (this.disposed) return;
+		await this.store?.removeEmptyParents(mirror, this.folder());
+	}
+
+	/** Requirement 14: move a marked preview with the source, never over an occupied path. */
+	private async handleRename(oldPath: string, newPath: string, wasCurrent: boolean): Promise<void> {
+		const folder = this.folder();
+		const oldMirror = mirrorPath(oldPath, folder);
+		const newMirror = mirrorPath(newPath, folder);
+		const state = await this.store?.inspect(oldMirror);
+		if (this.disposed) return;
+		if (state?.kind !== "marked") {
+			if (this.queue?.has(newPath) !== true) this.schedule(newPath);
+			return;
+		}
+		const occupant = await this.store?.inspect(newMirror);
+		if (this.disposed) return;
+		if (occupant !== undefined && occupant.kind !== "absent") {
+			const file = this.sourceFile(newPath);
+			if (file === null) return;
+			const sha256 = await this.fingerprint(file);
+			if (this.disposed) return;
+			// Another device already moved the preview: it is current, not a collision.
+			if (occupant.kind === "marked" && occupant.marker.sha256 === sha256) this.current.add(newPath);
+			else this.cache?.setFailure(newPath, this.failure(sha256, "collision"));
+			return;
+		}
+		const preview = this.plugin?.app.vault.getAbstractFileByPath(oldMirror);
+		if (!(preview instanceof TFile)) return;
+		await this.store?.ensureParent(newMirror);
+		if (this.disposed) return;
+		try {
+			await this.plugin?.app.fileManager.renameFile(preview, newMirror);
+		} catch {
+			console.warn("LuKit office previews: a preview could not be moved with its document.");
+			return;
+		}
+		if (wasCurrent) this.current.add(newPath);
+		if (this.disposed) return;
+		await this.store?.removeEmptyParents(oldMirror, folder);
 	}
 
 	/** Requirement 11: a create/delete at a collision's mirror path clears it and queues the source. */

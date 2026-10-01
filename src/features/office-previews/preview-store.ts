@@ -19,8 +19,37 @@ export class PreviewStore {
 	/** Writes the image, creating missing parent folders first. Throws on failure. */
 	async write(mirror: string, bytes: Uint8Array): Promise<void> {
 		const p = normalizePath(mirror);
-		const parent = p.slice(0, Math.max(0, p.lastIndexOf("/")));
-		if (parent !== "" && !(await this.adapter.exists(parent))) await this.adapter.mkdir(parent);
+		await this.ensureParent(p);
 		await this.adapter.writeBinary(p, bytes.slice().buffer);
 	}
+
+	async ensureParent(path: string): Promise<void> {
+		const parent = parentOf(normalizePath(path));
+		if (parent !== "" && !(await this.adapter.exists(parent))) await this.adapter.mkdir(parent);
+	}
+
+	async exists(path: string): Promise<boolean> {
+		return this.adapter.exists(normalizePath(path));
+	}
+
+	async remove(path: string): Promise<void> {
+		await this.adapter.remove(normalizePath(path));
+	}
+
+	/** Removes emptied folders from `path`'s parent up to, never including, `root`. Errors are ignored. */
+	async removeEmptyParents(path: string, root: string): Promise<void> {
+		try {
+			for (let dir = parentOf(normalizePath(path)); dir.startsWith(root + "/"); dir = parentOf(dir)) {
+				const listing = await this.adapter.list(dir);
+				if (listing.files.length > 0 || listing.folders.length > 0) return;
+				await this.adapter.rmdir(dir, false);
+			}
+		} catch {
+			// A sync race or a vanished folder: leaving an empty folder is harmless.
+		}
+	}
+}
+
+function parentOf(path: string): string {
+	return path.slice(0, Math.max(0, path.lastIndexOf("/")));
 }
