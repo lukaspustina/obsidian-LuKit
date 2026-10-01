@@ -96,6 +96,6 @@ describe("SDD email-attachments p2 c9", () => {
 		expect(app.vault.adapter.mkdir).not.toHaveBeenCalled();
 		expect(saveAttachments).toHaveBeenCalledWith("iCloud", "m@1", expect.anything());
 		const content = app.vault.files.get(vorgang.path) ?? "";
-		expect(content).toContain("Anhänge: [[rechnung.pdf]]");
+		expect(content).toContain("Anhänge: ![[rechnung.pdf]]");
 	});
 });

@@ -107,7 +107,7 @@ describe("SDD email-attachments p2 c6 — selected-command capture-only save", (
 		expect(messageId).toBe("m@7");
 
 		const updated = app.vault.files.get(vorgang.path) ?? "";
-		expect(updated).toContain("Anhänge: [[rechnung.pdf]]");
+		expect(updated).toContain("Anhänge: ![[rechnung.pdf]]");
 
 		expect(archive).not.toHaveBeenCalled();
 	});

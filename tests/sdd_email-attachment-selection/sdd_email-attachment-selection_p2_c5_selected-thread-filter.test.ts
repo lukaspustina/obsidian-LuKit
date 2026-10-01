@@ -124,7 +124,7 @@ describe("SDD email-attachment-selection p2 c5 — selected-command attachment f
 		expect(savedNames).not.toContain("logo.png");
 
 		const updated = app.vault.files.get(vorgang.path) ?? "";
-		expect(updated).toContain("Anhänge: [[vertrag.pdf]]");
+		expect(updated).toContain("Anhänge: ![[vertrag.pdf]]");
 		expect(updated).not.toContain("logo.png");
 
 		expect(archive).not.toHaveBeenCalled();

@@ -108,6 +108,6 @@ describe("SDD email-attachment-selection p2 c4", () => {
 		expect(savedNames).toEqual(["rechnung.pdf", "foto.jpg"]);
 
 		const updated = app.vault.files.get(vorgang.path) ?? "";
-		expect(updated).toContain("Anhänge: [[rechnung.pdf]], foto.jpg");
+		expect(updated).toContain("Anhänge: ![[rechnung.pdf]], foto.jpg");
 	});
 });

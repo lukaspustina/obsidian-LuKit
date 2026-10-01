@@ -22,6 +22,6 @@ describe("SDD email-attachments p1 c9", () => {
 			savedNames,
 		);
 
-		expect(bodyLines).toContain("Anhänge: [[rechnung 2.pdf]], foto.jpg");
+		expect(bodyLines).toContain("Anhänge: ![[rechnung 2.pdf]], foto.jpg");
 	});
 });

@@ -20,6 +20,6 @@ describe("SDD email-attachments p1 c8", () => {
 
 		const { bodyLines } = formatThreadSection(messages, "Angebot", "de");
 
-		expect(bodyLines).toContain("Anhänge: [[rechnung 2.pdf]], foto.jpg");
+		expect(bodyLines).toContain("Anhänge: ![[rechnung 2.pdf]], foto.jpg");
 	});
 });

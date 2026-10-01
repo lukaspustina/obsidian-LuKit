@@ -85,7 +85,7 @@ Filing an email captures the **whole conversation**: your Sent replies **and** t
 
 The preview also has a next-steps field: type the thread's action items, one per line, and they land in the target Vorgang's next-steps intake (see **Vorgang**) alongside the archived section. **⌘K** files an empty placeholder group even with nothing typed — handy for flagging a thread as needing action before you know what the action is; pressing it with text already in the field changes nothing (the typed items are filed either way).
 
-Each attachment gets its own checkbox in the preview with its size next to the name, preselected on (documents always, images only from 500 KB, to skip footer logos); unchecked attachments are neither saved nor listed. Attachments of the **included** messages (and checked-on attachments within them) are saved into the target note's `_resources/` folder and linked as wikilinks in the `Anhänge:` line; attachments that can't be saved (offline/lazy-IMAP, or any save failure) degrade to their plain filename instead — filing always completes either way.
+Each attachment gets its own checkbox in the preview with its size next to the name, preselected on (documents always, images only from 500 KB, to skip footer logos); unchecked attachments are neither saved nor listed. Attachments of the **included** messages (and checked-on attachments within them) are saved into the target note's `_resources/` folder and linked in the `Anhänge:` line — images, PDFs and Office documents as embeds (`![[…]]`, previewed inline), everything else as plain wikilinks; attachments that can't be saved (offline/lazy-IMAP, or any save failure) degrade to their plain filename instead — filing always completes either way.
 
 **Commands:**
 

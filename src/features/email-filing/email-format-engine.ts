@@ -187,14 +187,30 @@ export function resolveAttachmentFileNames(
 	return result;
 }
 
+// Saved attachments of these types are embedded (`![[…]]`) so Obsidian shows
+// them inline; Office files are included at the user's request even though
+// Obsidian renders them as a plain embed block. Everything else stays a link.
+const EMBED_EXTENSIONS: ReadonlySet<string> = new Set([
+	"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif", "heic",
+	"pdf",
+	"doc", "docx", "xls", "xlsx", "ppt", "pptx",
+]);
+
+function attachmentLink(fileName: string): string {
+	const dot = fileName.lastIndexOf(".");
+	const ext = dot === -1 ? "" : fileName.slice(dot + 1).toLowerCase();
+	return EMBED_EXTENSIONS.has(ext) ? `![[${fileName}]]` : `[[${fileName}]]`;
+}
+
 // Renders the "Anhänge: …" line contents: names with a savedNames entry
-// become a wikilink to the saved filename, all others stay plain text
-// (original name) — mixed in one line, attachment order unchanged.
+// become a wikilink (an embed for EMBED_EXTENSIONS) to the saved filename,
+// all others stay plain text (original name) — mixed in one line, attachment
+// order unchanged.
 function formatAttachmentsLine(attachments: MailAttachment[], savedNames?: Map<string, string>): string {
 	return attachments
 		.map((a) => {
 			const saved = savedNames?.get(a.name);
-			return saved !== undefined ? `[[${saved}]]` : a.name;
+			return saved !== undefined ? attachmentLink(saved) : a.name;
 		})
 		.join(", ");
 }

@@ -133,7 +133,7 @@ describe("SDD email-attachment-selection p2 c3", () => {
 		expect(items.map((i) => i.attachmentName)).toEqual(["vertrag.pdf"]);
 
 		const content = app.vault.files.get(vorgang.path) ?? "";
-		expect(content).toContain("Anhänge: [[vertrag.pdf]]");
+		expect(content).toContain("Anhänge: ![[vertrag.pdf]]");
 		expect(content).not.toContain("logo.png");
 		expect(content).not.toContain("rechnung.pdf");
 	});

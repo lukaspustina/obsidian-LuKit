@@ -91,7 +91,7 @@ describe("SDD email-attachments p2 c1", () => {
 		await internals.commitThread(RAW, assembled, [msg], vorgang);
 
 		const content = app.vault.files.get(vorgang.path) ?? "";
-		expect(content).toContain("Anhänge: [[rechnung.pdf]]");
+		expect(content).toContain("Anhänge: ![[rechnung.pdf]]");
 		expect(saveAttachments).toHaveBeenCalledWith(
 			"iCloud",
 			"m@1",
