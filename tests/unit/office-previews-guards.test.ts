@@ -97,4 +97,20 @@ describe("office-previews guards", () => {
 		expect(await h.status()).toMatchObject({ failed: 0 });
 		expect(h.renderer.calls).toHaveLength(0);
 	});
+
+	it("inserts the embed once Obsidian writes the dropped link after the preview already exists", async () => {
+		h = createHarness();
+		await h.start();
+		h.putFile("Notizen/N.md", "Intro\n");
+		h.drop("Notizen/N.md", ["Angebot.docx"]);
+		h.createSource("_resources/Angebot.docx");
+		await h.settle();
+		expect(h.preview("_resources/Angebot.docx")).toBeDefined();
+		expect(h.readText("Notizen/N.md")).toBe("Intro\n");
+
+		h.putFile("Notizen/N.md", "Intro\n![[Angebot.docx]]\n");
+		h.emit("modify", "Notizen/N.md");
+		await h.settle();
+		expect(h.readText("Notizen/N.md")).toBe("Intro\n[[Angebot.docx]]\n![[Angebot.docx.png]]\n");
+	});
 });

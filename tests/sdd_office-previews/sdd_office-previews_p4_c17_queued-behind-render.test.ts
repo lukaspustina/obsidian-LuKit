@@ -13,8 +13,9 @@ describe("SDD office-previews p4 c17", () => {
 		const note = "Notizen/N.md";
 		h.putFile(note, "Intro\n![[A.docx]]\n![[B.docx]]\n");
 		const ed = h.openNote(note);
-		h.addSource("Alt/Alt.docx");
 		await h.start();
+		// Added after the startup reconcile, which would otherwise render it before the test holds the renderer.
+		h.addSource("Alt/Alt.docx");
 
 		// An unrelated render is already running.
 		h.setActiveFile("Alt/Alt.docx");

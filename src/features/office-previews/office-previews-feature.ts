@@ -1,9 +1,10 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { FileSystemAdapter, Notice, Platform, Setting, TFile, type TAbstractFile } from "obsidian";
+import { FileSystemAdapter, Notice, Platform, Setting, TFile, type MarkdownFileInfo, type TAbstractFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID, type HelpEntry, type LuKitFeature } from "../../types";
 import { createDeviceCache, type DeviceCache } from "./device-cache";
+import { DropEmbed } from "./drop-embed";
 import {
 	MODIFY_DEBOUNCE_MS,
 	RECONCILE_DELAY_MS,
@@ -64,6 +65,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 	private cache: DeviceCache | null = null;
 	private queue: PreviewQueue | null = null;
 	private store: PreviewStore | null = null;
+	private dropEmbed: DropEmbed | null = null;
 	private readonly debounce = new Map<string, unknown>();
 	private reconcileTimer: unknown = null;
 	/** Bumped by every stop; a reconcile loop from an older generation ends. */
@@ -96,6 +98,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			this.deps,
 		);
 		this.store = new PreviewStore(app.vault.adapter);
+		this.dropEmbed = new DropEmbed(app, this.deps);
 		this.queue = new PreviewQueue({
 			random: this.deps.random,
 			setTimeout: this.deps.setTimeout,
@@ -115,6 +118,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			plugin.registerEvent(app.vault.on("modify", (f) => this.onModify(f)));
 			plugin.registerEvent(app.vault.on("delete", (f) => this.onDelete(f)));
 			plugin.registerEvent(app.vault.on("rename", (f, oldPath) => this.onRename(f, oldPath)));
+			plugin.registerEvent(app.workspace.on("editor-drop", (evt, _editor, info) => this.onDrop(evt.dataTransfer, info)));
+			plugin.registerEvent(app.workspace.on("editor-paste", (evt, _editor, info) => this.onDrop(evt.clipboardData, info)));
 			if (this.enabled()) this.scheduleReconcile();
 		});
 	}
@@ -196,6 +201,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 
 	private stopWork(): void {
 		this.generation++;
+		this.dropEmbed?.clear();
 		this.queue?.clear();
 		for (const t of this.debounce.values()) this.deps.clearTimeout(t);
 		this.debounce.clear();
@@ -247,9 +253,22 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		if (this.disposed) return "skip";
 		const file = this.sourceFile(path);
 		if (file === null || !this.deps.fileExists(this.absPath(path))) return "skip";
-		const sha256 = await this.fingerprint(file);
+		let sha256: string;
+		let decision: Decision;
+		try {
+			sha256 = await this.fingerprint(file);
+			decision = await this.decide(path, sha256, immediate);
+		} catch {
+			console.warn("LuKit office previews: a source or its preview could not be read.");
+			if (!this.disposed) this.dropEmbed?.onFailed(path);
+			return "skip";
+		}
 		if (this.disposed) return "skip";
-		return this.applyDecision(path, sha256, await this.decide(path, sha256, immediate)) ? "render" : "skip";
+		const render = this.applyDecision(path, sha256, decision);
+		// A dropped document whose preview is already current still gets its embed.
+		if (decision === "current") await this.dropEmbed?.onPreview(path, mirrorPath(path, this.folder()));
+		if (decision === "collision") this.dropEmbed?.onFailed(path);
+		return render ? "render" : "skip";
 	}
 
 	private async run(path: string): Promise<void> {
@@ -266,6 +285,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		if (!result.ok) {
 			this.current.delete(path);
 			this.cache?.setFailure(path, this.failure(sha256, result.reason));
+			this.dropEmbed?.onFailed(path);
 			return;
 		}
 		const marker = { version: 1 as const, sha256 };
@@ -274,30 +294,56 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		try {
 			// A foreign file may have arrived during the render; it is never overwritten.
 			if ((await this.store?.inspect(mirror))?.kind === "foreign") {
-				if (!this.disposed) this.cache?.setFailure(path, this.failure(sha256, "collision"));
+				if (this.disposed) return;
+				this.cache?.setFailure(path, this.failure(sha256, "collision"));
+				this.dropEmbed?.onFailed(path);
 				return;
 			}
 			if (this.disposed) return;
 			await this.store?.write(mirror, bytes);
 		} catch {
-			if (!this.disposed) this.cache?.setFailure(path, this.failure(sha256, "write"));
+			if (this.disposed) return;
+			this.cache?.setFailure(path, this.failure(sha256, "write"));
+			this.dropEmbed?.onFailed(path);
 			return;
 		}
 		if (this.disposed) return;
 		this.cache?.clearFailure(path);
 		this.current.add(path);
+		await this.dropEmbed?.onPreview(path, mirror);
 	}
 
 	// --- events -------------------------------------------------------------
 
 	private onCreate(file: TAbstractFile): void {
 		if (!this.enabled() || !(file instanceof TFile)) return;
-		this.retryCollisionAt(file.path);
-		if (this.isSource(file.path)) this.schedule(file.path);
+		const path = file.path;
+		this.retryCollisionAt(path);
+		void this.dropEmbed?.onFileCreated(path);
+		if (!this.isSource(path)) return;
+		if (this.dropEmbed?.match(path) === true) {
+			// Requirement 24: a dropped document skips the debounce and the delay.
+			const pending = this.debounce.get(path);
+			if (pending !== undefined) this.deps.clearTimeout(pending);
+			this.debounce.delete(path);
+			this.queue?.enqueue(path, { immediate: true });
+			return;
+		}
+		this.schedule(path);
+	}
+
+	/** Requirement 23: remember which note received which file names; never prevents the default. */
+	private onDrop(data: DataTransfer | null, info: MarkdownFileInfo): void {
+		if (!this.enabled()) return;
+		const notePath = info.file?.path;
+		if (notePath === undefined) return;
+		this.dropEmbed?.record(notePath, Array.from(data?.files ?? [], (f) => f.name));
 	}
 
 	private onModify(file: TAbstractFile): void {
-		if (!this.enabled() || !(file instanceof TFile) || !this.isSource(file.path)) return;
+		if (!this.enabled() || !(file instanceof TFile)) return;
+		void this.dropEmbed?.onNoteChanged(file.path);
+		if (!this.isSource(file.path)) return;
 		if (this.queue?.isImmediate(file.path) === true) return;
 		this.schedule(file.path);
 	}

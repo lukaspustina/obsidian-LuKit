@@ -12,10 +12,11 @@ describe("SDD office-previews p4 c3", () => {
 
 	it("matches a source with Obsidian's collision suffix to the drop", async () => {
 		h = createHarness();
-		h.putFile("_resources/Angebot.docx", "an older document");
 		h.putFile(NOTE, "text with ![[Angebot 1.docx]]\n");
 		const ed = h.openNote(NOTE);
 		await h.start();
+		// Added after the startup reconcile, which would otherwise render it.
+		h.putFile("_resources/Angebot.docx", "an older document");
 
 		h.drop(NOTE, ["Angebot.docx"]);
 		h.createSource("_resources/Angebot 1.docx");
