@@ -51,6 +51,20 @@ function lukitTmpEntries(): string[] {
 	return fs.readdirSync(os.tmpdir()).filter((e) => e.startsWith("lukit-preview-"));
 }
 
+// Each renderer test file gets its own TMPDIR so the temp-dir leak check cannot
+// see a dir created by a render running concurrently in another test file.
+const ORIGINAL_TMPDIR = process.env.TMPDIR;
+let isolatedTmp = "";
+beforeAll(() => {
+	isolatedTmp = fs.mkdtempSync(path.join(os.tmpdir(), "lukit-c14-tmpdir-"));
+	process.env.TMPDIR = isolatedTmp;
+});
+afterAll(() => {
+	if (ORIGINAL_TMPDIR === undefined) delete process.env.TMPDIR;
+	else process.env.TMPDIR = ORIGINAL_TMPDIR;
+	fs.rmSync(isolatedTmp, { recursive: true, force: true });
+});
+
 describe.skipIf(process.platform !== "darwin")("SDD office-previews p1 c14 renderer-exit", () => {
 	let dir: string;
 	let source: string;

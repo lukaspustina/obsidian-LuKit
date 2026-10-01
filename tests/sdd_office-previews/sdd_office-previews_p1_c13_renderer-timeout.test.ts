@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, beforeAll, afterAll } from "vitest";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -26,6 +26,20 @@ function isAlive(pid: number): boolean {
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// Each renderer test file gets its own TMPDIR so the temp-dir leak check cannot
+// see a dir created by a render running concurrently in another test file.
+const ORIGINAL_TMPDIR = process.env.TMPDIR;
+let isolatedTmp = "";
+beforeAll(() => {
+	isolatedTmp = fs.mkdtempSync(path.join(os.tmpdir(), "lukit-c13-tmpdir-"));
+	process.env.TMPDIR = isolatedTmp;
+});
+afterAll(() => {
+	if (ORIGINAL_TMPDIR === undefined) delete process.env.TMPDIR;
+	else process.env.TMPDIR = ORIGINAL_TMPDIR;
+	fs.rmSync(isolatedTmp, { recursive: true, force: true });
+});
 
 describe.skipIf(process.platform !== "darwin")("SDD office-previews p1 c13 — renderer timeout", () => {
 	let workDir = "";
