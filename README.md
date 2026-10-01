@@ -106,6 +106,17 @@ All task access goes through the TaskNotes runtime API, so user-remapped field n
 - **Vorgänge: Fällige Aufgaben durchgehen** — Walk due diary reminders first, then one stop per **note**: a note is due when TaskNotes reports its task due, when it carries at least one due next-steps intake group, or both — so a Vorgang that is a task *and* holds filed action items is one stop, not two. Diary reminders come from the `# Erinnerungen` section (dateless ones count as always due): **⌘D deletes the line**, snooze rewrites its date suffix, **Enter opens the diary at the line**. At a note stop the keys address the note and stay put: **⌘D = erledigt** (recurring tasks: check off today's instance), **⌘1/⌘2/⌘3 = verschieben** to tomorrow / +1 week / next Monday, **⌘T = a chosen date**, **⌘G = both of the note's dates**, **⌘X = skip today's instance** (recurring tasks only, and the three snoozes are the mirror image — they are offered only for a task that is *not* recurring), **Enter = open & stop**, **Esc = skip**, **⌘. = stop**. **⌘S** is the key that comes and goes with the intake: it opens the item selection over all of the note's due groups at once — one section per group, a checkbox per line — **empty by default**, so a confirm moves only what you ticked and setting a date on one group leaves its siblings alone; the section header's „alle“ box ticks a whole group at once — an editable text field (emptying it deletes the line), a date field that defers just that group, and a discard box for the whole group — and it disappears once no group is left. A note TaskNotes does not know (a Person note, say) offers ⌘S and nothing task-shaped. Stops are ordered by the note's own `scheduled`, then `due`, falling back to its earliest group date only when the note has no task dates at all; dateless notes come last. A summary Notice always reports all six buckets: erledigt / verschoben / ausgelassen / übersprungen / übernommen / offen.
 - **Vorgang: Aufgaben durchgehen** — The same stop, for the active note only and regardless of dates: its open TaskNotes task (if any) and **all** of its intake groups, including ones deferred to the future. A group you defer with ⌘S stays on the stop.
 
+### Office Previews (macOS desktop only)
+
+Renders the first page, slide or sheet of every Office, iWork and OpenDocument file in the vault (`docx doc xlsx xls pptx ppt pages numbers key odt ods odp`) with macOS Quick Look into a mirror folder (`_previews/<path>/<name>.<ext>.png`, `.jpg` for presentations, 1200 px) and keeps the images current as documents are added, changed, renamed or deleted. A preview is a plain image (`![[Angebot.docx.png]]`), so it also shows on mobile — turn on image sync in Obsidian Sync.
+
+- **Several Macs, no locks:** each image carries the SHA-256 of its document; a Mac renders only after a random 30–120 s delay and only when no current preview exists by then. Two minutes after startup every document is checked once.
+- **Drag & drop / paste:** a document dropped into a note is rendered at once, its `![[Angebot.docx]]` becomes a clickable `[[Angebot.docx]]`, and the preview embed is inserted on the line below (one undo reverts both). Previews of documents that arrive any other way are embedded by hand.
+- **Safety:** source documents are never modified, nothing leaves the Mac, and LuKit only moves or deletes images that carry its marker. A failed render (timeout after 20 s, error, no image) is not retried until the document changes.
+- **Known limitation:** ODS and ODP files never render with Quick Look on current macOS (each costs one 20 s timeout per device until changed).
+
+**Setup:** Settings > LuKit > Office-Vorschauen: turn on **Vorschauen erzeugen** and optionally change the **Vorschau-Ordner**.
+
 ## Settings
 
 ### Date format
@@ -140,6 +151,8 @@ Controls the date format used in diary headers, Vorgang sections, and reminders.
 | **E-Mail: In Mail ausgewählte Nachricht ablegen** | (macOS/Apple Mail) File the selected Mail message(s) + thread into a section note; capture-only (no archive); for threads you initiated |
 | **Vorgang: Aufgaben durchgehen** | The same stop for the active note only, regardless of dates: its open TaskNotes task and all intake groups, including ones deferred to the future |
 | **Vorgänge: Fällige Aufgaben durchgehen** | Walk due diary reminders (delete/reschedule the line), next-steps intake groups (take over, discard, snooze, or pick items), and TaskNotes tasks (complete, snooze, skip) via keyboard; reminders first, then intake, then tasks; TaskNotes ≥ 4.10.0 only needed for task stops |
+| **Office-Vorschau: Aktuelles Dokument jetzt erzeugen** | (macOS) Render the active Office document's preview immediately, ignoring the delay and an earlier failure |
+| **Office-Vorschau: Status anzeigen** | (macOS) Show how many previews are current, queued and failed |
 | **Vorgang: Altes Format migrieren** | Auto-detect note type and convert old format to current |
 | **Help** | Show the LuKit help dialog |
 
