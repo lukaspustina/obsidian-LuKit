@@ -246,6 +246,10 @@ interface SourceH5Section {
 	headingText: string;
 	body: string[];
 	date: Date | null;
+	// The header's line and the exclusive end of the section (the next h1-h5
+	// heading, or the note's end) — the extent a split cuts out.
+	lineIndex: number;
+	endIndex: number;
 }
 
 // Enumerates the source's h5 sections (header + body up to the next h1-h5
@@ -258,6 +262,7 @@ function parseH5Sections(lines: string[], locale: DateLocale): SourceH5Section[]
 			i++;
 			continue;
 		}
+		const lineIndex = i;
 		const header = lines[i];
 		const headingText = header.slice(6);
 		const body: string[] = [];
@@ -270,7 +275,7 @@ function parseH5Sections(lines: string[], locale: DateLocale): SourceH5Section[]
 			body.pop();
 		}
 		const date = extractDateFromTitle(stripTrailingBrackets(headingText), locale);
-		sections.push({ header, headingText, body, date });
+		sections.push({ header, headingText, body, date, lineIndex, endIndex: i });
 	}
 	return sections;
 }
@@ -473,24 +478,177 @@ export function mergeVorgangContent(
 		working = appendIntakeLines(working, intakeLines);
 	}
 
-	const sections = parseH5Sections(sourceLines, locale);
-	let mergedSections = 0;
-	let skippedDuplicates = 0;
+	const inserted = insertH5Sections(working, parseH5Sections(sourceLines, locale), originalTargetLines, locale, mergeDate);
+	return {
+		newTargetContent: inserted.content,
+		mergedSections: inserted.inserted.length,
+		skippedDuplicates: inserted.skipped.length,
+	};
+}
+
+// Whether the section is a linked one (`##### [[Note]]…`) the target's TOC
+// already links — merge and split both skip it rather than duplicate it.
+function isDuplicateIn(targetLines: string[], sec: SourceH5Section): boolean {
+	const linkTarget = extractWikilinkTarget(sec.header);
+	return linkTarget !== null && tocAlreadyLinks(targetLines, linkTarget);
+}
+
+// Inserts h5 sections with their TOC bullets into `content`, each at its date
+// position; dateless sections sort as `fallbackDate`. A linked section the
+// target already links (judged against `targetLines`, the target before any
+// insertion) is skipped. Shared by mergeVorgangContent and splitVorgangContent.
+function insertH5Sections(
+	content: string,
+	sections: SourceH5Section[],
+	targetLines: string[],
+	locale: DateLocale,
+	fallbackDate: Date,
+): { content: string; inserted: SourceH5Section[]; skipped: SourceH5Section[] } {
+	let working = content;
+	const inserted: SourceH5Section[] = [];
+	const skipped: SourceH5Section[] = [];
 	for (const sec of [...sections].reverse()) {
-		const linkTarget = extractWikilinkTarget(sec.header);
-		if (linkTarget !== null && tocAlreadyLinks(originalTargetLines, linkTarget)) {
-			skippedDuplicates++;
+		if (isDuplicateIn(targetLines, sec)) {
+			skipped.push(sec);
 			continue;
 		}
-		const sortDate = sec.date ?? mergeDate;
-		const tocName = linkTarget ?? sec.headingText;
+		const sortDate = sec.date ?? fallbackDate;
+		const tocName = extractWikilinkTarget(sec.header) ?? sec.headingText;
 		const bullet = formatLinkedBullet(tocName, locale, sortDate);
-		const { newContent } = insertVorgangContent(working, bullet, sec.header, sec.body, sortDate, locale);
-		working = newContent;
-		mergedSections++;
+		working = insertVorgangContent(working, bullet, sec.header, sec.body, sortDate, locale).newContent;
+		inserted.push(sec);
+	}
+	return { content: working, inserted, skipped };
+}
+
+/** A top-level bullet under the facts heading, with its indented lines. */
+export interface SplitFact {
+	lineIndex: number;
+	lines: string[];
+}
+
+/** An h5 section of a Vorgang, identified by its header line. */
+export interface SplitSection {
+	lineIndex: number;
+	headingText: string;
+}
+
+export interface SplitParts {
+	facts: SplitFact[];
+	sections: SplitSection[];
+}
+
+export interface SplitSelection {
+	// lineIndex values out of listSplitParts on the same content.
+	facts: number[];
+	sections: number[];
+}
+
+function findFaktenHeader(lines: string[]): { header: string; index: number } | null {
+	for (const header of FAKTEN_HEADERS) {
+		const index = lines.findIndex((l) => l.trim() === header);
+		if (index !== -1) return { header, index };
+	}
+	return null;
+}
+
+function parseFacts(lines: string[]): SplitFact[] {
+	const found = findFaktenHeader(lines);
+	if (found === null) return [];
+	const facts: SplitFact[] = [];
+	for (let i = found.index + 1; i < lines.length; i++) {
+		if (/^#{1,5} /.test(lines[i])) break;
+		if (/^\s/.test(lines[i]) && lines[i].trim() !== "" && facts.length > 0) {
+			// An indented line belongs to the bullet above it, unless a blank
+			// or a non-bullet line already closed that bullet.
+			const last = facts[facts.length - 1];
+			if (last.lineIndex + last.lines.length === i) last.lines.push(lines[i]);
+			continue;
+		}
+		if (/^[-*+] /.test(lines[i])) facts.push({ lineIndex: i, lines: [lines[i]] });
+	}
+	return facts;
+}
+
+// The parts a split can move: the facts heading's top-level bullets (with
+// their indented children) and the h5 sections, both in file order.
+export function listSplitParts(content: string, locale: DateLocale): SplitParts {
+	const lines = content.split("\n");
+	return {
+		facts: parseFacts(lines),
+		sections: parseH5Sections(lines, locale).map((s) => ({ lineIndex: s.lineIndex, headingText: s.headingText })),
+	};
+}
+
+// The TOC bullet in # Inhalt that points at the section, or -1. Compared with
+// the wikilink brackets removed, so both `- [[#Name, date]]` for a plain
+// section and the bullet of a linked `##### [[Note]], date` section match.
+function findTocBullet(lines: string[], sec: SourceH5Section): number {
+	const inhaltIndex = findInhaltSectionIndex(lines);
+	if (inhaltIndex === -1) return -1;
+	const range = findInhaltBulletRange(lines, inhaltIndex);
+	if (range === null) return -1;
+	const unbracket = (s: string): string => s.replace(/\[\[|\]\]/g, "").trim();
+	const heading = unbracket(sec.headingText);
+	for (let i = range.firstBullet; i < range.afterLastBullet; i++) {
+		const target = extractWikilinkTarget(lines[i]);
+		if (target !== null && unbracket(target) === heading) return i;
+	}
+	return -1;
+}
+
+function collapseBlankRuns(lines: string[]): string[] {
+	return lines.filter((l, i) => !(l.trim() === "" && i > 0 && lines[i - 1].trim() === ""));
+}
+
+// Moves the selected facts and h5 sections from source to target. The target
+// gets the facts appended under # Fakten und Pointer and the sections at their
+// date position (with TOC bullets); the source loses them, TOC bullets
+// included, and gains a pointer fact to the target. A linked section the
+// target already holds is skipped and stays in the source. Pure.
+export function splitVorgangContent(
+	sourceContent: string,
+	targetContent: string,
+	selection: SplitSelection,
+	targetBasename: string,
+	locale: DateLocale,
+	date: Date,
+): { newSourceContent: string; newTargetContent: string; movedFacts: number; movedSections: number; skippedDuplicates: number } {
+	const sourceLines = sourceContent.split("\n");
+	const facts = parseFacts(sourceLines).filter((f) => selection.facts.includes(f.lineIndex));
+	const sections = parseH5Sections(sourceLines, locale).filter((s) => selection.sections.includes(s.lineIndex));
+
+	let target = targetContent;
+	if (facts.length > 0) {
+		const header = findFaktenHeader(targetContent.split("\n"))?.header ?? FAKTEN_HEADERS[0];
+		target = mergeH1Section(target, header, facts.flatMap((f) => f.lines), null);
+	}
+	const inserted = insertH5Sections(target, sections, targetContent.split("\n"), locale, date);
+	target = inserted.content;
+
+	const moved = facts.length + inserted.inserted.length;
+	if (moved === 0) {
+		return { newSourceContent: sourceContent, newTargetContent: targetContent, movedFacts: 0, movedSections: 0, skippedDuplicates: inserted.skipped.length };
 	}
 
-	return { newTargetContent: working, mergedSections, skippedDuplicates };
+	const drop = new Set<number>();
+	for (const f of facts) f.lines.forEach((_, k) => drop.add(f.lineIndex + k));
+	for (const sec of inserted.inserted) {
+		for (let i = sec.lineIndex; i < sec.endIndex; i++) drop.add(i);
+		const bullet = findTocBullet(sourceLines, sec);
+		if (bullet !== -1) drop.add(bullet);
+	}
+	let source = collapseBlankRuns(sourceLines.filter((_, i) => !drop.has(i))).join("\n");
+	const sourceHeader = findFaktenHeader(source.split("\n"))?.header ?? FAKTEN_HEADERS[0];
+	source = mergeH1Section(source, sourceHeader, [`- Teile verschoben nach [[${targetBasename}]] (${formatDate(date, locale)})`], null);
+
+	return {
+		newSourceContent: source,
+		newTargetContent: target,
+		movedFacts: facts.length,
+		movedSections: inserted.inserted.length,
+		skippedDuplicates: inserted.skipped.length,
+	};
 }
 
 // Builds the stub body for a merged-away source Vorgang: the frontmatter

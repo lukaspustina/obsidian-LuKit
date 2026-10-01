@@ -53,6 +53,11 @@ exports[`LuKitFeature.helpEntries() registry > matches the snapshot 1`] = `
     "displayName": "Vorgang: In anderen Vorgang zusammenführen",
   },
   {
+    "commandId": "vorgang-split",
+    "description": "Wählt Fakten und h5-Abschnitte der aktiven Notiz aus und verschiebt sie in eine per Picker gewählte (oder neu angelegte) Zielnotiz: Fakten werden angehängt, Abschnitte samt TOC-Eintrag datumssortiert eingefügt. In der Quelle verschwinden sie, dafür steht dort ein Verweis „Teile verschoben nach [[Ziel]]“. Dokumentiert den Split im Tagebuch.",
+    "displayName": "Vorgang: Teile in anderen Vorgang verschieben",
+  },
+  {
     "commandId": "besprechung-add-summary",
     "description": "Besprechungs-Notiz wählen, Kernabschnitte extrahieren, an der Cursor-Position einfügen (in Vorgang/Person/Bestellung/Bewerbung-Notizen als verlinkter Abschnitt).",
     "displayName": "Besprechung: Zusammenfassung einfügen",

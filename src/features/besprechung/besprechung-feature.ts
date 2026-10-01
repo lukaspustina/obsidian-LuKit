@@ -28,7 +28,7 @@ import { extractDateFromTitle, formatDate } from "../../shared/date-format";
 import { SECTION_NOTE_TAGS } from "../../shared/frontmatter";
 import { formatDiaryEntry, addEntryUnderToday } from "../../shared/diary";
 import { getDiaryNotePath } from "../../shared/diary-settings";
-import { createSectionNoteViaCommand } from "../../shared/quick-create";
+import { quickCreateHandler } from "../../shared/quick-create";
 
 export class BesprechungFeature implements LuKitFeature {
 	id = "besprechung";
@@ -231,7 +231,7 @@ export class BesprechungFeature implements LuKitFeature {
 						placeholder,
 						previewText,
 						suggestions: pin ? [pin, ...this.suggestionsFor(besprechung)] : this.suggestionsFor(besprechung),
-						onCreateNew: this.createNewHandler((basename) => present(basename)),
+						onCreateNew: quickCreateHandler(this.plugin.app, this.plugin.settings.quickAddVorgangCommandId, (basename) => present(basename)),
 						dropHint: "Tag entfernen",
 						excludeTag: this.plugin.settings.doneTag,
 						onPick: (vorgang) => {
@@ -295,7 +295,7 @@ export class BesprechungFeature implements LuKitFeature {
 				{
 					placeholder: `„${active.basename}" ablegen unter…`,
 					suggestions: pin ? [pin, ...this.suggestionsFor(active)] : this.suggestionsFor(active),
-					onCreateNew: this.createNewHandler((basename) => openPicker(basename)),
+					onCreateNew: quickCreateHandler(this.plugin.app, this.plugin.settings.quickAddVorgangCommandId, (basename) => openPicker(basename)),
 					excludeTag: this.plugin.settings.doneTag,
 					onPick: (vorgang) => {
 						void this.fileBesprechungIntoVorgang(active, vorgang);
@@ -312,16 +312,6 @@ export class BesprechungFeature implements LuKitFeature {
 	// Baut den „Neuen Vorgang anlegen"-Callback: führt das konfigurierte
 	// Kommando aus, wartet auf die indexierte Notiz und öffnet den Picker
 	// erneut — mit der neuen Notiz gepinnt (undefined bei Abbruch).
-	private createNewHandler(reopen: (basename?: string) => void): (() => void) | undefined {
-		const commandId = this.plugin.settings.quickAddVorgangCommandId;
-		if (!commandId) return undefined;
-		return () => {
-			void createSectionNoteViaCommand(this.plugin.app, commandId).then((created) => {
-				reopen(created?.basename);
-			});
-		};
-	}
-
 	private findPendingBesprechungen(): TFile[] {
 		const { folderPath, pendingTag, pendingOrder } = this.plugin.settings.besprechung;
 		const prefix = normalizePath(folderPath) + "/";

@@ -2,14 +2,17 @@ import { Notice, TFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID } from "../../types";
 import type { LuKitFeature, HelpEntry } from "../../types";
-import { addVorgangSection, addVorgangSectionLinked, applyTypePrefix, buildStubContent, ensureVorgangSkeleton, formatCreatedAtTimestamp, formatVorgangHeadingText, mergeVorgangContent } from "./vorgang-engine";
+import { addVorgangSection, addVorgangSectionLinked, applyTypePrefix, buildStubContent, ensureVorgangSkeleton, formatCreatedAtTimestamp, formatVorgangHeadingText, listSplitParts, mergeVorgangContent, splitVorgangContent } from "./vorgang-engine";
+import type { SplitSelection } from "./vorgang-engine";
 import { extractDateFromTitle } from "../../shared/date-format";
 import { formatDiaryEntry, addEntryUnderToday } from "../../shared/diary";
 import { getDiaryNotePath } from "../../shared/diary-settings";
 import { SECTION_NOTE_TAGS, addTagToFrontmatter, frontmatterTagsInclude } from "../../shared/frontmatter";
 import { ConfirmModal } from "../../shared/modals/confirm-modal";
 import { SectionNoteSuggestModal } from "../../shared/modals/section-note-suggest";
+import { quickCreateHandler } from "../../shared/quick-create";
 import { AddSectionModal } from "./add-section-modal";
+import { SplitSelectModal } from "./split-select-modal";
 import { parseIntakeGroups } from "./intake-engine";
 import { TypeSuggestModal } from "./type-suggest-modal";
 
@@ -56,6 +59,15 @@ export class VorgangFeature implements LuKitFeature {
 			icon: LUKIT_ICON_ID,
 			callback: () => this.mergeVorgangCmd(),
 		});
+
+		plugin.addCommand({
+			id: "vorgang-split",
+			name: "Vorgang: Teile in anderen Vorgang verschieben",
+			icon: LUKIT_ICON_ID,
+			callback: () => {
+				void this.splitVorgangCmd();
+			},
+		});
 	}
 
 	onunload(): void {
@@ -88,6 +100,11 @@ export class VorgangFeature implements LuKitFeature {
 				commandId: "vorgang-merge",
 				displayName: "Vorgang: In anderen Vorgang zusammenführen",
 				description: "Führt die aktive Notiz (Quelle) strukturbewusst in eine per Picker gewählte Zielnotiz über: Fakten und Nächste Schritte werden angehängt, h5-Sektionen samt TOC-Einträgen datumssortiert eingefügt, bereits verlinkte Sektionen als Duplikate übersprungen. Die Quelle wird zum Stub mit Verweis, erhält das Abgeschlossen-Tag und verliert note_type — sie wird NICHT umbenannt. Dokumentiert die Zusammenführung im Tagebuch.",
+			},
+			{
+				commandId: "vorgang-split",
+				displayName: "Vorgang: Teile in anderen Vorgang verschieben",
+				description: "Wählt Fakten und h5-Abschnitte der aktiven Notiz aus und verschiebt sie in eine per Picker gewählte (oder neu angelegte) Zielnotiz: Fakten werden angehängt, Abschnitte samt TOC-Eintrag datumssortiert eingefügt. In der Quelle verschwinden sie, dafür steht dort ein Verweis „Teile verschoben nach [[Ziel]]“. Dokumentiert den Split im Tagebuch.",
 			},
 		];
 	}
@@ -288,6 +305,95 @@ export class VorgangFeature implements LuKitFeature {
 		this.openMergeTargetPicker(file);
 	}
 
+	// Guards like the merge, then: pick the parts, pick (or create) the target.
+	private async splitVorgangCmd(): Promise<void> {
+		const file = this.plugin.app.workspace.getActiveFile();
+		if (!file) {
+			new Notice("Keine aktive Notiz geöffnet.");
+			return;
+		}
+		const tags = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter?.tags;
+		if (!frontmatterTagsInclude(tags, SECTION_NOTE_TAGS)) {
+			new Notice(`„${file.basename}“ ist keine Zielnotiz (Tag Vorgang/Person/Bestellung/Bewerbung fehlt).`);
+			return;
+		}
+		if (frontmatterTagsInclude(tags, this.plugin.settings.doneTag)) {
+			new Notice(`„${file.basename}“ ist bereits abgeschlossen.`);
+			return;
+		}
+		const content = await this.plugin.app.vault.read(file);
+		const parts = listSplitParts(content, this.plugin.settings.dateLocale);
+		if (parts.facts.length === 0 && parts.sections.length === 0) {
+			new Notice(`„${file.basename}“ hat keine Fakten oder Abschnitte zum Verschieben.`);
+			return;
+		}
+		new SplitSelectModal(this.plugin.app, {
+			sourceBasename: file.basename,
+			parts,
+			onConfirm: (selection) => {
+				this.openSplitTargetPicker(file, content, selection);
+			},
+		}).open();
+	}
+
+	private openSplitTargetPicker(source: TFile, sourceContent: string, selection: SplitSelection, pin?: string): void {
+		new SectionNoteSuggestModal(this.plugin.app, SECTION_NOTE_TAGS, {
+			placeholder: `Ziel-Vorgang wählen, in den die Teile aus „${source.basename}“ verschoben werden…`,
+			excludeTag: this.plugin.settings.doneTag,
+			excludePath: source.path,
+			suggestions: pin ? [pin] : undefined,
+			onCreateNew: quickCreateHandler(this.plugin.app, this.plugin.settings.quickAddVorgangCommandId, (basename) =>
+				this.openSplitTargetPicker(source, sourceContent, selection, basename),
+			),
+			onPick: (target) => {
+				void this.splitInto(source, sourceContent, selection, target);
+			},
+		}).open();
+	}
+
+	// Target first, as in the merge: a failed target write leaves the source
+	// untouched. The selection's line indices refer to sourceContent, so a
+	// source that changed in between is not rewritten — the target already
+	// holds the parts, and the Notice says so.
+	private async splitInto(source: TFile, sourceContent: string, selection: SplitSelection, target: TFile): Promise<void> {
+		const locale = this.plugin.settings.dateLocale;
+		const date = new Date();
+		let result: ReturnType<typeof splitVorgangContent> | undefined;
+		try {
+			await this.plugin.app.vault.process(target, (targetContent) => {
+				result = splitVorgangContent(sourceContent, targetContent, selection, target.basename, locale, date);
+				return result.newTargetContent;
+			});
+		} catch (e) {
+			new Notice("Verschieben fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
+		const split = result!;
+		const moved = split.movedFacts + split.movedSections;
+		const dupWord = split.skippedDuplicates === 1 ? "Duplikat" : "Duplikate";
+		if (moved === 0) {
+			new Notice(`Nichts verschoben: ${split.skippedDuplicates} ${dupWord} bereits in „${target.basename}“.`);
+			return;
+		}
+
+		try {
+			await this.plugin.app.vault.process(source, (live) => {
+				if (live !== sourceContent) throw new Error("Quelle wurde zwischenzeitlich geändert");
+				return split.newSourceContent;
+			});
+		} catch (e) {
+			new Notice("Ziel aktualisiert, aber Quelle konnte nicht bereinigt werden: " + (e instanceof Error ? e.message : String(e)));
+			return;
+		}
+
+		await this.addDiaryEntry(`- [[${source.basename}]] → ${moved} ${moved === 1 ? "Teil" : "Teile"} in [[${target.basename}]] verschoben`);
+
+		const faktWord = split.movedFacts === 1 ? "Fakt" : "Fakten";
+		const sektionWord = split.movedSections === 1 ? "Sektion" : "Sektionen";
+		const dupSuffix = split.skippedDuplicates > 0 ? `, ${split.skippedDuplicates} ${dupWord} übersprungen` : "";
+		new Notice(`„${source.basename}“ → „${target.basename}“: ${split.movedFacts} ${faktWord}, ${split.movedSections} ${sektionWord} verschoben${dupSuffix}.`);
+	}
+
 	private openMergeTargetPicker(source: TFile): void {
 		new SectionNoteSuggestModal(this.plugin.app, SECTION_NOTE_TAGS, {
 			placeholder: `Ziel-Vorgang wählen, in den „${source.basename}“ zusammengeführt wird…`,
@@ -327,7 +433,7 @@ export class VorgangFeature implements LuKitFeature {
 			return;
 		}
 
-		await this.addDiaryEntryForMerge(source, target);
+		await this.addDiaryEntry(`- [[${source.basename}]] → in [[${target.basename}]] zusammengeführt`);
 
 		const result = mergeResult!;
 		const sektionWord = result.mergedSections === 1 ? "Sektion" : "Sektionen";
@@ -337,16 +443,15 @@ export class VorgangFeature implements LuKitFeature {
 		);
 	}
 
-	// Dokumentiert die Zusammenführung unter dem heutigen Datum im Tagebuch; fehlender
-	// Pfad oder fehlende Notiz überspringt still (die Merge-Notice erscheint trotzdem).
-	private async addDiaryEntryForMerge(source: TFile, target: TFile): Promise<void> {
+	// Dokumentiert Zusammenführung oder Split unter dem heutigen Datum im Tagebuch; fehlender
+	// Pfad oder fehlende Notiz überspringt still (die Abschluss-Notice erscheint trotzdem).
+	private async addDiaryEntry(entry: string): Promise<void> {
 		const diaryPath = getDiaryNotePath(this.plugin);
 		if (!diaryPath) return;
 		const diaryAbstract = this.plugin.app.vault.getAbstractFileByPath(diaryPath);
 		if (!(diaryAbstract instanceof TFile)) return;
 
 		const locale = this.plugin.settings.dateLocale;
-		const entry = `- [[${source.basename}]] → in [[${target.basename}]] zusammengeführt`;
 		try {
 			await this.plugin.app.vault.process(diaryAbstract, (content) => {
 				const { newContent } = addEntryUnderToday(content, entry, locale, new Date());

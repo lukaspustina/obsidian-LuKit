@@ -360,3 +360,27 @@
 	gap: var(--size-4-1);
 	margin-bottom: var(--size-4-1);
 }
+
+.lukit-split-select-modal {
+	width: min(90vw, 700px);
+	max-width: min(90vw, 700px);
+}
+
+.lukit-split-select-list {
+	max-height: 60vh;
+	overflow-y: auto;
+}
+
+.lukit-split-select-item {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-2-1) 0;
+}
+
+.lukit-split-select-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--size-4-2);
+	margin-top: var(--size-4-3);
+}

@@ -39,3 +39,15 @@ export function createSectionNoteViaCommand(app: App, commandId: string, timeout
 		if (!ok) done(null);
 	});
 }
+
+// The filing pickers' "＋ Neuen Vorgang anlegen…" callback: runs the configured
+// command and reopens the picker, with the created note's basename when one
+// appeared. Undefined while no command is configured, which hides the entry.
+export function quickCreateHandler(app: App, commandId: string, reopen: (basename?: string) => void): (() => void) | undefined {
+	if (!commandId) return undefined;
+	return () => {
+		void createSectionNoteViaCommand(app, commandId).then((created) => {
+			reopen(created?.basename);
+		});
+	};
+}
