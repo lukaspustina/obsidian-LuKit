@@ -29,8 +29,19 @@ export class TFile {
 	path = "";
 	basename = "";
 	extension = "md";
-	stat = { mtime: 0, ctime: 0 };
+	stat = { mtime: 0, ctime: 0, size: 0 };
 }
+export class TFolder {
+	path = "";
+	name = "";
+}
+export class FileSystemAdapter {}
+
+// Mutable platform flags (office-previews gates on desktop + macOS). Tests that
+// change them call __resetPlatform() in afterEach.
+export const Platform = { isDesktopApp: true, isMacOS: true };
+export function __setPlatform(p: Partial<typeof Platform>): void { Object.assign(Platform, p); }
+export function __resetPlatform(): void { Platform.isDesktopApp = true; Platform.isMacOS = true; }
 // Recording element stub: captures created texts/children so modal render
 // output can be asserted headlessly (e.g. the triage meta line). Records
 // tag/cls per child and event listeners (fire via __fireEvent) so checkbox
@@ -127,6 +138,10 @@ export class PluginSettingTab {
 	display(): void {}
 }
 export class WorkspaceLeaf {}
+export class MarkdownView {
+	file: any = null;
+	editor: any = null;
+}
 export class Setting {
 	constructor(_containerEl: any) {}
 	setName(_name: string): this { return this; }
