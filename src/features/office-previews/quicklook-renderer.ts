@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "child_process";
 import { promises as fs } from "fs";
 import * as os from "os";
 import * as path from "path";
-import { JPEG_QUALITY, RENDER_LONGEST_EDGE, type ImageExt } from "./office-previews-engine";
+import { JPEG_QUALITY, RENDER_LONGEST_EDGE, placeholderSvg, type ImageExt } from "./office-previews-engine";
 
 export type RenderResult =
 	| { ok: true; bytes: Uint8Array }
@@ -11,6 +11,8 @@ export type RenderResult =
 export interface PreviewRenderer {
 	/** `timeoutMs` covers the whole call: qlmanage plus, for `jpg`, sips. */
 	render(absSource: string, kind: ImageExt, timeoutMs: number): Promise<RenderResult>;
+	/** Rasterizes the "no preview available" image for `sourcePath` (vault path) with sips. */
+	placeholder(sourcePath: string, kind: ImageExt, timeoutMs: number): Promise<RenderResult>;
 	/** SIGKILLs the in-flight child; the pending render removes its temp dir. */
 	dispose(): void;
 }
@@ -91,8 +93,37 @@ export function createQuickLookRenderer(opts: { qlmanage?: string; sips?: string
 		}
 	}
 
+	async function placeholder(sourcePath: string, kind: ImageExt, timeoutMs: number): Promise<RenderResult> {
+		const deadline = Date.now() + timeoutMs;
+		let dir: string;
+		try {
+			dir = await fs.mkdtemp(path.join(os.tmpdir(), "lukit-preview-"));
+		} catch {
+			return { ok: false, reason: "exit" };
+		}
+		try {
+			const svg = path.join(dir, "placeholder.svg");
+			const png = path.join(dir, "placeholder.png");
+			await fs.writeFile(svg, placeholderSvg(sourcePath));
+			const toPng = await run(sips, ["-s", "format", "png", svg, "--out", png], deadline);
+			if (toPng !== "ok") return { ok: false, reason: toPng };
+			let out = png;
+			if (kind === "jpg") {
+				out = path.join(dir, "placeholder.jpg");
+				const toJpg = await run(sips, ["-s", "format", "jpeg", "-s", "formatOptions", String(JPEG_QUALITY), png, "--out", out], deadline);
+				if (toJpg !== "ok") return { ok: false, reason: toJpg };
+			}
+			return { ok: true, bytes: new Uint8Array(await fs.readFile(out)) };
+		} catch {
+			return { ok: false, reason: "no-output" };
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+		}
+	}
+
 	return {
 		render,
+		placeholder,
 		dispose(): void {
 			disposing = true;
 			current?.kill("SIGKILL");

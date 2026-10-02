@@ -37,7 +37,7 @@ describe("SDD office-previews p4 c19", () => {
 		h.createSource("_resources/B.docx");
 		await h.settle();
 
-		expect(ed.getValue()).toBe("Intro\n[[A.docx]]\n![[A.docx.png]]\n![[B.docx]]\n");
+		expect(ed.getValue()).toBe("Intro\n[[A.docx]]\n![[A.docx.png]]\n[[B.docx]]\n![[B.docx.png]]\n"); // B gets its placeholder since 2026-10-02
 		expect(h.notices().filter((n) => n.includes("fehlgeschlagen"))).toEqual(["Office-Vorschau fehlgeschlagen: B.docx"]);
 	});
 });

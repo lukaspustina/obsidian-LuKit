@@ -62,7 +62,7 @@ describe("SDD office-previews p4 c16", () => {
 		await h.advance(DEADLINE_MS * 2);
 
 		expect(h.notices().filter((n) => n.includes("fehlgeschlagen"))).toEqual(["Office-Vorschau fehlgeschlagen: Angebot.docx"]);
-		expect(ed.getValue()).toBe(original);
+		expect(ed.getValue()).toBe("Intro\n[[Angebot.docx]]\n![[Angebot.docx.png]]\n"); // placeholder embedded since 2026-10-02
 	});
 
 	it("a success before the deadline inserts exactly once and the deadline does not undo it", async () => {

@@ -58,4 +58,19 @@ describe.skipIf(process.platform !== "darwin")("office-previews renderer dispose
 		expect(isAlive(pid)).toBe(false);
 		expect(fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith("lukit-preview-"))).toEqual([]);
 	});
+
+	it("rasterizes the placeholder as PNG for documents and JPEG for presentations", { timeout: 20_000 }, async () => {
+		const renderer = createQuickLookRenderer();
+		const png = await renderer.placeholder("Projekte/Angebot.docx", "png", 10_000);
+		const jpg = await renderer.placeholder("Folien.pptx", "jpg", 10_000);
+
+		expect(png.ok && [...png.bytes.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+		expect(jpg.ok && [jpg.bytes[0], jpg.bytes[1]]).toEqual([0xff, 0xd8]);
+		// IHDR width/height of the PNG: the portrait page.
+		if (png.ok) {
+			const v = new DataView(png.bytes.buffer, png.bytes.byteOffset);
+			expect([v.getUint32(16), v.getUint32(20)]).toEqual([424, 600]);
+		}
+		expect(fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith("lukit-preview-"))).toEqual([]);
+	});
 });

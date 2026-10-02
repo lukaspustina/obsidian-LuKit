@@ -27,6 +27,8 @@ export type ImageExt = "png" | "jpg";
 export interface PreviewMarker {
 	version: 1;
 	sha256: string;
+	/** Set on the "no preview available" image written when rendering failed. */
+	placeholder?: true;
 }
 
 export interface CacheEntry { mtime: number; size: number; sha256: string }
@@ -90,16 +92,16 @@ const JPEG_COM_PREFIX = MARKER_KEYWORD + "=";
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 export function encodeMarker(m: PreviewMarker): string {
-	return JSON.stringify({ version: m.version, sha256: m.sha256 });
+	return JSON.stringify(m.placeholder === true ? { version: m.version, sha256: m.sha256, placeholder: true } : { version: m.version, sha256: m.sha256 });
 }
 
 export function decodeMarker(s: string): PreviewMarker | null {
 	try {
 		const parsed: unknown = JSON.parse(s);
 		if (typeof parsed !== "object" || parsed === null) return null;
-		const { version, sha256 } = parsed as Record<string, unknown>;
+		const { version, sha256, placeholder } = parsed as Record<string, unknown>;
 		if (version !== 1 || typeof sha256 !== "string") return null;
-		return { version: 1, sha256 };
+		return placeholder === true ? { version: 1, sha256, placeholder: true } : { version: 1, sha256 };
 	} catch {
 		return null;
 	}
@@ -221,6 +223,39 @@ export function readMarker(bytes: Uint8Array): PreviewMarker | null {
 	if (isPng(bytes)) return readPngMarker(bytes);
 	if (isJpeg(bytes)) return readJpegMarker(bytes);
 	return null;
+}
+
+// --- placeholder ------------------------------------------------------------
+
+const PLACEHOLDER_COLORS: Readonly<Record<string, string>> = {
+	docx: "#2b579a", doc: "#2b579a", xlsx: "#217346", xls: "#217346",
+	pptx: "#c43e1c", ppt: "#c43e1c", pages: "#e8860c", numbers: "#2e9e4f",
+	key: "#1d6fd6", odt: "#1f5fa8",
+};
+
+/** The "no preview available" image for a source, as SVG: a page for documents, 16:9 for presentations. */
+export function placeholderSvg(sourcePath: string): string {
+	const ext = extensionOf(sourcePath);
+	const slide = imageExtFor(sourcePath) === "jpg";
+	const [w, h] = slide ? [960, 540] : [424, 600];
+	const s = slide ? 0.8 : 0.5;
+	const cx = w / 2;
+	const top = slide ? 70 : 165;
+	const iw = 300 * s;
+	const ih = 380 * s;
+	const ix = cx - iw / 2;
+	const fold = 80 * s;
+	const label = ext.toUpperCase();
+	const labelSize = (label.length > 4 ? 56 : 72) * s;
+	const color = PLACEHOLDER_COLORS[ext] ?? "#5f6673";
+	return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+<rect width="${w}" height="${h}" fill="#f4f5f7"/>
+<rect x="${ix}" y="${top}" width="${iw}" height="${ih}" rx="${24 * s}" fill="#ffffff" stroke="#c9ced6" stroke-width="${6 * s}"/>
+<path d="M${ix + iw - fold} ${top} v${fold} h${fold}" fill="none" stroke="#c9ced6" stroke-width="${6 * s}"/>
+<rect x="${cx - 190 * s}" y="${top + 230 * s}" width="${380 * s}" height="${110 * s}" rx="${18 * s}" fill="${color}"/>
+<text x="${cx}" y="${top + 308 * s}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="${labelSize}" font-weight="700" fill="#ffffff">${label}</text>
+<text x="${cx}" y="${top + ih + 75 * s + (slide ? 20 : 30)}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="${slide ? 40 : 26}" fill="#4a5160">Keine Vorschau verfügbar</text>
+</svg>`;
 }
 
 // --- fingerprint, jitter ----------------------------------------------------

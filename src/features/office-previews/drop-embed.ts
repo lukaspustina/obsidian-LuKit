@@ -105,6 +105,13 @@ export class DropEmbed {
 		}
 	}
 
+	/** The render failed but a placeholder exists: one Notice, and the placeholder is embedded. */
+	async onPlaceholder(sourcePath: string, mirror: string): Promise<void> {
+		if (!this.pending.has(sourcePath)) return;
+		new Notice(`Office-Vorschau fehlgeschlagen: ${nameOf(sourcePath)}`);
+		await this.onPreview(sourcePath, mirror);
+	}
+
 	/** Requirement 27: one Notice per dropped source whose render failed. */
 	onFailed(sourcePath: string): void {
 		if (!this.pending.has(sourcePath)) return;

@@ -27,9 +27,9 @@ describe("SDD office-previews p4 c15", () => {
 		await h.settle();
 
 		expect(h.renderer.calls).toHaveLength(1);
-		expect(ed.getValue()).toBe(original);
-		expect(ed.transactions).toHaveLength(0);
-		expect(h.readText(note)).toBe(original);
+		// Since 2026-10-02 the placeholder is embedded like a preview.
+		expect(ed.getValue()).toBe("Intro\n[[Angebot.docx]]\n![[Angebot.docx.png]]\n");
+		expect(ed.transactions).toHaveLength(1);
 
 		const failures = h.notices().filter((n) => n.includes("fehlgeschlagen"));
 		expect(failures).toEqual(["Office-Vorschau fehlgeschlagen: Angebot.docx"]);

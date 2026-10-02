@@ -34,7 +34,7 @@ export interface OfficePreviewsDeps {
 	removeEmptyDir: (vaultPath: string) => Promise<void>;
 }
 
-type Decision = "render" | "current" | "collision" | "failed";
+type Decision = "render" | "current" | "placeholder" | "collision" | "failed";
 
 const CMD_RENDER_ACTIVE = "office-previews-render-active";
 const CMD_STATUS = "office-previews-status";
@@ -249,7 +249,12 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		if (!bypassFailures && failure !== undefined && failure.sha256 === sha256) return "failed";
 		const state = await this.store?.inspect(mirrorPath(path, this.folder()));
 		if (state?.kind === "foreign") return "collision";
-		if (state?.kind === "marked" && state.marker.sha256 === sha256) return "current";
+		if (state?.kind === "marked" && state.marker.sha256 === sha256) {
+			// A placeholder blocks re-rendering like the failure memory, on every device;
+			// "render now" (bypass) tries again.
+			if (state.marker.placeholder === true) return bypassFailures ? "render" : "placeholder";
+			return "current";
+		}
 		return "render";
 	}
 
@@ -297,7 +302,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		if (!result.ok) {
 			this.current.delete(path);
 			this.cache?.setFailure(path, this.failure(sha256, result.reason));
-			this.dropEmbed?.onFailed(path);
+			if (await this.writePlaceholder(path, file, sha256, kind)) await this.dropEmbed?.onPlaceholder(path, mirrorPath(path, this.folder()));
+			else if (!this.disposed) this.dropEmbed?.onFailed(path);
 			return;
 		}
 		const marker = { version: 1 as const, sha256 };
@@ -324,6 +330,26 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		this.cache?.clearFailure(path);
 		this.current.add(path);
 		await this.dropEmbed?.onPreview(path, mirror);
+	}
+
+	/**
+	 * Writes the "no preview available" image after a failed render — only where
+	 * no preview exists yet or a placeholder sits; a real (stale) preview stays.
+	 * True when a placeholder now marks the current fingerprint.
+	 */
+	private async writePlaceholder(path: string, file: TFile, sha256: string, kind: "png" | "jpg"): Promise<boolean> {
+		const mirror = mirrorPath(path, this.folder());
+		try {
+			const state = await this.store?.inspect(mirror);
+			if (state === undefined || (state.kind !== "absent" && !(state.kind === "marked" && state.marker.placeholder === true))) return false;
+			const image = await this.deps.renderer.placeholder(path, kind, RENDER_TIMEOUT_MS);
+			if (!image.ok || this.disposed || this.sourceFile(path) !== file || file.path !== path) return false;
+			const marker = { version: 1 as const, sha256, placeholder: true as const };
+			await this.store?.write(mirror, kind === "jpg" ? writeMarkerJpeg(image.bytes, marker) : writeMarkerPng(image.bytes, marker));
+			return !this.disposed;
+		} catch {
+			return false;
+		}
 	}
 
 	// --- events -------------------------------------------------------------

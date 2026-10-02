@@ -17,7 +17,7 @@ describe("SDD office-previews p2 c6", () => {
 		// First reconcile: the source is queued, rendered once, and the failure is recorded.
 		await h.start();
 		expect(h.renderer.calls).toHaveLength(1);
-		expect(h.preview("Docs/Angebot.docx")).toBeUndefined();
+		expect(h.previewMarker("Docs/Angebot.docx")?.placeholder).toBe(true); // placeholder since 2026-10-02
 		expect(await h.status()).toEqual({ current: 0, queued: 0, failed: 1 });
 
 		// Second reconcile pass (toggle off and on schedules a new reconcile after 120 s).
@@ -31,6 +31,6 @@ describe("SDD office-previews p2 c6", () => {
 
 		await h.drain();
 		expect(h.renderer.calls).toHaveLength(1);
-		expect(h.preview("Docs/Angebot.docx")).toBeUndefined();
+		expect(h.previewMarker("Docs/Angebot.docx")?.placeholder).toBe(true);
 	});
 });

@@ -23,7 +23,7 @@ describe("SDD office-previews p2 c20", () => {
 		await h.start();
 		expect(h.renderer.calls).toHaveLength(1);
 		expect((await h.status()).failed).toBe(1);
-		expect(h.preview(path)).toBeUndefined();
+		expect(h.previewMarker(path)?.placeholder).toBe(true); // placeholder since 2026-10-02
 
 		// Renderer recovers; the command bypasses the failure memory and the jitter delay.
 		h.renderer.result = (_abs, kind) => ({ ok: true, bytes: kind === "jpg" ? tinyJpeg() : tinyPng() });

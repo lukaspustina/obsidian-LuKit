@@ -147,6 +147,17 @@ export class FakeRenderer implements PreviewRenderer {
 
 	dispose(): void { this.disposeCalls++; }
 
+	placeholderCalls: { sourcePath: string; kind: ImageExt }[] = [];
+	/** Result factory for placeholder rasterization. Default: success with fixture bytes. */
+	placeholderResult: (sourcePath: string, kind: ImageExt) => RenderResult = (_s, kind) => ({
+		ok: true,
+		bytes: kind === "jpg" ? tinyJpeg(9) : tinyPng(9),
+	});
+	async placeholder(sourcePath: string, kind: ImageExt, _timeoutMs: number): Promise<RenderResult> {
+		this.placeholderCalls.push({ sourcePath, kind });
+		return this.placeholderResult(sourcePath, kind);
+	}
+
 	/** Vault paths rendered so far, in order. */
 	renderedPaths(): string[] {
 		return this.calls.map((c) => c.absSource.slice(BASE_PATH.length + 1));
