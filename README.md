@@ -108,12 +108,12 @@ All task access goes through the TaskNotes runtime API, so user-remapped field n
 
 ### Office Previews (macOS desktop only)
 
-Renders the first page, slide or sheet of every Office, iWork and OpenDocument file in the vault (`docx doc xlsx xls pptx ppt pages numbers key odt ods odp`) with macOS Quick Look into a mirror folder (`_previews/<path>/<name>.<ext>.png`, `.jpg` for presentations, 1200 px) and keeps the images current as documents are added, changed, renamed or deleted. A preview is a plain image (`![[Angebot.docx.png]]`), so it also shows on mobile — turn on image sync in Obsidian Sync.
+Renders the first page, slide or sheet of every Office, iWork and OpenDocument file in the vault (`docx doc xlsx xls pptx ppt pages numbers key odt`) with macOS Quick Look into a mirror folder (`_previews/<path>/<name>.<ext>.png`, `.jpg` for presentations, 1200 px) and keeps the images current as documents are added, changed, renamed or deleted. A preview is a plain image (`![[Angebot.docx.png]]`), so it also shows on mobile — turn on image sync in Obsidian Sync.
 
 - **Several Macs, no locks:** each image carries the SHA-256 of its document; a Mac renders only after a random 30–120 s delay and only when no current preview exists by then. Two minutes after startup every document is checked once.
 - **Drag & drop / paste:** a document dropped into a note is rendered at once, its `![[Angebot.docx]]` becomes a clickable `[[Angebot.docx]]`, and the preview embed is inserted on the line below (one undo reverts both). Previews of documents that arrive any other way are embedded by hand.
 - **Safety:** source documents are never modified, nothing leaves the Mac, and LuKit only moves or deletes images that carry its marker. A failed render (timeout after 20 s, error, no image) is not retried until the document changes.
-- **Known limitation:** ODS and ODP files never render with Quick Look on current macOS (each costs one 20 s timeout per device until changed).
+- **Not supported:** ODS and ODP — Quick Look hangs on them on current macOS.
 
 **Setup:** Settings > LuKit > Office-Vorschauen: turn on **Vorschauen erzeugen** and optionally change the **Vorschau-Ordner**.
 

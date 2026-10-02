@@ -29,7 +29,7 @@ All amendments concern phases that already ran; none blocks.
 
 | # | Phase | Repaired in phase | Amendment |
 |---|---|---|---|
-| A1 | 1 | no — **operator decision** | `ods`/`odp` never render with Quick Look on current macOS (generated valid samples and a real file hung until the 20 s kill). Keep them (one 20 s timeout per device per fingerprint, no files in either vault today) or drop them from `SUPPORTED_EXTENSIONS`. |
+| A1 | 1 | yes — resolved 2026-10-02 | Operator dropped `ods`/`odp` from `SUPPORTED_EXTENSIONS` (Quick Look hangs on them); SDD req 3/4 and the Decision Log updated. |
 | A2 | 1 | yes | The renderer settles `timeout` immediately on expiry (req 10 "regardless of whether the kill succeeds"); `dispose()` suppresses the EDR warning for its own kill. |
 | A3 | 1 | no | `DropRecord` lives in the engine (re-exported by `drop-embed.ts`); `tests/unit/office-previews-renderer.test.ts` from the File table was not created (p1 c13–c17 cover it); the JPEG COM ≤ 65533 cap is not enforced (unreachable with a 64-char sha). |
 | A4 | 2 | no | `PreviewQueueDeps.recheck(path, immediate)` and `PreviewQueue.isImmediate(path)` — Data Models show `recheck(path)` only. |
@@ -45,6 +45,8 @@ All amendments concern phases that already ran; none blocks.
 | A14 | 4 | yes | Obsidian writes the dropped `![[…]]` link only after saving the attachment; a missing link is retried on each note `modify` until the 60 s deadline instead of being treated as removed. |
 | A15 | 4 | yes | Req 27 Notice also covers a dropped source that collided or could not be read. |
 | A16 | 4 | yes | A dropped source whose preview is already current still gets its embed (onPreview on decision `current`). |
+
+**After the verify halt (2026-10-02):** the p2 c25 gap is closed by `tests/unit/office-previews-renderer.test.ts` (real `dispose()` kills the child, temp dir removed); the correctness pass's 1 major + 6 minors are fixed in 6d30345 with regressions in `tests/unit/office-previews-correctness.test.ts` (rename during re-render requeues; write re-checks the source after inspecting the mirror; png↔jpg rename renders anew; moved collision entry cleared; wrongly typed settings tolerated; dot-folder rejected in any segment; no drop-embed write after unload during the note read). SDD req 14 and 21 carry the new rules.
 
 `Next: review amendments above, /sdd-refine specs/sdd/office-previews.md` (wording only — no phase left to run).
 
