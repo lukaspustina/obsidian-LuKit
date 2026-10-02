@@ -61,7 +61,7 @@ Requires Obsidian on this Mac with the built plugin, image sync on, and Settings
 3. Drag a small and a large document in one drop — expected: both get their embed (exercises the link-written-after-save retry).
 4. Rename a document with a preview into a new folder — expected: the preview moves to the mirrored folder (`_previews/<new folder>/…`), embeds follow, the old mirror folder disappears if empty.
 5. Delete a document — expected: its preview is deleted; a hand-placed image without the LuKit marker at a mirror path is never touched.
-6. Open a document and run **Office-Vorschau: Aktuelles Dokument jetzt erzeugen** — expected: preview (re)rendered at once.
+6. Change and save a document (or pick one whose render failed), then run **Office-Vorschau: Aktuelles Dokument jetzt erzeugen** — expected: preview rendered at once; on a document whose preview is already current nothing is re-rendered (req 18 keeps steps 1–3).
 7. On a second Mac: after sync, status shows the same documents as `aktuell` with no re-rendering.
 
 ## How to Resume Blocked Phases
