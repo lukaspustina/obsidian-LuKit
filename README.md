@@ -113,7 +113,7 @@ Renders the first page, slide or sheet of every Office, iWork and OpenDocument f
 - **Several Macs, no locks:** each image carries the SHA-256 of its document; a Mac renders only after a random 30–120 s delay and only when no current preview exists by then. Two minutes after startup every document is checked once.
 - **Drag & drop / paste:** a document dropped into a note is rendered at once, its `![[Angebot.docx]]` becomes a clickable `[[Angebot.docx]]`, and the preview embed is inserted on the line below (one undo reverts both). Previews of documents that arrive any other way are embedded by hand.
 - **Safety:** source documents are never modified, nothing leaves the Mac, and LuKit only moves or deletes images that carry its marker. A failed render (timeout after 20 s, error, no image) is not retried until the document changes.
-- **Not supported:** ODS and ODP — Quick Look hangs on them on current macOS.
+- **Not supported:** ODS and ODP — Quick Look hangs on them on current macOS. Office lock files (`~$name.docx`, `.~lock.name#`) are ignored.
 
 **Setup:** Settings > LuKit > Office-Vorschauen: turn on **Vorschauen erzeugen** and optionally change the **Vorschau-Ordner**.
 
@@ -151,7 +151,7 @@ Controls the date format used in diary headers, Vorgang sections, and reminders.
 | **E-Mail: In Mail ausgewählte Nachricht ablegen** | (macOS/Apple Mail) File the selected Mail message(s) + thread into a section note; capture-only (no archive); for threads you initiated |
 | **Vorgang: Aufgaben durchgehen** | The same stop for the active note only, regardless of dates: its open TaskNotes task and all intake groups, including ones deferred to the future |
 | **Vorgänge: Fällige Aufgaben durchgehen** | Walk due diary reminders (delete/reschedule the line), next-steps intake groups (take over, discard, snooze, or pick items), and TaskNotes tasks (complete, snooze, skip) via keyboard; reminders first, then intake, then tasks; TaskNotes ≥ 4.10.0 only needed for task stops |
-| **Office-Vorschau: Aktuelles Dokument jetzt erzeugen** | (macOS) Render the active Office document's preview immediately, ignoring the delay and an earlier failure |
+| **Office-Vorschau: Aktuelles Dokument jetzt erzeugen** | (macOS) Render the document of the active preview image immediately, ignoring the delay and an earlier failure. Obsidian does not open Office files itself, so for the document directly use the file explorer's context menu → **Office-Vorschau jetzt erzeugen** |
 | **Office-Vorschau: Status anzeigen** | (macOS) Show how many previews are current, queued and failed |
 | **Vorgang: Altes Format migrieren** | Auto-detect note type and convert old format to current |
 | **Help** | Show the LuKit help dialog |
