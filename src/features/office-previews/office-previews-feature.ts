@@ -77,6 +77,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 	/** Sources verified current in reconcile or rendered by this device since load. */
 	private readonly current = new Set<string>();
 	private disposed = false;
+	/** Sources whose "render now" awaits a result Notice; background renders stay silent. */
+	private readonly reportFor = new Set<string>();
 	/** Rename and delete events are handled one at a time, in event order. */
 	private lifecycle: Promise<void> = Promise.resolve();
 
@@ -213,6 +215,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 
 	private stopWork(): void {
 		this.generation++;
+		this.reportFor.clear();
 		this.dropEmbed?.clear();
 		this.queue?.clear();
 		for (const t of this.debounce.values()) this.deps.clearTimeout(t);
@@ -285,6 +288,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		// A dropped document whose preview is already current still gets its embed.
 		if (decision === "current") await this.dropEmbed?.onPreview(path, mirrorPath(path, this.folder()));
 		if (decision === "collision") this.dropEmbed?.onFailed(path);
+		if (decision === "current") this.report(path, `Office-Vorschau ist bereits aktuell: ${mirrorPath(path, this.folder())}`);
+		if (decision === "collision") this.report(path, `Office-Vorschau fehlgeschlagen: ${file.name} (am Vorschau-Pfad liegt eine fremde Datei)`);
 		return render ? "render" : "skip";
 	}
 
@@ -302,8 +307,13 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		if (!result.ok) {
 			this.current.delete(path);
 			this.cache?.setFailure(path, this.failure(sha256, result.reason));
-			if (await this.writePlaceholder(path, file, sha256, kind)) await this.dropEmbed?.onPlaceholder(path, mirrorPath(path, this.folder()));
-			else if (!this.disposed) this.dropEmbed?.onFailed(path);
+			if (await this.writePlaceholder(path, file, sha256, kind)) {
+				this.report(path, `Office-Vorschau fehlgeschlagen: ${file.name} (Platzhalter: ${mirrorPath(path, this.folder())})`);
+				await this.dropEmbed?.onPlaceholder(path, mirrorPath(path, this.folder()));
+			} else if (!this.disposed) {
+				this.report(path, `Office-Vorschau fehlgeschlagen: ${file.name}`);
+				this.dropEmbed?.onFailed(path);
+			}
 			return;
 		}
 		const marker = { version: 1 as const, sha256 };
@@ -329,6 +339,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		if (this.disposed) return;
 		this.cache?.clearFailure(path);
 		this.current.add(path);
+		this.report(path, `Office-Vorschau erzeugt: ${mirror}`);
 		await this.dropEmbed?.onPreview(path, mirror);
 	}
 
@@ -601,7 +612,20 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			new Notice(NOTICE_NOT_SOURCE);
 			return;
 		}
+		this.renderNow(path);
+	}
+
+	/** User-triggered render: front of the queue, failure memory bypassed, result reported. */
+	private renderNow(path: string): void {
+		this.reportFor.add(path);
+		new Notice(`Office-Vorschau wird erzeugt: ${path.slice(path.lastIndexOf("/") + 1)}`);
 		this.queue?.enqueue(path, { immediate: true });
+	}
+
+	/** One result Notice per "render now"; silent for background renders. */
+	private report(path: string, message: string): void {
+		if (this.disposed || !this.reportFor.delete(path)) return;
+		new Notice(message);
 	}
 
 	private onFileMenu(menu: Menu, file: TAbstractFile): void {
@@ -611,7 +635,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			item
 				.setTitle(MENU_RENDER_NOW)
 				.setIcon("image")
-				.onClick(() => this.queue?.enqueue(path, { immediate: true })),
+				.onClick(() => this.renderNow(path)),
 		);
 	}
 

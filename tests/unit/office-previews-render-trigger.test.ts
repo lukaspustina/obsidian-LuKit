@@ -114,4 +114,59 @@ describe("office-previews render trigger", () => {
 		expect(h.lastNotice()).toBe("Die aktive Datei ist kein unterstütztes Office-Dokument.");
 		expect(h.renderer.calls).toHaveLength(0);
 	});
+
+	// Feedback (2026-10-02): render-now said nothing, so in a vault with a long
+	// queue and no embed the user saw no effect at all.
+	const okBytes = (): { ok: true; bytes: Uint8Array } => ({ ok: true, bytes: markedPreview("x.docx", "0").slice(0) });
+
+	it("reports start and success with the preview path to embed", async () => {
+		h = createHarness();
+		const file = h.addSource("Projekte/Angebot.docx", "body");
+		h.renderer.failWith("exit");
+		await h.start();
+		h.renderer.result = okBytes;
+
+		openMenu(h, file).items.find((i) => i.title === TITLE)?.click?.();
+		await h.settle();
+
+		const ours = h.notices().filter((n) => n.startsWith("Office-Vorschau"));
+		expect(ours.slice(-2)).toEqual([
+			"Office-Vorschau wird erzeugt: Angebot.docx",
+			"Office-Vorschau erzeugt: _previews/Projekte/Angebot.docx.png",
+		]);
+	});
+
+	it("reports a failure and the placeholder it left", async () => {
+		h = createHarness();
+		// No real preview exists (a stale real one would be kept, not replaced by a placeholder).
+		h.renderer.failWith("timeout");
+		const file = h.addSource("Tabelle.xlsx", "body");
+		await h.start();
+
+		openMenu(h, file).items.find((i) => i.title === TITLE)?.click?.();
+		await h.settle();
+
+		expect(h.lastNotice()).toBe("Office-Vorschau fehlgeschlagen: Tabelle.xlsx (Platzhalter: _previews/Tabelle.xlsx.png)");
+	});
+
+	it("reports a preview that is already current instead of staying silent", async () => {
+		h = createHarness();
+		const file = h.addSource("Angebot.docx", "body");
+		await h.start();
+		const renders = h.renderer.calls.length;
+
+		openMenu(h, file).items.find((i) => i.title === TITLE)?.click?.();
+		await h.settle();
+
+		expect(h.renderer.calls).toHaveLength(renders);
+		expect(h.lastNotice()).toBe("Office-Vorschau ist bereits aktuell: _previews/Angebot.docx.png");
+	});
+
+	it("stays silent for renders the background queue does on its own", async () => {
+		h = createHarness();
+		h.addSource("Angebot.docx", "body");
+		await h.start();
+		expect(h.renderer.calls).toHaveLength(1);
+		expect(h.notices().filter((n) => n.startsWith("Office-Vorschau"))).toEqual([]);
+	});
 });
