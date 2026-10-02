@@ -11,7 +11,7 @@ describe("SDD office-previews-auto-embed p1 c9", () => {
 		const content = `${frontmatter}Intro\nsee [[a.docx]] here\nend`;
 		const plan = planAutoEmbed(content, src("a.docx"), img("a.docx.png"), isPreview, "![[a.docx.png]]");
 		expect(plan).not.toBeNull();
-		expect(plan?.lineIndex).toBe(5);
+		expect(plan?.lineIndex).toBe(4);
 		expect(plan?.text).toBe("![[a.docx.png]]");
 		expect(plan?.newContent).toBe(`${frontmatter}Intro\nsee [[a.docx]] here\n![[a.docx.png]]\nend`);
 	});

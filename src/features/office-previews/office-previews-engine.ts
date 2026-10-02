@@ -295,9 +295,7 @@ export function planPreviewInsertion(
 	isPreviewLink: (linkpath: string) => boolean,
 	embedText: string,
 ): InsertionPlan | null {
-	for (const m of content.matchAll(WIKILINK_RE)) {
-		if (m[1] === "!" && isPreviewLink(m[2])) return null;
-	}
+	if (containsEmbedOf(content, isPreviewLink)) return null;
 	const lines = content.split("\n");
 	for (let i = 0; i < lines.length; i++) {
 		const { line, matched } = transformLinkLine(lines[i], isSourceLink);
@@ -306,6 +304,140 @@ export function planPreviewInsertion(
 		return { lineIndex: i, replacement: `${line}\n${indent}${embedText}` };
 	}
 	return null;
+}
+
+/** The wikilink path as the resolver sees it: `\|` in a table row leaves a trailing backslash. */
+function linkPathOf(match: RegExpMatchArray): string {
+	return match[2].endsWith("\\") ? match[2].slice(0, -1) : match[2];
+}
+
+export type LinkResolver = (linkPath: string) => boolean;
+
+/** True when `text` holds an embed (`![[…]]`) whose path `isTarget` accepts. */
+export function containsEmbedOf(text: string, isTarget: LinkResolver): boolean {
+	for (const m of text.matchAll(WIKILINK_RE)) {
+		if (m[1] === "!" && isTarget(linkPathOf(m))) return true;
+	}
+	return false;
+}
+
+export interface AutoEmbedPlan {
+	/** Index (in the EOL-split lines) of the line after which the embed line is inserted. */
+	lineIndex: number;
+	/** The inserted line, prefix included, without EOL. */
+	text: string;
+	/** Content after insertion, in the note's EOL. */
+	newContent: string;
+}
+
+const FENCE_RE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+const QUOTE_PREFIX_RE = /^\s*(?:>\s*)+/;
+// Line shape only; `[^\]]*` stops at the first `]`, so two embeds on one line never match.
+// Which file the embed resolves to is decided by containsEmbedOf.
+const BLOCK_EMBED_RE = /^\s*(?:>\s*)*!\[\[[^\]]*\]\]\s*$/;
+
+function withoutQuotePrefix(line: string): string {
+	return line.replace(QUOTE_PREFIX_RE, "");
+}
+
+/** Blanks inline code spans (a backtick run closed by a run of equal length). */
+function withoutCodeSpans(line: string): string {
+	let out = line;
+	let i = 0;
+	while (i < out.length) {
+		if (out[i] !== "`") {
+			i++;
+			continue;
+		}
+		let n = 1;
+		while (out[i + n] === "`") n++;
+		const fence = "`".repeat(n);
+		let close = out.indexOf(fence, i + n);
+		while (close >= 0 && out[close + n] === "`") {
+			let skip = n;
+			while (out[close + skip] === "`") skip++;
+			close = out.indexOf(fence, close + skip);
+		}
+		if (close < 0) {
+			i += n;
+			continue;
+		}
+		out = out.slice(0, i) + " ".repeat(close + n - i) + out.slice(close + n);
+		i = close + n;
+	}
+	return out;
+}
+
+/** Per line: its scannable text, or null inside frontmatter and fenced code. */
+function bodyView(lines: string[]): (string | null)[] {
+	const view: (string | null)[] = lines.map(withoutCodeSpans);
+	let start = 0;
+	if (lines[0] === "---") {
+		const close = lines.indexOf("---", 1);
+		if (close > 0) {
+			view.fill(null, 0, close + 1);
+			start = close + 1;
+		}
+	}
+	// CommonMark fences, also inside a blockquote/callout: an opening backtick
+	// fence's info string holds no backtick; a closing fence holds nothing else.
+	let fence: string | null = null;
+	for (let i = start; i < lines.length; i++) {
+		const m = FENCE_RE.exec(withoutQuotePrefix(lines[i]));
+		if (fence === null) {
+			if (m === null || (m[1][0] === "`" && m[2].includes("`"))) continue;
+			fence = m[1];
+			view[i] = null;
+			continue;
+		}
+		view[i] = null;
+		if (m !== null && m[1][0] === fence[0] && m[1].length >= fence.length && m[2].trim() === "") fence = null;
+	}
+	return view;
+}
+
+/**
+ * Where to insert an embed of a document's preview in a note linking it: below the
+ * first body line linking the source, after that line's block of preview embeds;
+ * null when the body already embeds the image or no body line links the source.
+ */
+export function planAutoEmbed(
+	content: string,
+	isSourceLink: LinkResolver,
+	isImageEmbed: LinkResolver,
+	isPreviewEmbed: LinkResolver,
+	embedText: string,
+): AutoEmbedPlan | null {
+	const eol = /\r?\n/.exec(content)?.[0] ?? "\n";
+	const lines = content.split(eol);
+	const view = bodyView(lines);
+	if (view.some((text) => text !== null && containsEmbedOf(text, isImageEmbed))) return null;
+	const anchor = view.findIndex(
+		(text) => text !== null && [...text.matchAll(WIKILINK_RE)].some((m) => isSourceLink(linkPathOf(m))),
+	);
+	if (anchor < 0) return null;
+
+	const line = lines[anchor];
+	let end = anchor;
+	const quote = QUOTE_PREFIX_RE.exec(line)?.[0];
+	const isTableRow = (l: string): boolean => withoutQuotePrefix(l).trimStart().startsWith("|");
+	let prefix: string;
+	if (isTableRow(line)) {
+		while (end + 1 < lines.length && isTableRow(lines[end + 1])) end++;
+		prefix = quote ?? "";
+	} else {
+		prefix = quote ?? line.slice(0, line.length - line.trimStart().length);
+	}
+	while (
+		end + 1 < lines.length &&
+		BLOCK_EMBED_RE.test(lines[end + 1]) &&
+		containsEmbedOf(lines[end + 1], isPreviewEmbed)
+	) end++;
+
+	const text = prefix + embedText;
+	const out = [...lines];
+	out.splice(end + 1, 0, text);
+	return { lineIndex: end, text, newContent: out.join(eol) };
 }
 
 function nameMatches(recorded: string, created: string): boolean {
