@@ -39,8 +39,11 @@ type Decision = "render" | "current" | "placeholder" | "collision" | "failed";
 
 const CMD_RENDER_ACTIVE = "office-previews-render-active";
 const CMD_STATUS = "office-previews-status";
+const CMD_EMBED_MISSING = "office-previews-embed-missing";
 const NAME_RENDER_ACTIVE = "Office-Vorschau: Aktuelles Dokument jetzt erzeugen";
 const NAME_STATUS = "Office-Vorschau: Status anzeigen";
+const NAME_EMBED_MISSING = "Office-Vorschauen: Fehlende Einbettungen ergänzen";
+const NOTICE_EMBED_BUSY = "Einbettung läuft bereits.";
 const NOTICE_DISABLED = "Office-Vorschauen sind in den Einstellungen ausgeschaltet.";
 const NOTICE_NOT_SOURCE = "Die aktive Datei ist kein unterstütztes Office-Dokument.";
 const HINT_UNSUPPORTED = "Office-Vorschauen sind nur in der Desktop-App auf macOS verfügbar.";
@@ -128,6 +131,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 
 		plugin.addCommand({ id: CMD_RENDER_ACTIVE, name: NAME_RENDER_ACTIVE, icon: LUKIT_ICON_ID, callback: () => this.renderActive() });
 		plugin.addCommand({ id: CMD_STATUS, name: NAME_STATUS, icon: LUKIT_ICON_ID, callback: () => this.showStatus() });
+		plugin.addCommand({ id: CMD_EMBED_MISSING, name: NAME_EMBED_MISSING, icon: LUKIT_ICON_ID, callback: () => this.embedMissing() });
 
 		// Obsidian emits `create` for every existing file while the vault loads;
 		// listening only after layout ready keeps that storm out of the queue.
@@ -171,6 +175,12 @@ export class OfficePreviewsFeature implements LuKitFeature {
 				commandId: CMD_STATUS,
 				displayName: NAME_STATUS,
 				description: "Zeigt, wie viele Vorschauen aktuell sind, wie viele in der Warteschlange stehen und wie viele fehlgeschlagen sind.",
+			},
+			{
+				commandId: CMD_EMBED_MISSING,
+				displayName: NAME_EMBED_MISSING,
+				description:
+					"Bettet jede vorhandene Vorschau unter dem ersten Link der Notizen ein, die ihr Dokument verlinken und sie noch nicht zeigen — einmalig für den Bestand und erneut für später hinzugefügte Links. Nur auf einem Mac ausführen: Sync kann Einbettungen sonst doppeln.",
 			},
 		];
 	}
@@ -653,6 +663,46 @@ export class OfficePreviewsFeature implements LuKitFeature {
 				.setIcon("image")
 				.onClick(() => this.renderNow(path)),
 		);
+	}
+
+	/** Requirement 11: backfill on this device, once the layout is ready. */
+	private embedMissing(): void {
+		if (!this.enabled()) {
+			new Notice(NOTICE_DISABLED);
+			return;
+		}
+		if (this.autoEmbed?.isBackfilling() === true) {
+			new Notice(NOTICE_EMBED_BUSY);
+			return;
+		}
+		void this.backfill();
+	}
+
+	private async backfill(): Promise<void> {
+		const result = await this.autoEmbed?.backfill(() => this.markedSources());
+		if (result === undefined || result === null || this.disposed) return;
+		new Notice(`Einbettungen ergänzt: ${result.embeds} in ${result.notes} Notizen`);
+	}
+
+	/** Sources of the marked images (placeholders included) in the preview folder, ascending by image path. */
+	private async markedSources(): Promise<string[]> {
+		// Links are only resolved once the layout is ready.
+		await new Promise<void>((resolve) => this.plugin?.app.workspace.onLayoutReady(resolve));
+		const folder = this.folder();
+		const images = (this.plugin?.app.vault.getFiles() ?? [])
+			.map((f) => f.path)
+			.filter((p) => sourceForPreview(p, folder) !== null)
+			.sort();
+		const sources: string[] = [];
+		for (const image of images) {
+			if (this.disposed || !this.enabled()) return [];
+			try {
+				if ((await this.store?.inspect(image))?.kind === "marked") sources.push(sourceForPreview(image, folder) as string);
+			} catch {
+				console.warn("LuKit office previews: a preview could not be read.");
+			}
+		}
+		return sources;
 	}
 
 	private showStatus(): void {

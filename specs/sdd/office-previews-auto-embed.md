@@ -125,7 +125,9 @@ export class AutoEmbed {
   constructor(app: App, deps: DropEmbedDeps, options: AutoEmbedOptions);
   embedEverywhere(sourcePath: string, mirrorPath: string): Promise<void>; // enqueues, internal catch
   onFileCreated(path: string): void;
-  backfill(): Promise<{ embeds: number; notes: number }>;
+  isBackfilling(): boolean;
+  // collect: the feature's marked sources in ascending mirror-path order (it owns PreviewStore); null when stopped (reset, dispose, disable)
+  backfill(collect: () => Promise<string[]>): Promise<{ embeds: number; notes: number } | null>;
   reset(): void;                 // called by stopWork(): new generation, fresh chain, clears backfill-running flag
 }
 ```
@@ -270,6 +272,7 @@ Phase complete when: all scenarios below pass and the full `npm run test` is gre
 | Liveness | `live()` with generation; `stopWork()` resets chain and backfill flag; queued work dropped | Resuming on re-enable: would run an old pass |
 | Block detection | Maximal run of lines (prefix + one embed, size/alias allowed) each resolving under the preview folder | Same-line-document matching: not decidable in the pure planner |
 | Idempotence scan | Body-only, per image, embeds only; reuse engine helper | Second regex / per-note "any preview": breaks c16-type cases |
+| Backfill split | The feature collects the marked sources (PreviewStore), AutoEmbed indexes `resolvedLinks` once and writes; `null` result suppresses the summary of a stopped run | AutoEmbed reading the store itself: a second owner of the mirror folder |
 | Backfill source derivation | `PreviewStore.inspect` + `sourceForPreview`; `resolvedLinks` indexed once; ascending code-unit order | Per-source scan of `resolvedLinks`: O(sources × notes); string stripping |
 | Backfill index staleness | Accepted; re-run covers it | Re-indexing per source: defeats the single index |
 | Backfill on several Macs | Unsupported, stated in README | Guarding in code: no cross-Mac state exists (base: no locks) |

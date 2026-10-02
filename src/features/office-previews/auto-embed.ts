@@ -15,6 +15,13 @@ function errorType(e: unknown): string {
 	return e instanceof Error ? e.name : typeof e;
 }
 
+export interface BackfillResult {
+	/** Embeds inserted. */
+	embeds: number;
+	/** Notes changed. */
+	notes: number;
+}
+
 interface Waiter {
 	resolve: (indexed: boolean) => void;
 	timer: unknown;
@@ -28,6 +35,8 @@ export class AutoEmbed {
 	/** Bumped by reset(); a pass from an older generation writes nothing more. */
 	private generation = 0;
 	private readonly waiters = new Map<string, Waiter[]>();
+	/** Identifies the running backfill; cleared by reset(). */
+	private backfillRun: object | null = null;
 
 	constructor(
 		private readonly app: App,
@@ -71,6 +80,7 @@ export class AutoEmbed {
 	 */
 	reset(): void {
 		this.generation++;
+		this.backfillRun = null;
 		for (const list of this.waiters.values()) {
 			for (const w of list) {
 				this.deps.clearTimeout(w.timer);
@@ -78,6 +88,44 @@ export class AutoEmbed {
 			}
 		}
 		this.waiters.clear();
+	}
+
+	isBackfilling(): boolean {
+		return this.backfillRun !== null;
+	}
+
+	/**
+	 * Embeds the images of `collect()`'s sources (in that order) into their linking
+	 * notes, through the same chain as automatic embedding. The linking notes come
+	 * from one read of `resolvedLinks`. Null when reset, disposed or disabled meanwhile.
+	 */
+	async backfill(collect: () => Promise<string[]>): Promise<BackfillResult | null> {
+		const run = {};
+		this.backfillRun = run;
+		const generation = this.generation;
+		try {
+			const sources = await collect();
+			if (!this.alive(generation)) return null;
+			const index = this.linkIndex(new Set(sources));
+			const changed = new Set<string>();
+			let embeds = 0;
+			for (const source of sources) {
+				this.chain = this.chain.then(async () => {
+					try {
+						for (const note of await this.pass(source, generation, index.get(source) ?? [])) {
+							embeds++;
+							changed.add(note);
+						}
+					} catch (e) {
+						console.warn(`LuKit office previews: notes could not be updated with a preview embed (${errorType(e)}).`);
+					}
+				});
+			}
+			await this.chain;
+			return this.alive(generation) ? { embeds, notes: changed.size } : null;
+		} finally {
+			if (this.backfillRun === run) this.backfillRun = null;
+		}
 	}
 
 	private alive(generation: number): boolean {
@@ -102,23 +150,35 @@ export class AutoEmbed {
 		});
 	}
 
-	/** Notes linking `sourcePath` (embed or plain link), outside the preview folder. */
-	private linkingNotes(sourcePath: string): string[] {
+	/** Source → the notes linking it (embed or plain link), outside the preview folder; one read of resolvedLinks. */
+	private linkIndex(sources: ReadonlySet<string>): Map<string, string[]> {
 		const prefix = this.options.folder() + "/";
-		return Object.entries(this.app.metadataCache.resolvedLinks)
-			.filter(([note, targets]) => targets[sourcePath] !== undefined && !note.startsWith(prefix))
-			.map(([note]) => note);
+		const index = new Map<string, string[]>();
+		for (const [note, targets] of Object.entries(this.app.metadataCache.resolvedLinks)) {
+			if (note.startsWith(prefix)) continue;
+			for (const target of Object.keys(targets)) {
+				if (!sources.has(target)) continue;
+				const notes = index.get(target);
+				if (notes === undefined) index.set(target, [note]);
+				else notes.push(note);
+			}
+		}
+		return index;
 	}
 
-	/** Embeds into every linking note, one at a time; the number of notes changed. */
-	private async pass(sourcePath: string, generation: number): Promise<number> {
-		let changed = 0;
-		for (const notePath of this.linkingNotes(sourcePath)) {
+	/** Embeds into every linking note, one at a time; the notes changed. */
+	private async pass(
+		sourcePath: string,
+		generation: number,
+		notes: string[] = this.linkIndex(new Set([sourcePath])).get(sourcePath) ?? [],
+	): Promise<string[]> {
+		const changed: string[] = [];
+		for (const notePath of notes) {
 			await new Promise<void>((resolve) => this.deps.setTimeout(resolve, 0));
 			if (!this.alive(generation)) return changed;
 			if (this.options.isDropPending(notePath, sourcePath)) continue;
 			try {
-				if (await this.embedInto(notePath, sourcePath, generation)) changed++;
+				if (await this.embedInto(notePath, sourcePath, generation)) changed.push(notePath);
 			} catch (e) {
 				console.warn(`LuKit office previews: a note could not be updated with a preview embed (${errorType(e)}).`);
 			}
