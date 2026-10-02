@@ -16,7 +16,7 @@
 - [x] Vorgang split: move selected facts and h5 sections into another (or a new) Vorgang
 - [x] Office previews: Quick Look renders the first page of every Office/iWork/OpenDocument file into `_previews/`, kept current across Macs; drag & drop inserts the preview embed — pending manual smoke test in Obsidian (drop of a small + a large file, rename into a new folder)
 
-## Office previews — follow-ups (second correctness pass, 2026-10-02)
+## Office previews — follow-ups (correctness passes 2 and 3, 2026-10-02)
 
 - [ ] A rename or delete during `store.write` lets the write land at the old mirror path (orphaned marked image, stale `aktuell` entry)
 - [ ] A renamed job that runs before its serialised `handleRename` writes the new mirror first; the old marked preview stays orphaned
@@ -24,3 +24,9 @@
 - [ ] Collision retry fires only on create/delete at the mirror path, not when the foreign file is renamed away
 - [ ] Pending drop embeds are keyed by source path and not moved on rename (a renamed dropped file silently times out)
 - [ ] `dispose()` between qlmanage finishing and the `sips` spawn still spawns `sips` after unload
+- [ ] Case-only rename (`Report.docx` → `report.docx`): the case-insensitive `adapter.exists` sees the old mirror as occupant, so the preview is not moved
+- [ ] A mirror read mid-write by sync (partial bytes) is classified foreign; the collision clears only on create/delete, not on the completing modify
+- [ ] A throw inside `run` (unreadable source, synchronous spawn error) records no failure and gives a dropped file no failure Notice
+- [ ] `insert` reports "inserted" when the plan inside `vault.process` turns null (note changed after the read), so the pending embed is not retried
+- [ ] Reconcile's 0 ms yield timers are not tracked by `stopWork`/`onunload` (harmless: `live()` ends the loop)
+- [ ] A collision found in `run` does not drop the path from the `current` set (status count)
