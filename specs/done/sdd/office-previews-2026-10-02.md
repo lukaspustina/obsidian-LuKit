@@ -1,6 +1,7 @@
 # SDD: Office Previews
 
-Status: Ready for Implementation
+Status: Done
+Finished: 2026-10-02
 Original: specs/sdd/office-previews.md
 Refined: 2026-10-01
 
