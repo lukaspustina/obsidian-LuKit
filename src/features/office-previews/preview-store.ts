@@ -6,7 +6,15 @@ export type MirrorState = { kind: "absent" } | { kind: "marked"; marker: Preview
 // Vault adapter access below the preview folder. Every path goes through
 // normalizePath before it reaches the adapter.
 export class PreviewStore {
-	constructor(private readonly adapter: DataAdapter) {}
+	/**
+	 * `removeEmptyDir` must refuse a non-empty folder itself (fs.rmdir
+	 * semantics): Obsidian's `adapter.rmdir(p, false)` fails with EISDIR on
+	 * every folder, and `rmdir(p, true)` would delete whatever sync just put there.
+	 */
+	constructor(
+		private readonly adapter: DataAdapter,
+		private readonly removeEmptyDir: (path: string) => Promise<void>,
+	) {}
 
 	/** What occupies `mirror`: nothing, a LuKit preview, or a file without a valid marker. */
 	async inspect(mirror: string): Promise<MirrorState> {
@@ -42,7 +50,7 @@ export class PreviewStore {
 			for (let dir = parentOf(normalizePath(path)); dir.startsWith(root + "/"); dir = parentOf(dir)) {
 				const listing = await this.adapter.list(dir);
 				if (listing.files.length > 0 || listing.folders.length > 0) return;
-				await this.adapter.rmdir(dir, false);
+				await this.removeEmptyDir(dir);
 			}
 		} catch {
 			// A sync race or a vanished folder: leaving an empty folder is harmless.

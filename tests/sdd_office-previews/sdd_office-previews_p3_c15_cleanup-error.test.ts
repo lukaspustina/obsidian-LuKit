@@ -38,13 +38,13 @@ describe("SDD office-previews p3 c15", () => {
 
 	it("ignores a folder removal error during empty-folder cleanup", async () => {
 		const source = await setup();
-		adapter().rmdir.mockRejectedValueOnce(new Error("rmdir failed"));
+		h.removeEmptyDir.mockRejectedValueOnce(new Error("rmdir failed"));
 
 		h.deleteFile(source);
 		await h.settle();
 
 		expect(h.exists(h.mirror(source))).toBe(false);
-		expect(adapter().rmdir.mock.calls.length).toBeGreaterThan(0);
+		expect(h.removeEmptyDir.mock.calls.length).toBeGreaterThan(0);
 		expect(await h.status()).toMatchObject({ failed: 0 });
 	});
 });

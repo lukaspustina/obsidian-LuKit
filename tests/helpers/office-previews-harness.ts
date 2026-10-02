@@ -218,6 +218,8 @@ interface VaultEntry { bytes: Uint8Array; file: TFile }
 
 export interface Harness {
 	feature: OfficePreviewsFeature;
+	/** The injected empty-folder removal (fs.rmdir semantics). */
+	removeEmptyDir: ReturnType<typeof vi.fn>;
 	plugin: { app: unknown; settings: LuKitSettings; commands: Map<string, { id: string; name: string; icon?: string; callback?: () => unknown; checkCallback?: (checking: boolean) => unknown }>; registered: unknown[] };
 	renderer: FakeRenderer;
 	storage: Map<string, unknown>;
@@ -353,9 +355,13 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 			entries.delete(p);
 			emitVault("delete", e.file);
 		}),
-		rmdir: vi.fn(async (p: string, _recursive?: boolean): Promise<void> => {
+		// Mirrors Obsidian (measured 2026-10-02 via obsidian-cli eval): a
+		// non-recursive rmdir fails with EISDIR on every folder, empty or not.
+		rmdir: vi.fn(async (p: string, recursive?: boolean): Promise<void> => {
 			adapterCalls.push({ op: "rmdir", path: p });
-			folderSet.delete(p);
+			if (recursive !== true) throw new Error(`Path is a directory: rm returned EISDIR (is a directory) ${p}`);
+			for (const k of [...entries.keys()]) if (k.startsWith(p + "/")) entries.delete(k);
+			for (const f of [...folderSet]) if (f === p || f.startsWith(p + "/")) folderSet.delete(f);
 		}),
 	};
 
@@ -480,6 +486,14 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 	const counters = { timersScheduled: 0 };
 	const renderer = new FakeRenderer();
 	const fileExists = opts.fileExists ?? ((abs: string): boolean => entries.has(abs.slice(BASE_PATH.length + 1)));
+	// Mirrors fs.rmdir: removes an empty folder, refuses a non-empty one.
+	const removeEmptyDir = vi.fn(async (p: string): Promise<void> => {
+		adapterCalls.push({ op: "removeEmptyDir", path: p });
+		const prefix = p + "/";
+		if ([...entries.keys(), ...folderSet].some((x) => x.startsWith(prefix))) throw new Error(`ENOTEMPTY: directory not empty, rmdir '${p}'`);
+		if (!folderSet.has(p)) throw new Error(`ENOENT: no such file or directory, rmdir '${p}'`);
+		folderSet.delete(p);
+	});
 	const feature = new OfficePreviewsFeature({
 		renderer,
 		random: mulberry32(opts.seed ?? 1),
@@ -491,6 +505,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 		clearTimeout: (h: unknown): void => clearTimeout(h as ReturnType<typeof setTimeout>),
 		now: () => Date.now(),
 		fileExists,
+		removeEmptyDir,
 	});
 	if (opts.load !== false) feature.onload(plugin as unknown as LuKitPlugin);
 
@@ -508,6 +523,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 
 	const h: Harness = {
 		feature,
+		removeEmptyDir,
 		plugin,
 		renderer,
 		storage,

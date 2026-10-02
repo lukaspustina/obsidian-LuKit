@@ -1,4 +1,4 @@
-import { existsSync } from "fs";
+import { existsSync, promises as fsp } from "fs";
 import { join } from "path";
 import { FileSystemAdapter, Notice, Platform, Setting, TFile, type MarkdownFileInfo, type TAbstractFile } from "obsidian";
 import type LuKitPlugin from "../../main";
@@ -29,6 +29,8 @@ export interface OfficePreviewsDeps {
 	clearTimeout: (h: unknown) => void;
 	now: () => number;
 	fileExists: (abs: string) => boolean;
+	/** Removes an empty vault folder; refuses (throws) when it is not empty. */
+	removeEmptyDir: (vaultPath: string) => Promise<void>;
 }
 
 type Decision = "render" | "current" | "collision" | "failed";
@@ -86,6 +88,12 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			clearTimeout: deps.clearTimeout ?? ((h) => globalThis.clearTimeout(h as ReturnType<typeof setTimeout>)),
 			now: deps.now ?? Date.now,
 			fileExists: deps.fileExists ?? ((abs) => this.plugin?.app.vault.adapter instanceof FileSystemAdapter && existsSync(abs)),
+			removeEmptyDir:
+				deps.removeEmptyDir ??
+				(async (p) => {
+					if (!(this.plugin?.app.vault.adapter instanceof FileSystemAdapter)) throw new Error("not a file system vault");
+					await fsp.rmdir(this.absPath(p));
+				}),
 		};
 	}
 
@@ -97,7 +105,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			{ load: (key) => app.loadLocalStorage(key), save: (key, data) => app.saveLocalStorage(key, data) },
 			this.deps,
 		);
-		this.store = new PreviewStore(app.vault.adapter);
+		this.store = new PreviewStore(app.vault.adapter, this.deps.removeEmptyDir);
 		this.dropEmbed = new DropEmbed(app, this.deps);
 		this.queue = new PreviewQueue({
 			random: this.deps.random,
