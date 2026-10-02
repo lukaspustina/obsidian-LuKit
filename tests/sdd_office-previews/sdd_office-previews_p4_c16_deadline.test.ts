@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { TFile, type App } from "obsidian";
+import { DropEmbed } from "../../src/features/office-previews/drop-embed";
 import { createHarness, type Harness } from "../helpers/office-previews-harness";
 
 const DEADLINE_MS = 60_000;
@@ -82,5 +84,58 @@ describe("SDD office-previews p4 c16", () => {
 		expect(ed.getValue()).toBe("Intro\n[[Angebot.docx]]\n![[Angebot.docx.png]]\n");
 		expect(ed.transactions).toHaveLength(1);
 		expect(h.notices().filter((n) => n.includes("fehlgeschlagen"))).toHaveLength(0);
+	});
+
+	function deadlineProbe(noteContent: string): { embed: DropEmbed; scheduled: unknown[]; cleared: unknown[] } {
+		const scheduled: unknown[] = [];
+		const cleared: unknown[] = [];
+		const file = (path: string): TFile => Object.assign(new TFile(), { path });
+		const app = {
+			vault: {
+				getAbstractFileByPath: (p: string) => file(p),
+				read: async () => noteContent,
+				process: async (_f: TFile, fn: (c: string) => string) => fn(noteContent),
+			},
+			metadataCache: { getFirstLinkpathDest: (lp: string) => (lp === "Angebot.docx" ? file("_resources/Angebot.docx") : null) },
+			fileManager: { generateMarkdownLink: () => "[[Angebot.docx.png]]" },
+			workspace: { iterateAllLeaves: () => undefined },
+		} as unknown as App;
+		let seq = 0;
+		const embed = new DropEmbed(app, {
+			setTimeout: (_fn: () => void, ms: number) => {
+				const handle = { id: ++seq, ms };
+				scheduled.push(handle);
+				return handle;
+			},
+			clearTimeout: (h: unknown) => {
+				cleared.push(h);
+			},
+			now: () => 0,
+		});
+		return { embed, scheduled, cleared };
+	}
+
+	it("clears the deadline timer when the preview is embedded before the deadline", async () => {
+		const { embed, scheduled, cleared } = deadlineProbe("Intro\n![[Angebot.docx]]\n");
+		embed.record("Notizen/N.md", ["Angebot.docx"]);
+		expect(embed.match("_resources/Angebot.docx")).toBe(true);
+		const deadline = scheduled.find((t) => (t as { ms: number }).ms === DEADLINE_MS);
+		expect(deadline).toBeDefined();
+
+		await embed.onPreview("_resources/Angebot.docx", "_previews/_resources/Angebot.docx.png");
+
+		expect(cleared).toContain(deadline);
+		expect(embed.isPending("_resources/Angebot.docx")).toBe(false);
+	});
+
+	it("clears the deadline timer when the render fails before the deadline", () => {
+		const { embed, scheduled, cleared } = deadlineProbe("Intro\n![[Angebot.docx]]\n");
+		embed.record("Notizen/N.md", ["Angebot.docx"]);
+		embed.match("_resources/Angebot.docx");
+		const deadline = scheduled.find((t) => (t as { ms: number }).ms === DEADLINE_MS);
+
+		embed.onFailed("_resources/Angebot.docx");
+
+		expect(cleared).toContain(deadline);
 	});
 });

@@ -123,5 +123,38 @@ describe("office-previews correctness-pass regressions", () => {
 		expect(app().vault.process).not.toHaveBeenCalled();
 		expect(h.readText(note)).toBe(original);
 	});
-});
 
+	it("keeps the preview of a source that is deleted and re-created at once", async () => {
+		h = createHarness();
+		h.addSource("Angebot.docx", "body");
+		h.putFile(h.mirror("Angebot.docx"), markedPreview("Angebot.docx", sha256Of("body")));
+		await h.start();
+
+		// Office safe-save / sync: delete and create of the same path before the lifecycle runs.
+		h.deleteFile("Angebot.docx");
+		h.createSource("Angebot.docx", "body");
+		await h.settle();
+		await h.drain();
+
+		expect(h.previewMarker("Angebot.docx")?.sha256).toBe(sha256Of("body"));
+		expect(await h.status()).toMatchObject({ queued: 0, failed: 0 });
+	});
+
+	it("re-renders a renamed source whose preview the vault has not indexed yet", async () => {
+		h = createHarness();
+		h.addSource("Alt/Angebot.docx", "body");
+		h.putFile(h.mirror("Alt/Angebot.docx"), markedPreview("Alt/Angebot.docx", sha256Of("body")));
+		await h.start();
+		const oldMirror = h.mirror("Alt/Angebot.docx");
+		const lookup = (h.plugin.app as { vault: { getAbstractFileByPath: Mock } }).vault.getAbstractFileByPath;
+		const original = lookup.getMockImplementation() as (p: string) => unknown;
+		lookup.mockImplementation((p: string) => (p === oldMirror ? null : original(p)));
+
+		h.renameSource("Alt/Angebot.docx", "Neu/Angebot.docx");
+		await h.settle();
+		await h.drain();
+
+		expect(h.previewMarker("Neu/Angebot.docx")?.sha256).toBe(sha256Of("body"));
+		expect(h.exists(oldMirror)).toBe(false);
+	});
+});

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { DropEmbed } from "../../src/features/office-previews/drop-embed";
 import { DROP_WINDOW_MS } from "../../src/features/office-previews/office-previews-engine";
+import type { App } from "obsidian";
 import { createHarness, type Harness } from "../helpers/office-previews-harness";
 
 const NOTE = "Notizen/N.md";
@@ -54,5 +56,18 @@ describe("SDD office-previews p4 c5", () => {
 		await h.drain();
 		expect(h.renderer.renderedPaths()).toEqual(["_resources/Bericht.docx", "_resources/Angebot.docx"]);
 		expect(ed.getValue()).toBe("![[Angebot.docx]]\n[[Bericht.docx]]\n![[Bericht.docx.png]]\n");
+	});
+
+	it("prunes records older than the window on the next drop event", () => {
+		let now = 1_000_000;
+		const embed = new DropEmbed({} as App, { setTimeout: () => 0, clearTimeout: () => undefined, now: () => now });
+		embed.record(NOTE, ["Angebot.docx"]);
+		embed.record(NOTE, ["Bericht.docx"]);
+		expect(embed.recordCount()).toBe(2);
+
+		now += DROP_WINDOW_MS + 1;
+		embed.record(NOTE, ["Folien.pptx"]);
+
+		expect(embed.recordCount()).toBe(1);
 	});
 });
