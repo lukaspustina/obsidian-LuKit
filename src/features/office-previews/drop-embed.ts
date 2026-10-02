@@ -67,8 +67,9 @@ export class DropEmbed {
 		return this.records.length;
 	}
 
-	isPending(sourcePath: string): boolean {
-		return this.pending.has(sourcePath);
+	/** True while the drop record of `sourcePath` waits to embed into `notePath`. */
+	isPending(notePath: string, sourcePath: string): boolean {
+		return this.pending.get(sourcePath)?.notePath === notePath;
 	}
 
 	/** The preview exists: insert its embed below the document link. */

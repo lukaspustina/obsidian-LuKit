@@ -3,6 +3,7 @@ import { join } from "path";
 import { FileSystemAdapter, Notice, Platform, Setting, TFile, type MarkdownFileInfo, type Menu, type TAbstractFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID, type HelpEntry, type LuKitFeature } from "../../types";
+import { AutoEmbed } from "./auto-embed";
 import { createDeviceCache, type DeviceCache } from "./device-cache";
 import { DropEmbed } from "./drop-embed";
 import {
@@ -70,6 +71,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 	private queue: PreviewQueue | null = null;
 	private store: PreviewStore | null = null;
 	private dropEmbed: DropEmbed | null = null;
+	private autoEmbed: AutoEmbed | null = null;
 	private readonly debounce = new Map<string, unknown>();
 	private reconcileTimer: unknown = null;
 	/** Bumped by every stop; a reconcile loop from an older generation ends. */
@@ -111,6 +113,11 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		);
 		this.store = new PreviewStore(app.vault.adapter, this.deps.removeEmptyDir);
 		this.dropEmbed = new DropEmbed(app, this.deps);
+		this.autoEmbed = new AutoEmbed(app, this.deps, {
+			folder: () => this.folder(),
+			live: () => !this.disposed && this.enabled(),
+			isDropPending: (notePath, sourcePath) => this.dropEmbed?.isPending(notePath, sourcePath) === true,
+		});
 		this.queue = new PreviewQueue({
 			random: this.deps.random,
 			setTimeout: this.deps.setTimeout,
@@ -217,6 +224,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		this.generation++;
 		this.reportFor.clear();
 		this.dropEmbed?.clear();
+		this.autoEmbed?.reset();
 		this.queue?.clear();
 		for (const t of this.debounce.values()) this.deps.clearTimeout(t);
 		this.debounce.clear();
@@ -310,6 +318,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			if (await this.writePlaceholder(path, file, sha256, kind)) {
 				this.report(path, `Office-Vorschau fehlgeschlagen: ${file.name} (Platzhalter: ${mirrorPath(path, this.folder())})`);
 				await this.dropEmbed?.onPlaceholder(path, mirrorPath(path, this.folder()));
+				this.embedEverywhere(path);
 			} else if (!this.disposed) {
 				this.report(path, `Office-Vorschau fehlgeschlagen: ${file.name}`);
 				this.dropEmbed?.onFailed(path);
@@ -341,6 +350,12 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		this.current.add(path);
 		this.report(path, `Office-Vorschau erzeugt: ${mirror}`);
 		await this.dropEmbed?.onPreview(path, mirror);
+		this.embedEverywhere(path);
+	}
+
+	/** Every other note linking the source gets the image this device just wrote; never awaited. */
+	private embedEverywhere(path: string): void {
+		if (!this.disposed) void this.autoEmbed?.embedEverywhere(path, mirrorPath(path, this.folder()));
 	}
 
 	/**
@@ -370,6 +385,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		const path = file.path;
 		this.retryCollisionAt(path);
 		void this.dropEmbed?.onFileCreated(path);
+		this.autoEmbed?.onFileCreated(path);
 		if (!this.isSource(path)) return;
 		if (this.dropEmbed?.match(path) === true) {
 			// Requirement 24: a dropped document skips the debounce and the delay.

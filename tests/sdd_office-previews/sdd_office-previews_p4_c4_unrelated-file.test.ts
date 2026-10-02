@@ -37,6 +37,7 @@ describe("SDD office-previews p4 c4", () => {
 
 		await h.drain();
 		expect(h.renderer.renderedPaths()).toEqual(["_resources/Angebot.docx", "_resources/Bericht.docx"]);
-		expect(ed.getValue()).toBe("[[Angebot.docx]]\n![[Angebot.docx.png]]\n![[Bericht.docx]]\n");
+		// The unrelated file is not converted; it gets only the automatic embed (SDD office-previews-auto-embed).
+		expect(ed.getValue()).toBe("[[Angebot.docx]]\n![[Angebot.docx.png]]\n![[Bericht.docx]]\n![[Bericht.docx.png]]\n");
 	});
 });

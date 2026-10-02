@@ -12,7 +12,7 @@ describe("SDD office-previews p4 c16", () => {
 		h.dispose();
 	});
 
-	it("inserts nothing when the preview appears after the deadline, and later drops still work", async () => {
+	it("converts nothing when the preview appears after the deadline (only the automatic embed lands), and later drops still work", async () => {
 		h = createHarness();
 		const note = "Notizen/N.md";
 		const original = "Intro\n![[Angebot.docx]]\n";
@@ -32,8 +32,10 @@ describe("SDD office-previews p4 c16", () => {
 		await h.advance(DEADLINE_MS + 1_000);
 		h.renderer.release();
 		await h.settle();
-		expect(ed.getValue()).toBe(original);
-		expect(ed.transactions).toHaveLength(0);
+		// The drop path gave up; the automatic embed (SDD office-previews-auto-embed) leaves the link as is.
+		const autoEmbedded = "Intro\n![[Angebot.docx]]\n![[Angebot.docx.png]]\n";
+		expect(ed.getValue()).toBe(autoEmbedded);
+		expect(ed.transactions).toHaveLength(1);
 
 		// Control: a drop that renders in time is still embedded.
 		h.renderer.unhold();
@@ -41,7 +43,7 @@ describe("SDD office-previews p4 c16", () => {
 		h.createSource("_resources/Bericht.docx");
 		await h.settle();
 		expect(ed2.getValue()).toBe("Intro\n[[Bericht.docx]]\n![[Bericht.docx.png]]\n");
-		expect(ed.getValue()).toBe(original);
+		expect(ed.getValue()).toBe(autoEmbedded);
 	});
 
 	it("a failure before the deadline yields one Notice and nothing later", async () => {

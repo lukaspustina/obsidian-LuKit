@@ -36,7 +36,7 @@ describe("SDD office-previews p4 c5", () => {
 		expect(ed.getValue()).toBe("![[Angebot.docx]]\n[[Bericht.docx]]\n![[Bericht.docx.png]]\n");
 	});
 
-	it("queues a source created 30 s after the last drop with the random delay and inserts nothing", async () => {
+	it("queues a source created 30 s after the last drop with the random delay and converts nothing", async () => {
 		h = createHarness();
 		h.putFile(NOTE, CONTENT);
 		const ed = h.openNote(NOTE);
@@ -55,7 +55,8 @@ describe("SDD office-previews p4 c5", () => {
 
 		await h.drain();
 		expect(h.renderer.renderedPaths()).toEqual(["_resources/Bericht.docx", "_resources/Angebot.docx"]);
-		expect(ed.getValue()).toBe("![[Angebot.docx]]\n[[Bericht.docx]]\n![[Bericht.docx.png]]\n");
+		// The expired drop converts nothing; the automatic embed (SDD office-previews-auto-embed) still lands.
+		expect(ed.getValue()).toBe("![[Angebot.docx]]\n![[Angebot.docx.png]]\n[[Bericht.docx]]\n![[Bericht.docx.png]]\n");
 	});
 
 	it("prunes records older than the window on the next drop event", () => {

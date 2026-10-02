@@ -38,7 +38,8 @@ describe("SDD office-previews p4 c18", () => {
 
 		await h.drain();
 		expect(h.renderer.calls).toHaveLength(1);
-		expect(ed.getValue()).toBe(original);
+		// No drop record: no link conversion, only the automatic embed (SDD office-previews-auto-embed).
+		expect(ed.getValue()).toBe(original + "![[Angebot.docx.png]]\n");
 
 		// Control: a paste with a name is recorded.
 		const note2 = "Notizen/M.md";

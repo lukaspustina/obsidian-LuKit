@@ -52,8 +52,9 @@ describe("SDD office-previews-auto-embed p2 c11", () => {
 
 		expect(maxInFlight).toBe(1);
 		expect(h.vaultProcess.mock.calls.length).toBe(2);
-		expect(h.readText(NOTE)).toBe(
-			"Anhänge: ![[Angebot.docx]], ![[Budget.xlsx]]\n![[Angebot.docx.png]]\n![[Budget.xlsx.png]]\n",
-		);
+		// Chain-entry order is render order, which the random jitter decides.
+		const embeds = h.renderer.renderedPaths().map((p) => `![[${p.slice(p.lastIndexOf("/") + 1)}.png]]\n`);
+		expect(embeds).toHaveLength(2);
+		expect(h.readText(NOTE)).toBe("Anhänge: ![[Angebot.docx]], ![[Budget.xlsx]]\n" + embeds.join(""));
 	});
 });
