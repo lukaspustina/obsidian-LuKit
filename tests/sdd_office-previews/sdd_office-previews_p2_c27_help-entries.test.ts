@@ -9,7 +9,7 @@ describe("SDD office-previews p2 c27", () => {
 		h = undefined;
 	});
 
-	it("returns an entry for each of the two commands with their names and a description", () => {
+	it("returns an entry for each of the three commands with their names and a description", () => {
 		h = createHarness();
 		const entries = h.feature.helpEntries();
 		const byId = new Map(entries.map((e) => [e.commandId, e]));
@@ -22,6 +22,10 @@ describe("SDD office-previews p2 c27", () => {
 		expect(status?.displayName).toBe("Office-Vorschau: Status anzeigen");
 		expect(render?.description.trim().length).toBeGreaterThan(0);
 		expect(status?.description.trim().length).toBeGreaterThan(0);
+		const backfill = byId.get("office-previews-embed-missing");
+		expect(backfill?.displayName).toBe("Office-Vorschauen: Fehlende Einbettungen ergänzen");
+		expect(backfill?.description.trim().length).toBeGreaterThan(0);
+		expect(entries).toHaveLength(3);
 	});
 
 	it("lists only registered command ids, and every registered command has an entry", () => {
