@@ -40,3 +40,7 @@ coverage/
 # leaves the tree dirty and adlc verify-gate can never go green.
 # Proper fix belongs in pdt-adlc's .adlc/.gitignore.
 .adlc/attest.json.sig
+
+# Stryker (mutation testing via `adlc mutate-diff`)
+.stryker-tmp/
+reports/mutation/
