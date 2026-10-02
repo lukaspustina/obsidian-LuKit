@@ -78,4 +78,12 @@ describe("office-previews engine — remaining branches", () => {
 		expect(matchDrop([record], "Notizen 1", 0)).toBeNull();
 		expect(matchDrop([record], "Notizen", 0)).toBe(record);
 	});
+
+	it("does not treat Office and LibreOffice lock files as sources", () => {
+		expect(isSource("Projekte/~$gebot.docx", "_previews")).toBe(false);
+		expect(isSource("~$ertrag.odt", "_previews")).toBe(false);
+		expect(isSource("Projekte/.~lock.Angebot.docx#", "_previews")).toBe(false);
+		expect(isSource("Projekte/.~lock.Angebot.xlsx", "_previews")).toBe(false);
+		expect(isSource("Projekte/Angebot.docx", "_previews")).toBe(true);
+	});
 });

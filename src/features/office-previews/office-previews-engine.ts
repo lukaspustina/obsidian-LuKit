@@ -51,6 +51,10 @@ function extensionOf(path: string): string {
 
 export function isSource(path: string, previewFolder: string): boolean {
 	if (path === previewFolder || path.startsWith(previewFolder + "/")) return false;
+	// Lock files an open document leaves beside itself: Word `~$name.docx`,
+	// LibreOffice `.~lock.name#`. They carry an Office extension but no document.
+	const name = path.slice(path.lastIndexOf("/") + 1);
+	if (name.startsWith("~$") || name.startsWith(".~lock.")) return false;
 	return SUPPORTED_EXTENSIONS.includes(extensionOf(path));
 }
 
