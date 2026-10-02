@@ -241,6 +241,19 @@ export interface Harness {
 	timersScheduled: number;
 	leaves: { view: MarkdownView }[];
 	settings: LuKitSettings;
+	/** The vault's `process` spy (failure injection via mockRejectedValueOnce). */
+	vaultProcess: ReturnType<typeof vi.fn>;
+	/** Reads of `metadataCache.resolvedLinks` so far. */
+	readonly resolvedLinksReads: number;
+	/** Zero-delay timers scheduled through the feature's setTimeout dep so far. */
+	readonly zeroDelayTimers: number;
+	/** `resolvedLinks` keeps answering with the current snapshot until unfrozen. */
+	freezeResolvedLinks(): void;
+	unfreezeResolvedLinks(): void;
+	/** The next adapter write of `path` stays unindexed (no TFile, no create event) until released. */
+	deferIndexing(path: string): void;
+	/** Indexes a deferred file and emits its vault `create` event. */
+	releaseIndexing(path: string): void;
 
 	addSource(path: string, content?: Uint8Array | string): TFile;
 	putFile(path: string, content: Uint8Array | string): TFile;
@@ -307,6 +320,10 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 	const adapterCalls: { op: string; path: string }[] = [];
 	const leaves: { view: MarkdownView }[] = [];
 	let activeFile: TFile | null = null;
+	// Written by the adapter but not indexed by the vault yet (deferIndexing).
+	const deferred = new Set<string>();
+	const hidden = new Set<string>();
+	const visible = (path: string): VaultEntry | undefined => (hidden.has(path) ? undefined : entries.get(path));
 
 	const addFolders = (path: string): void => {
 		const parts = path.split("/");
@@ -347,6 +364,10 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 			if (parent !== "" && !folderSet.has(parent)) throw new Error("ENOENT: parent folder missing");
 			const existed = entries.has(p);
 			const file = makeFile(p, new Uint8Array(data.slice(0)));
+			if (deferred.delete(p)) {
+				hidden.add(p);
+				return;
+			}
 			emitVault(existed ? "modify" : "create", file);
 		}),
 		mkdir: vi.fn(async (p: string): Promise<void> => {
@@ -385,8 +406,8 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 			return { name, cb };
 		}),
 		offref: vi.fn(),
-		getFiles: vi.fn((): TFile[] => [...entries.values()].map((e) => e.file)),
-		getAbstractFileByPath: vi.fn((p: string): TFile | null => entries.get(p)?.file ?? null),
+		getFiles: vi.fn((): TFile[] => [...entries.entries()].filter(([p]) => !hidden.has(p)).map(([, e]) => e.file)),
+		getAbstractFileByPath: vi.fn((p: string): TFile | null => visible(p)?.file ?? null),
 		read: vi.fn(async (f: TFile): Promise<string> => {
 			const e = entries.get(f.path);
 			if (!e) throw new Error("ENOENT");
@@ -430,15 +451,35 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 		}),
 	};
 
-	const metadataCache = {
-		getFirstLinkpathDest: vi.fn((linkpath: string, _source: string): TFile | null => {
-			const direct = entries.get(linkpath);
-			if (direct) return direct.file;
-			for (const e of entries.values()) {
-				if (e.file.path.slice(e.file.path.lastIndexOf("/") + 1) === linkpath) return e.file;
+	const resolve = (linkpath: string): TFile | null => {
+		const direct = visible(linkpath);
+		if (direct) return direct.file;
+		for (const [p, e] of entries) {
+			if (!hidden.has(p) && p.slice(p.lastIndexOf("/") + 1) === linkpath) return e.file;
+		}
+		return null;
+	};
+	// Mirrors Obsidian: every resolved wikilink (embed or plain) from a note to a file.
+	const computeResolvedLinks = (): Record<string, Record<string, number>> => {
+		const out: Record<string, Record<string, number>> = {};
+		for (const [p, e] of entries) {
+			if (hidden.has(p) || !p.endsWith(".md")) continue;
+			const links: Record<string, number> = {};
+			for (const m of dec.decode(e.bytes).matchAll(/\[\[([^\]|#]*)/g)) {
+				const target = resolve(m[1].endsWith("\\") ? m[1].slice(0, -1) : m[1]);
+				if (target) links[target.path] = (links[target.path] ?? 0) + 1;
 			}
-			return null;
-		}),
+			out[p] = links;
+		}
+		return out;
+	};
+	const linkState: { reads: number; frozen: Record<string, Record<string, number>> | null } = { reads: 0, frozen: null };
+	const metadataCache = {
+		getFirstLinkpathDest: vi.fn((linkpath: string, _source: string): TFile | null => resolve(linkpath)),
+		get resolvedLinks(): Record<string, Record<string, number>> {
+			linkState.reads++;
+			return linkState.frozen ?? computeResolvedLinks();
+		},
 	};
 
 	const workspace = {
@@ -494,7 +535,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 		saveSettings: vi.fn(async (): Promise<void> => undefined),
 	};
 
-	const counters = { timersScheduled: 0 };
+	const counters = { timersScheduled: 0, zeroDelayTimers: 0 };
 	const renderer = new FakeRenderer();
 	const fileExists = opts.fileExists ?? ((abs: string): boolean => entries.has(abs.slice(BASE_PATH.length + 1)));
 	// Mirrors fs.rmdir: removes an empty folder, refuses a non-empty one.
@@ -511,6 +552,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 		shuffle: opts.shuffle ?? (<T>(items: T[]): T[] => [...items]),
 		setTimeout: (fn: () => void, ms: number): unknown => {
 			counters.timersScheduled++;
+			if (ms === 0) counters.zeroDelayTimers++;
 			return setTimeout(fn, ms);
 		},
 		clearTimeout: (h: unknown): void => clearTimeout(h as ReturnType<typeof setTimeout>),
@@ -545,6 +587,16 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 		get timersScheduled(): number { return counters.timersScheduled; },
 		leaves,
 		settings,
+		vaultProcess: vault.process,
+		get resolvedLinksReads(): number { return linkState.reads; },
+		get zeroDelayTimers(): number { return counters.zeroDelayTimers; },
+		freezeResolvedLinks() { linkState.frozen = computeResolvedLinks(); },
+		unfreezeResolvedLinks() { linkState.frozen = null; },
+		deferIndexing(path) { deferred.add(path); },
+		releaseIndexing(path) {
+			if (!hidden.delete(path)) throw new Error(`not deferred: ${path}`);
+			emitVault("create", entries.get(path)?.file);
+		},
 
 		addSource(path, content = `content of ${path}`) { return makeFile(path, toBytes(content)); },
 		putFile(path, content) { return makeFile(path, toBytes(content)); },

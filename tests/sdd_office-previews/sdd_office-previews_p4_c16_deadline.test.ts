@@ -125,7 +125,7 @@ describe("SDD office-previews p4 c16", () => {
 		await embed.onPreview("_resources/Angebot.docx", "_previews/_resources/Angebot.docx.png");
 
 		expect(cleared).toContain(deadline);
-		expect(embed.isPending("_resources/Angebot.docx")).toBe(false);
+		expect(embed.isPending("Notizen/N.md", "_resources/Angebot.docx")).toBe(false);
 	});
 
 	it("clears the deadline timer when the render fails before the deadline", () => {
