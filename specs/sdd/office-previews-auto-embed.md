@@ -12,9 +12,9 @@ Office previews today reach a note only after a drag & drop; every other preview
 
 - Everything in the base SDD's Context & Constraints still holds (TypeScript strict, feature module pattern, German UI / English logs, no PII in tests, Obsidian Sync with several Macs, `isDesktopOnly`).
 - Built state this delta starts from (release v1.25.0, plus local-only commits): placeholders on failed renders (`writePlaceholder`, marker `placeholder: true`), render-now from the file explorer's context menu and from the active preview image, render-now result Notices, lock files ignored, emptied mirror folders removed via `removeEmptyDir` (`fs.rmdir`).
-- **Repository state to repair before Phase 1** (not part of the design, recorded so the next session does it first): commit `4ba84ca` carries the render-now feedback feature under a `docs(office-previews)` subject, and the local, unpushed release commit `5a98bd3` / tag `v1.25.1` sit on top. Split `4ba84ca` into `feat(office-previews): report the result of render-now as a Notice` and `docs(office-previews): note the render-now Notices`, drop tag `v1.25.1` and the release commit (needs `git reset --soft 5560598` and `git tag -d v1.25.1`, which the operator approves or runs). This work ships as v1.26.0.
+- This work ships as v1.26.0.
 - Obsidian realities measured live (2026-10-02, `obsidian-cli eval`): `vault.process` / `editor.transaction` are the write paths (base req 26); `metadataCache.resolvedLinks[note][target]` lists every resolved link — embed or plain link — from a note to a file; Obsidian Sync merges concurrent edits of one Markdown file, so two devices inserting the same embed can leave it twice.
-- Operator decisions (2026-10-02): (1) all linking notes, automatically, in the background, no confirmation step; (2) only the Mac that rendered (or placeholdered) a preview edits notes; (3) several documents on one line → one embed line per document below it; (4) placeholders are embedded too; (5) existing lines are not rewritten — no `![[x.docx]]` → `[[x.docx]]` conversion outside the drop path.
+- Operator decisions (2026-10-02): (1) all linking notes, automatically, in the background, no confirmation step; (2) only the Mac that rendered (or placeholdered) a preview edits notes; (3) several documents on one line → one embed line per document below it; (4) placeholders are embedded too; (5) existing lines are not rewritten — no `![[x.docx]]` → `[[x.docx]]` conversion outside the drop path; (6) existing previews are backfilled by an explicit command run on one Mac, new renders embed automatically; (7) links added later are not watched — re-running the backfill command covers them; (8) embed lines of deleted documents stay in the notes.
 
 ## Architecture
 
@@ -109,14 +109,14 @@ Phase complete when: acceptance tests through the harness cover all scenarios be
 
 **Depends on:** Phase 2
 
-Embedding for previews that already exist without embeds (the ~930 in `Lu` rendered by v1.25.x), per the answer to Open Decision 1.
+Command "Office-Vorschauen: Fehlende Einbettungen ergänzen" embeds every existing marked preview or placeholder (the ~930 in `Lu` rendered by v1.25.x) into its linking notes via the Phase 2 path; it runs only on the device where it is invoked and covers links added after a render when run again.
 
-Phase complete when: the chosen backfill path embeds every existing preview into its linking notes exactly once, verified live in a copy-free test vault and by an acceptance test.
+Phase complete when: the command embeds every existing preview into its linking notes exactly once, verified live in a generated test vault and by an acceptance test.
 
 ### Test Scenarios
 
 - c1 GIVEN previews that exist from an earlier version and linking notes without embeds WHEN the backfill runs THEN every linking note gains the embed once, and a second run changes nothing.
-- c2 GIVEN two devices WHEN the backfill runs THEN only the device the decision designates edits notes.
+- c2 GIVEN a note that gained a link to an already-rendered document after its render WHEN the command runs again THEN that note gains the embed and no other note changes.
 
 ## Decision Log
 
@@ -127,12 +127,9 @@ Phase complete when: the chosen backfill path embeds every existing preview into
 | Several documents per line | One embed line per document below the line (operator) | One combined line of embeds: less readable, harder to keep idempotent per document |
 | Placeholders | Embedded like previews (operator) | Only real previews: a failed document would stay invisible in the note |
 | Rewriting links | Never outside the drop path (operator) | Converting every `![[x.docx]]` to `[[x.docx]]`: changes hundreds of user lines; email filing writes embeds on purpose; would defeat an Office-viewer plugin |
-
-## Open Decisions
-
-1. **Backfill of previews that already exist.** v1.25.x rendered previews in `Lu` without embedding them, and no device recorded which images it wrote. Options: (a) a command "Office-Vorschauen: Fehlende Einbettungen ergänzen" run once on one Mac — explicit, single editor, no sync race; (b) the reconcile embeds every current preview on the device whose device cache holds that source's fingerprint — automatic, but every Mac that hashed the source qualifies, so two Macs may both edit; (c) both: the command for the existing stock, automatic only for new renders. Impact: (b) contradicts decision 2 for the existing stock; (a)/(c) need one manual action.
-2. **Links added later.** When a note gains a link to a document whose preview already exists (e.g. a new note referencing an old file), should the embed follow automatically? Options: (a) yes — on note `modify`, for new links to sources with an image, on the device where the edit happened; (b) no — only renders trigger embedding, and Open Decision 1's command covers later links when run again. Impact: (a) widens the feature into editing-time automation on every note change; (b) leaves such notes without an embed until the next render of that document.
-3. **Deleted documents.** When a source is deleted, its marked preview is deleted (base req 15) and the inserted embed lines become broken. Options: (a) remove embed lines LuKit inserted (it would need to recognise them — e.g. the exact embed text below a link line); (b) leave them, as today. Impact: (a) adds automatic deletion of note lines; (b) leaves broken embeds after deletions.
+| Backfill of existing previews | Explicit command on one Mac; new renders embed automatically (operator) | Reconcile embeds automatically on every device holding the fingerprint: several Macs qualify, contradicting the single-editor decision |
+| Links added later | Not watched; re-running the backfill command covers them (operator) | Embedding on note `modify`: turns the feature into editing-time automation on every note change |
+| Deleted documents | Embed lines stay (operator) | Removing LuKit-inserted lines: automatic line deletion, a misrecognised line is data loss |
 
 ## Out of Scope
 
@@ -140,4 +137,6 @@ Phase complete when: the chosen backfill path embeds every existing preview into
 - Markdown-style links (`[x](Angebot.docx)`) — base Out of Scope still applies.
 - A per-feature toggle for automatic embedding; it follows `officePreviews.enabled`.
 - Notices for background embedding.
+- Embedding on note edits (links added after a render); the backfill command covers them.
+- Removing embed lines after a source is deleted.
 - Rename handling beyond Obsidian's own link update (the embed follows the renamed image via `fileManager.renameFile`, base req 14).
