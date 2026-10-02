@@ -15,6 +15,7 @@
 - [x] Task Triage: "Vorgang: Aufgaben durchgehen" triages the active note alone, regardless of dates
 - [x] Vorgang split: move selected facts and h5 sections into another (or a new) Vorgang
 - [x] Office previews: Quick Look renders the first page of every Office/iWork/OpenDocument file into `_previews/`, kept current across Macs; drag & drop inserts the preview embed — pending manual smoke test in Obsidian (drop of a small + a large file, rename into a new folder)
+- [x] Office previews: automatic embedding below every linking note after a render on this Mac, plus "Office-Vorschauen: Fehlende Einbettungen ergänzen" for existing previews and later links — pending manual smoke test in Obsidian (background render into two linking notes; backfill in `Lu` on one Mac)
 
 ## Office previews — follow-ups (correctness passes 2 and 3, 2026-10-02)
 
