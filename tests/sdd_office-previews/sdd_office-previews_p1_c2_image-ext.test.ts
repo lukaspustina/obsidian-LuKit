@@ -13,11 +13,11 @@ describe("SDD office-previews p1 c2", () => {
 	});
 
 	it("chooses jpg for every presentation type and png for the rest", () => {
-		for (const ext of ["pptx", "ppt", "key", "odp"]) {
+		for (const ext of ["pptx", "ppt", "key"]) {
 			expect(imageExtFor(`Dir/x.${ext}`)).toBe("jpg");
 			expect(imageExtFor(`Dir/x.${ext.toUpperCase()}`)).toBe("jpg");
 		}
-		for (const ext of ["docx", "doc", "xlsx", "xls", "pages", "numbers", "odt", "ods"]) {
+		for (const ext of ["docx", "doc", "xlsx", "xls", "pages", "numbers", "odt"]) {
 			expect(imageExtFor(`Dir/x.${ext}`)).toBe("png");
 			expect(imageExtFor(`Dir/x.${ext.toUpperCase()}`)).toBe("png");
 		}

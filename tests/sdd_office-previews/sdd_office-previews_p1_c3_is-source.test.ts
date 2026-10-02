@@ -16,8 +16,6 @@ const EXPECTED_EXTENSIONS = [
 	"numbers",
 	"key",
 	"odt",
-	"ods",
-	"odp",
 ];
 
 describe("SDD office-previews p1 c3", () => {
@@ -33,6 +31,9 @@ describe("SDD office-previews p1 c3", () => {
 	it("rejects an unsupported extension", () => {
 		expect(isSource("x.PDF", FOLDER)).toBe(false);
 		expect(isSource("x.pdf", FOLDER)).toBe(false);
+		// ods/odp were dropped: Quick Look never renders them (format experiment).
+		expect(isSource("x.ods", FOLDER)).toBe(false);
+		expect(isSource("x.odp", FOLDER)).toBe(false);
 	});
 
 	it("accepts every supported extension in lower and upper case", () => {

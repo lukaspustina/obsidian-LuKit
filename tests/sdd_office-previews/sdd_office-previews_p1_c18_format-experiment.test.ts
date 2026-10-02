@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { SUPPORTED_EXTENSIONS } from "../../src/features/office-previews/office-previews-engine";
 
-const EXPECTED = ["docx", "doc", "xlsx", "xls", "pptx", "ppt", "pages", "numbers", "key", "odt", "ods", "odp"];
+const EXPECTED = ["docx", "doc", "xlsx", "xls", "pptx", "ppt", "pages", "numbers", "key", "odt"];
 const ALLOWED = ["pass", "fail", "no sample"];
 // The experiment is recorded in the SDD itself, which /sdd-finish archives to
 // specs/done/sdd/office-previews-<date>.md (the report is deleted there).
@@ -26,7 +26,7 @@ function experimentSection(report: string): string[] | null {
 }
 
 describe("SDD office-previews p1 c18", () => {
-	it("keeps SUPPORTED_EXTENSIONS unchanged", () => {
+	it("lists the formats the experiment passed", () => {
 		expect([...SUPPORTED_EXTENSIONS]).toEqual(EXPECTED);
 	});
 

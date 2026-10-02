@@ -29,8 +29,8 @@ describe("SDD office-previews p1 c4", () => {
 		expect(normalizePreviewFolder("///")).toBe("_previews");
 	});
 
-	it("keeps valid nested folders and dots inside later segments", () => {
+	it("keeps valid nested folders and rejects a dot-folder in any segment", () => {
 		expect(normalizePreviewFolder("Anhänge/_previews")).toBe("Anhänge/_previews");
-		expect(normalizePreviewFolder("a/.b")).toBe("a/.b");
+		expect(normalizePreviewFolder("a/.b")).toBe("_previews");
 	});
 });
