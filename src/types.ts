@@ -111,6 +111,9 @@ export function mergeSettings(saved: Partial<LuKitSettings>): LuKitSettings {
 			sentMailboxes: { ...DEFAULT_EMAIL_FILING_SETTINGS.sentMailboxes, ...(saved.emailFiling?.sentMailboxes ?? {}) },
 			walkAccounts: { ...DEFAULT_EMAIL_FILING_SETTINGS.walkAccounts, ...(saved.emailFiling?.walkAccounts ?? {}) },
 		},
-		officePreviews: { ...officePreviews, folder: normalizePreviewFolder(officePreviews.folder) },
+		officePreviews: {
+			enabled: officePreviews.enabled === true,
+			folder: normalizePreviewFolder(typeof officePreviews.folder === "string" ? officePreviews.folder : ""),
+		},
 	};
 }

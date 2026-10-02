@@ -157,6 +157,8 @@ export class DropEmbed {
 		const note = vault.getAbstractFileByPath(notePath);
 		if (!(note instanceof TFile)) return "unchanged";
 		const current = await vault.read(note);
+		// Unloaded, disabled or past the deadline while the note was read.
+		if (!this.pending.has(sourcePath)) return "unchanged";
 		if (plan(current) === null) return noLinkOr(current);
 		await vault.process(note, (content) => {
 			const p = plan(content);

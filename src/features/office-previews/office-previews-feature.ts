@@ -293,13 +293,14 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		const mirror = mirrorPath(path, this.folder());
 		try {
 			// A foreign file may have arrived during the render; it is never overwritten.
-			if ((await this.store?.inspect(mirror))?.kind === "foreign") {
-				if (this.disposed) return;
+			const occupant = await this.store?.inspect(mirror);
+			// Renamed or deleted while the mirror was inspected.
+			if (this.disposed || this.sourceFile(path) !== file || file.path !== path) return;
+			if (occupant?.kind === "foreign") {
 				this.cache?.setFailure(path, this.failure(sha256, "collision"));
 				this.dropEmbed?.onFailed(path);
 				return;
 			}
-			if (this.disposed) return;
 			await this.store?.write(mirror, bytes);
 		} catch {
 			if (this.disposed) return;
@@ -375,6 +376,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		this.queue?.rename(oldPath, newPath);
 		this.forget(oldPath);
 		this.cache?.moveEntry(oldPath, newPath);
+		// A collision belonged to the old mirror path; the new one is checked afresh.
+		if (this.cache?.getFailure(newPath)?.reason === "collision") this.cache.clearFailure(newPath);
 		if (hadDebounce) this.schedule(newPath);
 		this.serialise(() => this.handleRename(oldPath, newPath, wasCurrent));
 	}
@@ -418,7 +421,15 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		const state = await this.store?.inspect(oldMirror);
 		if (this.disposed) return;
 		if (state?.kind !== "marked") {
-			if (this.queue?.has(newPath) !== true) this.schedule(newPath);
+			this.scheduleUnlessPending(newPath);
+			return;
+		}
+		if (imageExtFor(oldPath) !== imageExtFor(newPath)) {
+			// A png cannot move to a .jpg path: drop the old image and render anew.
+			await this.store?.remove(oldMirror);
+			if (this.disposed) return;
+			await this.store?.removeEmptyParents(oldMirror, folder);
+			this.scheduleUnlessPending(newPath);
 			return;
 		}
 		const occupant = await this.store?.inspect(newMirror);
@@ -446,6 +457,12 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		if (wasCurrent) this.current.add(newPath);
 		if (this.disposed) return;
 		await this.store?.removeEmptyParents(oldMirror, folder);
+		// The moved image may be stale (e.g. a re-render was running when the rename came in).
+		this.scheduleUnlessPending(newPath);
+	}
+
+	private scheduleUnlessPending(path: string): void {
+		if (this.queue?.has(path) !== true && !this.debounce.has(path)) this.schedule(path);
 	}
 
 	/** Requirement 11: a create/delete at a collision's mirror path clears it and queues the source. */

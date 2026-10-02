@@ -16,10 +16,11 @@ export const DEFAULT_PREVIEW_FOLDER = "_previews";
 
 export const SUPPORTED_EXTENSIONS: readonly string[] = [
 	"docx", "doc", "xlsx", "xls", "pptx", "ppt",
-	"pages", "numbers", "key", "odt", "ods", "odp",
+	"pages", "numbers", "key", "odt",
 ];
 
-const PRESENTATION_EXTENSIONS: readonly string[] = ["pptx", "ppt", "key", "odp"];
+// ods/odp were dropped (operator decision 2026-10-02): Quick Look hangs on them.
+const PRESENTATION_EXTENSIONS: readonly string[] = ["pptx", "ppt", "key"];
 
 export type ImageExt = "png" | "jpg";
 
@@ -65,7 +66,8 @@ export function normalizePreviewFolder(value: string): string {
 	const collapsed = value.trim().replace(/\\/g, "/").replace(/\/{2,}/g, "/").replace(/^\/+|\/+$/g, "");
 	if (collapsed === "") return DEFAULT_PREVIEW_FOLDER;
 	const segments = collapsed.split("/");
-	if (segments.includes("..") || segments[0].startsWith(".")) return DEFAULT_PREVIEW_FOLDER;
+	// Obsidian never indexes a dot-folder, so previews written there would never become TFiles.
+	if (segments.some((seg) => seg === ".." || seg.startsWith("."))) return DEFAULT_PREVIEW_FOLDER;
 	return collapsed;
 }
 
