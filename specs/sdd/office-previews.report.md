@@ -48,6 +48,8 @@ All amendments concern phases that already ran; none blocks.
 
 **After the verify halt (2026-10-02):** the p2 c25 gap is closed by `tests/unit/office-previews-renderer.test.ts` (real `dispose()` kills the child, temp dir removed); the correctness pass's 1 major + 6 minors are fixed in 6d30345 with regressions in `tests/unit/office-previews-correctness.test.ts` (rename during re-render requeues; write re-checks the source after inspecting the mirror; png↔jpg rename renders anew; moved collision entry cleared; wrongly typed settings tolerated; dot-folder rejected in any segment; no drop-embed write after unload during the note read). SDD req 14 and 21 carry the new rules.
 
+**After the second verify halt (2026-10-02):** p4 c5/c16 gained direct assertions (`DropEmbed.recordCount`, deadline `clearTimeout`); the two majors of the second correctness pass are fixed in 807d5b0 (delete bookkeeping at event time + kept preview when the source is back; unindexed preview on rename removed and re-rendered); the six minors are follow-ups in TODO.md.
+
 `Next: review amendments above, /sdd-refine specs/sdd/office-previews.md` (wording only — no phase left to run).
 
 ## Manual Test Plan
