@@ -113,6 +113,7 @@ Renders the first page, slide or sheet of every Office, iWork and OpenDocument f
 - **Several Macs, no locks:** each image carries the SHA-256 of its document; a Mac renders only after a random 30–120 s delay and only when no current preview exists by then. Two minutes after startup every document is checked once.
 - **Drag & drop / paste:** a document dropped into a note is rendered at once, its `![[Angebot.docx]]` becomes a clickable `[[Angebot.docx]]`, and the preview embed is inserted on the line below (one undo reverts both). Previews of documents that arrive any other way are embedded by hand.
 - **Safety:** source documents are never modified, nothing leaves the Mac, and LuKit only moves or deletes images that carry its marker. A failed render (timeout after 20 s, error, no image) is not retried until the document changes.
+- **No preview possible:** a "Keine Vorschau verfügbar" placeholder with the file type takes the preview's place (and is embedded after a drop, together with a Notice); no Mac retries it until the document changes or you use **Office-Vorschau jetzt erzeugen**. An existing older preview is kept rather than replaced.
 - **Not supported:** ODS and ODP — Quick Look hangs on them on current macOS. Office lock files (`~$name.docx`, `.~lock.name#`) are ignored.
 
 **Setup:** Settings > LuKit > Office-Vorschauen: turn on **Vorschauen erzeugen** and optionally change the **Vorschau-Ordner**.
