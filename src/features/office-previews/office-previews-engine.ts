@@ -66,6 +66,14 @@ export function mirrorPath(sourcePath: string, previewFolder: string): string {
 	return `${previewFolder}/${sourcePath}.${imageExtFor(sourcePath)}`;
 }
 
+/** The source a preview image belongs to, or null when `path` is not a preview. */
+export function sourceForPreview(path: string, previewFolder: string): string | null {
+	if (!path.startsWith(previewFolder + "/")) return null;
+	const m = /^(.*)\.(png|jpg)$/.exec(path.slice(previewFolder.length + 1));
+	if (m === null || !isSource(m[1], previewFolder) || imageExtFor(m[1]) !== m[2]) return null;
+	return m[1];
+}
+
 export function normalizePreviewFolder(value: string): string {
 	const collapsed = value.trim().replace(/\\/g, "/").replace(/\/{2,}/g, "/").replace(/^\/+|\/+$/g, "");
 	if (collapsed === "") return DEFAULT_PREVIEW_FOLDER;

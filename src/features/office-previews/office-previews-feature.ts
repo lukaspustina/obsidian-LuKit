@@ -1,6 +1,6 @@
 import { existsSync, promises as fsp } from "fs";
 import { join } from "path";
-import { FileSystemAdapter, Notice, Platform, Setting, TFile, type MarkdownFileInfo, type TAbstractFile } from "obsidian";
+import { FileSystemAdapter, Notice, Platform, Setting, TFile, type MarkdownFileInfo, type Menu, type TAbstractFile } from "obsidian";
 import type LuKitPlugin from "../../main";
 import { LUKIT_ICON_ID, type HelpEntry, type LuKitFeature } from "../../types";
 import { createDeviceCache, type DeviceCache } from "./device-cache";
@@ -13,6 +13,7 @@ import {
 	isSource,
 	mirrorPath,
 	normalizePreviewFolder,
+	sourceForPreview,
 	writeMarkerJpeg,
 	writeMarkerPng,
 	type FailureEntry,
@@ -42,6 +43,7 @@ const NAME_STATUS = "Office-Vorschau: Status anzeigen";
 const NOTICE_DISABLED = "Office-Vorschauen sind in den Einstellungen ausgeschaltet.";
 const NOTICE_NOT_SOURCE = "Die aktive Datei ist kein unterstütztes Office-Dokument.";
 const HINT_UNSUPPORTED = "Office-Vorschauen sind nur in der Desktop-App auf macOS verfügbar.";
+const MENU_RENDER_NOW = "Office-Vorschau jetzt erzeugen";
 
 function isSupportedPlatform(): boolean {
 	return Platform.isDesktopApp && Platform.isMacOS;
@@ -128,6 +130,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			plugin.registerEvent(app.vault.on("rename", (f, oldPath) => this.onRename(f, oldPath)));
 			plugin.registerEvent(app.workspace.on("editor-drop", (evt, _editor, info) => this.onDrop(evt.dataTransfer, info)));
 			plugin.registerEvent(app.workspace.on("editor-paste", (evt, _editor, info) => this.onDrop(evt.clipboardData, info)));
+			// Obsidian opens no .docx as the active file, so "render now" lives in the explorer's menu.
+			plugin.registerEvent(app.workspace.on("file-menu", (menu, file) => this.onFileMenu(menu, file)));
 			if (this.enabled()) this.scheduleReconcile();
 		});
 	}
@@ -152,7 +156,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 				commandId: CMD_RENDER_ACTIVE,
 				displayName: NAME_RENDER_ACTIVE,
 				description:
-					"Erzeugt die Vorschau des aktiven Office-Dokuments sofort, ohne Wartezeit und auch dann, wenn ein früherer Versuch fehlgeschlagen ist.",
+					"Erzeugt die Vorschau sofort, ohne Wartezeit und auch nach einem früheren Fehlschlag — für die aktive Vorschau-Bilddatei (Obsidian öffnet Office-Dokumente nicht selbst). Für das Dokument direkt: Rechtsklick im Datei-Explorer → „Office-Vorschau jetzt erzeugen“.",
 			},
 			{
 				commandId: CMD_STATUS,
@@ -564,12 +568,25 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			new Notice(NOTICE_DISABLED);
 			return;
 		}
-		const file = this.plugin?.app.workspace.getActiveFile();
-		if (!file || !this.isSource(file.path)) {
+		const active = this.plugin?.app.workspace.getActiveFile()?.path;
+		// A preview image stands in for its document, which Obsidian cannot open itself.
+		const path = active === undefined ? null : this.isSource(active) ? active : sourceForPreview(active, this.folder());
+		if (path === null || this.sourceFile(path) === null) {
 			new Notice(NOTICE_NOT_SOURCE);
 			return;
 		}
-		this.queue?.enqueue(file.path, { immediate: true });
+		this.queue?.enqueue(path, { immediate: true });
+	}
+
+	private onFileMenu(menu: Menu, file: TAbstractFile): void {
+		if (!this.enabled() || !(file instanceof TFile) || !this.isSource(file.path)) return;
+		const path = file.path;
+		menu.addItem((item) =>
+			item
+				.setTitle(MENU_RENDER_NOW)
+				.setIcon("image")
+				.onClick(() => this.queue?.enqueue(path, { immediate: true })),
+		);
 	}
 
 	private showStatus(): void {
