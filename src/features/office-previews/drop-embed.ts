@@ -62,6 +62,11 @@ export class DropEmbed {
 		return true;
 	}
 
+	/** Live drop records; a read-only view for tests of the pruning rule. */
+	recordCount(): number {
+		return this.records.length;
+	}
+
 	isPending(sourcePath: string): boolean {
 		return this.pending.has(sourcePath);
 	}

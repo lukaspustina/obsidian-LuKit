@@ -353,7 +353,12 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		if (!this.enabled() || !(file instanceof TFile)) return;
 		const path = file.path;
 		this.retryCollisionAt(path);
-		if (this.isSource(path)) this.serialise(() => this.handleDelete(path));
+		if (!this.isSource(path)) return;
+		// Bookkeeping goes at event time, so a create that arrives before the
+		// serialised file work (safe-save, sync) is not wiped by it.
+		this.forget(path);
+		this.cache?.removeEntry(path);
+		this.serialise(() => this.handleDelete(path));
 	}
 
 	private onRename(file: TAbstractFile, oldPath: string): void {
@@ -402,12 +407,12 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		this.current.delete(path);
 	}
 
-	/** Requirement 15: drop bookkeeping; delete the preview only when it carries the marker. */
+	/** Requirement 15: delete the preview only when it carries the marker. */
 	private async handleDelete(path: string): Promise<void> {
-		this.forget(path);
-		this.cache?.removeEntry(path);
+		// The source is back (delete + create of one path): its preview stays.
+		if (this.sourceFile(path) !== null) return;
 		const mirror = mirrorPath(path, this.folder());
-		if ((await this.store?.inspect(mirror))?.kind !== "marked" || this.disposed) return;
+		if ((await this.store?.inspect(mirror))?.kind !== "marked" || this.disposed || this.sourceFile(path) !== null) return;
 		await this.store?.remove(mirror);
 		if (this.disposed) return;
 		await this.store?.removeEmptyParents(mirror, this.folder());
@@ -445,7 +450,14 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			return;
 		}
 		const preview = this.plugin?.app.vault.getAbstractFileByPath(oldMirror);
-		if (!(preview instanceof TFile)) return;
+		if (!(preview instanceof TFile)) {
+			// Written but not indexed yet: renameFile cannot move it, so render anew.
+			await this.store?.remove(oldMirror);
+			if (this.disposed) return;
+			await this.store?.removeEmptyParents(oldMirror, folder);
+			this.scheduleUnlessPending(newPath);
+			return;
+		}
 		await this.store?.ensureParent(newMirror);
 		if (this.disposed) return;
 		try {
