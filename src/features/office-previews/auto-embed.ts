@@ -150,12 +150,13 @@ export class AutoEmbed {
 		});
 	}
 
-	/** Source → the notes linking it (embed or plain link), outside the preview folder; one read of resolvedLinks. */
+	/** Source → the Markdown notes linking it (embed or plain link), outside the preview folder; one read of resolvedLinks. */
 	private linkIndex(sources: ReadonlySet<string>): Map<string, string[]> {
 		const prefix = this.options.folder() + "/";
 		const index = new Map<string, string[]>();
 		for (const [note, targets] of Object.entries(this.app.metadataCache.resolvedLinks)) {
-			if (note.startsWith(prefix)) continue;
+			// Markdown notes only: a canvas or other file in resolvedLinks is JSON, not a note.
+			if (note.startsWith(prefix) || !note.endsWith(".md")) continue;
 			for (const target of Object.keys(targets)) {
 				if (!sources.has(target)) continue;
 				const notes = index.get(target);
