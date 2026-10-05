@@ -530,7 +530,10 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			this.scheduleUnlessPending(newPath);
 			return;
 		}
-		const occupant = await this.store?.inspect(newMirror);
+		// On a case-insensitive file system a case-only rename finds the old image
+		// at the new path; it is the one to move, not an occupant.
+		const caseOnly = oldMirror.toLowerCase() === newMirror.toLowerCase();
+		const occupant = caseOnly ? undefined : await this.store?.inspect(newMirror);
 		if (this.disposed) return;
 		if (occupant !== undefined && occupant.kind !== "absent") {
 			const file = this.sourceFile(newPath);

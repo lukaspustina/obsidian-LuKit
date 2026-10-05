@@ -5,7 +5,7 @@ import { createHarness, markedPreview, sha256Of, type Harness } from "../helpers
 // one describe per TODO.md entry.
 
 interface AdapterMocks {
-	vault: { adapter: { exists: Mock } };
+	vault: { adapter: { exists: Mock; readBinary: Mock } };
 }
 
 let h: Harness | undefined;
@@ -93,5 +93,34 @@ describe("a rename or delete during store.write", () => {
 		// The failure moved with the rename; "render now" brings the placeholder back.
 		expect((await h.status()).failed).toBe(1);
 		expect(h.notices().filter((n) => n.includes("Alt/Angebot.docx"))).toEqual([]);
+	});
+});
+
+/** Makes the adapter's lookups case-insensitive, like APFS; the vault index stays case-sensitive. */
+function caseInsensitiveAdapter(harness: Harness): void {
+	const { exists, readBinary } = adapter(harness);
+	const originalExists = exists.getMockImplementation() as (p: string) => Promise<boolean>;
+	const originalRead = readBinary.getMockImplementation() as (p: string) => Promise<ArrayBuffer>;
+	const actual = (p: string): string =>
+		[...harness.files(), ...harness.folders()].find((x) => x.toLowerCase() === p.toLowerCase()) ?? p;
+	exists.mockImplementation(async (p: string) => originalExists(actual(p)));
+	readBinary.mockImplementation(async (p: string) => originalRead(actual(p)));
+}
+
+describe("a case-only rename", () => {
+	it("moves the preview to the new spelling on a case-insensitive file system", async () => {
+		h = createHarness();
+		h.addSource("Berichte/Report.docx", "body");
+		h.putFile(h.mirror("Berichte/Report.docx"), markedPreview("Berichte/Report.docx", sha256Of("body")));
+		await h.start();
+		caseInsensitiveAdapter(h);
+
+		h.renameSource("Berichte/Report.docx", "Berichte/report.docx");
+		await h.settle();
+		await h.drain();
+
+		expect(h.files().filter((f) => f.startsWith("_previews/"))).toEqual(["_previews/Berichte/report.docx.png"]);
+		expect(h.renderer.renderedPaths()).toEqual([]);
+		expect(await h.status()).toEqual({ current: 1, queued: 0, failed: 0 });
 	});
 });
