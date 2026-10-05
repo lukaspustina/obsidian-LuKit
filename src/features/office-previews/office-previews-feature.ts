@@ -346,6 +346,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			// Renamed or deleted while the mirror was inspected.
 			if (this.disposed || this.sourceFile(path) !== file || file.path !== path) return;
 			if (occupant?.kind === "foreign") {
+				this.current.delete(path);
 				this.cache?.setFailure(path, this.failure(sha256, "collision"));
 				this.dropEmbed?.onFailed(path);
 				return;

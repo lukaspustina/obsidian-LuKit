@@ -34,4 +34,4 @@
 - [ ] A throw inside `run` (unreadable source, synchronous spawn error) records no failure and gives a dropped file no failure Notice
 - [ ] `insert` reports "inserted" when the plan inside `vault.process` turns null (note changed after the read), so the pending embed is not retried
 - [ ] Reconcile's 0 ms yield timers are not tracked by `stopWork`/`onunload` (harmless: `live()` ends the loop)
-- [ ] A collision found in `run` does not drop the path from the `current` set (status count)
+- [x] A collision found in `run` does not drop the path from the `current` set (status count)

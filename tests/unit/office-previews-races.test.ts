@@ -261,4 +261,19 @@ describe("a collision at the mirror path", () => {
 		expect(h.renderer.renderedPaths()).toEqual([]);
 		expect(await h.status()).toEqual({ current: 1, queued: 0, failed: 0 });
 	});
+
+	it("found by a run drops the source from the current set", async () => {
+		h = await heldReRender("Angebot.docx");
+		// Another device writes the current preview; a modify meanwhile counts the source as current.
+		h.putFile(h.mirror("Angebot.docx"), markedPreview("Angebot.docx", sha256Of("v2")));
+		h.emit("modify", "Angebot.docx");
+		await h.advance(10_000);
+		expect((await h.status()).current).toBe(1);
+
+		h.putFile(h.mirror("Angebot.docx"), "foreign");
+		h.renderer.release();
+		await h.settle();
+
+		expect(await h.status()).toEqual({ current: 0, queued: 0, failed: 1 });
+	});
 });
