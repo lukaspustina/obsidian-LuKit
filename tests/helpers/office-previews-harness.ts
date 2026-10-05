@@ -221,8 +221,11 @@ export interface HarnessOptions {
 	fileExists?: (abs: string) => boolean;
 	/** Do not call feature.onload (default: load). */
 	load?: boolean;
-	/** "shortest" (default, `[[name]]`) or "absolute" (`[[full/path]]`) for generateMarkdownLink. */
-	linkStyle?: "shortest" | "absolute";
+	/**
+	 * "shortest" (default, `[[name]]`), "absolute" (`[[full/path]]`) or "markdown"
+	 * (`[name](url-encoded/full/path)`, Obsidian with "Use [[Wikilinks]]" off) for generateMarkdownLink.
+	 */
+	linkStyle?: "shortest" | "absolute" | "markdown";
 }
 
 interface VaultEntry { bytes: Uint8Array; file: TFile }
@@ -447,6 +450,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 		}),
 		generateMarkdownLink: vi.fn((file: TFile, _sourcePath: string): string => {
 			const name = file.path.slice(file.path.lastIndexOf("/") + 1);
+			if (opts.linkStyle === "markdown") return `[${name}](${encodeURI(file.path)})`;
 			return opts.linkStyle === "absolute" ? `[[${file.path}]]` : `[[${name}]]`;
 		}),
 	};
@@ -465,8 +469,14 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
 		for (const [p, e] of entries) {
 			if (hidden.has(p) || !p.endsWith(".md")) continue;
 			const links: Record<string, number> = {};
-			for (const m of dec.decode(e.bytes).matchAll(/\[\[([^\]|#]*)/g)) {
-				const target = resolve(m[1].endsWith("\\") ? m[1].slice(0, -1) : m[1]);
+			const text = dec.decode(e.bytes);
+			const linkpaths = [
+				...[...text.matchAll(/\[\[([^\]|#]*)/g)].map((m) => (m[1].endsWith("\\") ? m[1].slice(0, -1) : m[1])),
+				// Markdown links/embeds: `[alt](target "title")`, target URL-encoded or in <…>.
+				...[...text.matchAll(/\]\(\s*(<[^>]*>|[^)\s]+)[^)]*\)/g)].map((m) => decodeURI(m[1].replace(/^<|>$/g, ""))),
+			];
+			for (const linkpath of linkpaths) {
+				const target = resolve(linkpath);
 				if (target) links[target.path] = (links[target.path] ?? 0) + 1;
 			}
 			out[p] = links;
