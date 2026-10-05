@@ -53,6 +53,13 @@ describe("planAutoEmbed edge cases", () => {
 		expect(block?.lineIndex).toBe(1);
 	});
 
+	it("skips a fenced block nested in a list item (tab or 4-space indent)", () => {
+		for (const indent of ["\t", "    "]) {
+			const note = `- Beispiel:\n${indent}\`\`\`\n${indent}[[a.docx]]\n${indent}![[a.docx.png]]\n${indent}\`\`\`\n\nSiehe [[a.docx]]\n`;
+			expect(plan(note)?.lineIndex).toBe(6);
+		}
+	});
+
 	it("treats an unclosed frontmatter block as body", () => {
 		expect(plan("---\n[[a.docx]]\n")?.newContent).toBe("---\n[[a.docx]]\n![[a.docx.png]]\n");
 	});

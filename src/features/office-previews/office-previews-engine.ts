@@ -351,7 +351,10 @@ export interface AutoEmbedPlan {
 	newContent: string;
 }
 
-const FENCE_RE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+// Any leading whitespace: a fence nested in a list item is indented by a tab or
+// 4+ spaces and is still code. Over-skipping misses an embed; under-skipping
+// would write into the user's code block.
+const FENCE_RE = /^[ \t]*(`{3,}|~{3,})(.*)$/;
 const QUOTE_PREFIX_RE = /^\s*(?:>\s*)+/;
 // Line shape only; `[^\]]*` stops at the first `]`, so two embeds on one line never match.
 // Which file the embed resolves to is decided by containsEmbedOf.
