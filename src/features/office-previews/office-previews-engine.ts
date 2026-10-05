@@ -320,11 +320,12 @@ function linkPathOf(match: RegExpMatchArray): string {
 export type LinkResolver = (linkPath: string) => boolean;
 
 // A Markdown-style embed, as generateMarkdownLink writes it with "Use [[Wikilinks]]"
-// off: `![alt](target "title")`, the target URL-encoded or wrapped in `<…>`.
+// off: `![alt](target "title")`, the target URL-encoded or wrapped in `<…>`; a
+// hand-written title may also be `'title'` or `(title)` (CommonMark).
 // Balanced parentheses (one level) stay in the target: encodeURI leaves `(`/`)`,
 // and copies are often named `Angebot (1).docx`. The alt text is bounded so a
 // pathological line stays cheap.
-const MD_EMBED_SRC = String.raw`!\[[^\]\n]{0,1000}\]\(\s*(<[^>]*>|(?:[^()\s]|\([^()\s]*\))+)(?:\s+"[^"]*")?\s*\)`;
+const MD_EMBED_SRC = String.raw`!\[[^\]\n]{0,1000}\]\(\s*(<[^>]*>|(?:[^()\s]|\([^()\s]*\))+)(?:\s+(?:"[^"]*"|'[^']*'|\([^()]*\)))?\s*\)`;
 const MD_EMBED_RE = new RegExp(MD_EMBED_SRC, "g");
 
 /** The path a Markdown embed target names: `<…>` unwrapped, URL-decoded (kept raw when malformed). */

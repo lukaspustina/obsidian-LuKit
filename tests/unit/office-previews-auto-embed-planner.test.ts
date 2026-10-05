@@ -89,6 +89,25 @@ describe("planAutoEmbed edge cases", () => {
 		expect(block?.lineIndex).toBe(1);
 	});
 
+	it("recognises Markdown embed titles in double quotes, single quotes and parentheses", () => {
+		const isCopy = (p: string): boolean => p === "Angebot (1).docx";
+		const isCopyImage = (p: string): boolean => p === "_previews/Angebot (1).docx.png";
+		const embedOf = (title: string): ReturnType<typeof planAutoEmbed> =>
+			planAutoEmbed(
+				`[[Angebot (1).docx]]\n![](_previews/Angebot%20(1).docx.png ${title})\n`,
+				isCopy,
+				isCopyImage,
+				isPreview,
+				"![](_previews/Angebot%20(1).docx.png)",
+			);
+		expect(embedOf('"T"')).toBeNull();
+		expect(embedOf("'T'")).toBeNull();
+		expect(embedOf("(T)")).toBeNull();
+		expect(embedOf("(T")).not.toBeNull();
+		expect(plan("[[a.docx]]\n![](<other doc.docx.png> 'T')\ntext\n")?.lineIndex).toBe(1);
+		expect(plan("[[a.docx]]\n![](other.docx.png (T))\ntext\n")?.lineIndex).toBe(1);
+	});
+
 	it("treats an unclosed frontmatter block as body", () => {
 		expect(plan("---\n[[a.docx]]\n")?.newContent).toBe("---\n[[a.docx]]\n![[a.docx.png]]\n");
 	});

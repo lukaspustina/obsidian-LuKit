@@ -20,7 +20,7 @@
 ## Office previews — follow-ups (correctness passes 2 and 3, 2026-10-02)
 
 - [ ] Office previews: mutation (2026-10-05) left 141 surviving mutants in `office-previews-engine.ts` and 236 in `office-previews-feature.ts` — tighten the fixtures that let them through (`auto-embed.ts` done: 24 survivors left, all argued equivalent in `tests/unit/office-previews-auto-embed-mutants.test.ts`'s commit)
-- [ ] Auto embed: Markdown-embed titles in single quotes or parentheses are not recognised (generateMarkdownLink writes none)
+- [x] Auto embed: Markdown-embed titles in single quotes or parentheses are not recognised (generateMarkdownLink writes none)
 - [ ] Auto embed: a wikilink nested inside another link's alias (`[[Notiz|[[Datei|Text]]]]`, malformed) is not anchored — the outer link consumes it (1 pair in Lu); won't fix unless it recurs
 
 - [ ] A rename or delete during `store.write` lets the write land at the old mirror path (orphaned marked image, stale `aktuell` entry)
