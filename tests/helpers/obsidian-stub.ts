@@ -143,12 +143,18 @@ export class MarkdownView {
 	editor: any = null;
 }
 export class Setting {
-	constructor(_containerEl: any) {}
-	setName(_name: string): this { return this; }
-	setDesc(_desc: string): this { return this; }
-	addText(_fn: any): this { return this; }
+	// Every Setting built since the last reset, with its builders, for tests that drive a settings section.
+	static created: Setting[] = [];
+	name = "";
+	desc = "";
+	textFn: any = null;
+	toggleFn: any = null;
+	constructor(_containerEl: any) { Setting.created.push(this); }
+	setName(name: string): this { this.name = name; return this; }
+	setDesc(desc: string): this { this.desc = desc; return this; }
+	addText(fn: any): this { this.textFn = fn; return this; }
 	addDropdown(_fn: any): this { return this; }
-	addToggle(_fn: any): this { return this; }
+	addToggle(fn: any): this { this.toggleFn = fn; return this; }
 	addButton(_fn: any): this { return this; }
 }
 export class Component {
