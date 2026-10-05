@@ -77,6 +77,18 @@ describe("planAutoEmbed edge cases", () => {
 		expect(result).toEqual({ line: `[[${nfd}]]`, matched: true });
 	});
 
+	it("anchors and recognises sources whose file name contains brackets", () => {
+		const name = "[Entwurf] Angebot.docx";
+		const isBracketSource = (p: string): boolean => p === name || p === `_resources/${name}`;
+		const isBracketImage = (p: string): boolean => p === `${name}.png`;
+		const embedText = `![[${name}.png]]`;
+		expect(planAutoEmbed(`![[${name}]]\n`, isBracketSource, isBracketImage, isPreview, embedText)?.lineIndex).toBe(0);
+		expect(planAutoEmbed(`[[_resources/${name}|${name}]]\n`, isBracketSource, isBracketImage, isPreview, embedText)?.lineIndex).toBe(0);
+		expect(planAutoEmbed(`![[${name}]]\n${embedText}\n`, isBracketSource, isBracketImage, isPreview, embedText)).toBeNull();
+		const block = planAutoEmbed(`[[a.docx]]\n![[${name}.png]]\ntext\n`, isSource, isImage, isPreview, "![[a.docx.png]]");
+		expect(block?.lineIndex).toBe(1);
+	});
+
 	it("treats an unclosed frontmatter block as body", () => {
 		expect(plan("---\n[[a.docx]]\n")?.newContent).toBe("---\n[[a.docx]]\n![[a.docx.png]]\n");
 	});

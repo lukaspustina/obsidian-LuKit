@@ -271,7 +271,8 @@ export function jitterMs(random: () => number): number {
 
 // --- drop embed -------------------------------------------------------------
 
-const WIKILINK_RE = /(!?)\[\[([^\]|#]*)(#[^\]|]*)?(?:\|([^\]]*))?\]\]/g;
+// A single `]` may sit inside a name (`[Entwurf] Angebot.docx`); only `]]` closes the link.
+const WIKILINK_RE = /(!?)\[\[((?:[^\]|#]|\](?!\]))*)(#(?:[^\]|]|\](?!\]))*)?(?:\|((?:[^\]]|\](?!\]))*))?\]\]/g;
 
 export function transformLinkLine(
 	line: string,
@@ -363,7 +364,7 @@ const FENCE_RE = /^[ \t]*(`{3,}|~{3,})(.*)$/;
 const QUOTE_PREFIX_RE = /^\s*(?:>\s*)+/;
 // Line shape only; `[^\]]*` stops at the first `]`, so two embeds on one line never match.
 // Which file the embed resolves to is decided by containsEmbedOf.
-const BLOCK_EMBED_RE = new RegExp(String.raw`^\s*(?:>\s*)*(?:!\[\[[^\]]*\]\]|${MD_EMBED_SRC})\s*$`);
+const BLOCK_EMBED_RE = new RegExp(String.raw`^\s*(?:>\s*)*(?:!\[\[(?:[^\]]|\](?!\]))*\]\]|${MD_EMBED_SRC})\s*$`);
 
 function withoutQuotePrefix(line: string): string {
 	return line.replace(QUOTE_PREFIX_RE, "");
