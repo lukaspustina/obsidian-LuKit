@@ -10,7 +10,7 @@ describe("SDD office-previews-auto-embed p3 c9", () => {
 
 	it("reads resolvedLinks once per run, yields between notes and embeds every note", async () => {
 		h = createHarness();
-		const count = 40;
+		const count = 930;
 		const sources: string[] = [];
 		for (let i = 0; i < count; i++) {
 			const src = `_resources/Angebot${i}.docx`;
