@@ -313,10 +313,31 @@ function linkPathOf(match: RegExpMatchArray): string {
 
 export type LinkResolver = (linkPath: string) => boolean;
 
-/** True when `text` holds an embed (`![[…]]`) whose path `isTarget` accepts. */
+// A Markdown-style embed, as generateMarkdownLink writes it with "Use [[Wikilinks]]"
+// off: `![alt](target "title")`, the target URL-encoded or wrapped in `<…>`.
+// Balanced parentheses (one level) stay in the target: encodeURI leaves `(`/`)`,
+// and copies are often named `Angebot (1).docx`. The alt text is bounded so a
+// pathological line stays cheap.
+const MD_EMBED_SRC = String.raw`!\[[^\]\n]{0,1000}\]\(\s*(<[^>]*>|(?:[^()\s]|\([^()\s]*\))+)(?:\s+"[^"]*")?\s*\)`;
+const MD_EMBED_RE = new RegExp(MD_EMBED_SRC, "g");
+
+/** The path a Markdown embed target names: `<…>` unwrapped, URL-decoded (kept raw when malformed). */
+function markdownTargetOf(raw: string): string {
+	const target = raw.startsWith("<") ? raw.slice(1, -1) : raw;
+	try {
+		return decodeURIComponent(target);
+	} catch {
+		return target;
+	}
+}
+
+/** True when `text` holds an embed (`![[…]]` or `![alt](target)`) whose path `isTarget` accepts. */
 export function containsEmbedOf(text: string, isTarget: LinkResolver): boolean {
 	for (const m of text.matchAll(WIKILINK_RE)) {
 		if (m[1] === "!" && isTarget(linkPathOf(m))) return true;
+	}
+	for (const m of text.matchAll(MD_EMBED_RE)) {
+		if (isTarget(markdownTargetOf(m[1]))) return true;
 	}
 	return false;
 }
@@ -334,7 +355,7 @@ const FENCE_RE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 const QUOTE_PREFIX_RE = /^\s*(?:>\s*)+/;
 // Line shape only; `[^\]]*` stops at the first `]`, so two embeds on one line never match.
 // Which file the embed resolves to is decided by containsEmbedOf.
-const BLOCK_EMBED_RE = /^\s*(?:>\s*)*!\[\[[^\]]*\]\]\s*$/;
+const BLOCK_EMBED_RE = new RegExp(String.raw`^\s*(?:>\s*)*(?:!\[\[[^\]]*\]\]|${MD_EMBED_SRC})\s*$`);
 
 function withoutQuotePrefix(line: string): string {
 	return line.replace(QUOTE_PREFIX_RE, "");

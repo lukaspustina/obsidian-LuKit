@@ -32,6 +32,27 @@ describe("planAutoEmbed edge cases", () => {
 		);
 	});
 
+	it("keeps a malformed URL-encoded Markdown embed target as written", () => {
+		const isRaw = (p: string): boolean => p === "x%E0%A4%A.png";
+		const result = planAutoEmbed("[[a.docx]]\n![](x%E0%A4%A.png)\n", isSource, isRaw, isPreview, "![[a.docx.png]]");
+		expect(result).toBeNull();
+	});
+
+	it("keeps balanced parentheses in a Markdown embed target", () => {
+		const isCopy = (p: string): boolean => p === "Angebot (1).docx";
+		const isCopyImage = (p: string): boolean => p === "_previews/Angebot (1).docx.png";
+		const embedded = "[[Angebot (1).docx]]\n![x](_previews/Angebot%20(1).docx.png)\n";
+		expect(planAutoEmbed(embedded, isCopy, isCopyImage, isPreview, "![x](_previews/Angebot%20(1).docx.png)")).toBeNull();
+		const block = planAutoEmbed(
+			"[[a.docx]]\n![](_previews/Angebot%20(1).docx.png)\ntext\n",
+			isSource,
+			isImage,
+			(p) => p.startsWith("_previews/"),
+			"![[a.docx.png]]",
+		);
+		expect(block?.lineIndex).toBe(1);
+	});
+
 	it("treats an unclosed frontmatter block as body", () => {
 		expect(plan("---\n[[a.docx]]\n")?.newContent).toBe("---\n[[a.docx]]\n![[a.docx.png]]\n");
 	});
