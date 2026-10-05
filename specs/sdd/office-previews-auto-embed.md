@@ -35,7 +35,7 @@ Backfill command ──> AutoEmbed.backfill(): marked images in the mirror folde
 ```
 
 - `DropEmbed` keeps its own flow for the note that received the drop (with the embed→link conversion). `AutoEmbed` skips a note when `DropEmbed.isPending(notePath, sourcePath)` is true, so the drop path is the only writer for that note while its drop record is pending. When the drop record ends (embed written, or the 60 s deadline passes without a link) `AutoEmbed` does not revisit the note; the idempotence scan makes a later backfill run safe.
-- Liveness: `AutoEmbed` takes `live: () => boolean` (disposed, `officePreviews.enabled`, and the generation captured at enqueue still current — the pattern of `reconcile`'s `live()`). `stopWork()` (feature, `setEnabled(false)`) bumps the generation, resets the AutoEmbed chain and clears the backfill-running flag; queued-but-not-started sources are dropped, not resumed on re-enable.
+- Liveness: `AutoEmbed` takes `live: () => boolean` (disposed, `officePreviews.enabled`, and the generation captured at enqueue still current — the pattern of `reconcile`'s `live()`). `stopWork()` (feature, `setEnabled(false)`) bumps the generation and clears the backfill-running flag; the chain itself is kept, so a later pass still waits for a write in flight; queued-but-not-started sources are dropped (their stale generation ends them), not resumed on re-enable.
 
 ## Requirements
 
@@ -129,7 +129,7 @@ export class AutoEmbed {
   isBackfilling(): boolean;
   // collect: the feature's marked sources in ascending mirror-path order (it owns PreviewStore); null when stopped (reset, dispose, disable)
   backfill(collect: () => Promise<string[]>): Promise<{ embeds: number; notes: number } | null>;
-  reset(): void;                 // called by stopWork(): new generation, fresh chain, clears backfill-running flag
+  reset(): void;                 // called by stopWork(): new generation (drops waiting/queued passes), chain kept, clears backfill-running flag
 }
 ```
 
