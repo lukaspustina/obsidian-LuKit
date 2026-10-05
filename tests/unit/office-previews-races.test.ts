@@ -328,3 +328,28 @@ describe("a drop embed whose link vanishes between read and write", () => {
 		expect(h.readText(note)).toBe("text with [[Angebot.docx]]\n![[Angebot.docx.png]]\n");
 	});
 });
+
+describe("a dropped document renamed before its preview exists", () => {
+	it("still gets its embed before the deadline", async () => {
+		h = createHarness();
+		await h.start();
+		const note = "Notizen/N.md";
+		h.putFile(note, "text with ![[Angebot.docx]]\n");
+		const ed = h.openNote(note);
+		h.renderer.hold();
+		h.drop(note, ["Angebot.docx"]);
+		h.createSource("_resources/Angebot.docx");
+		await h.settle();
+		expect(h.renderer.held).toHaveLength(1);
+
+		h.renameSource("_resources/Angebot.docx", "_resources/Angebot 2026.docx");
+		// Obsidian updates the link in the note.
+		ed.setValue("text with ![[Angebot 2026.docx]]\n");
+		h.renderer.unhold();
+		h.renderer.release();
+		await h.settle();
+		await h.advance(10_000);
+
+		expect(ed.getValue()).toBe("text with [[Angebot 2026.docx]]\n![[Angebot 2026.docx.png]]\n");
+	});
+});

@@ -488,6 +488,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		const wasCurrent = this.current.has(oldPath);
 		this.queue?.rename(oldPath, newPath);
 		this.forget(oldPath);
+		// A dropped document keeps its embed and skips the delay under its new name.
+		if (this.dropEmbed?.rename(oldPath, newPath) === true) this.queue?.enqueue(newPath, { immediate: true });
 		this.cache?.moveEntry(oldPath, newPath);
 		// A collision belonged to the old mirror path; the new one is checked afresh.
 		if (this.cache?.getFailure(newPath)?.reason === "collision") this.cache.clearFailure(newPath);

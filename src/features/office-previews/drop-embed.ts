@@ -53,12 +53,22 @@ export class DropEmbed {
 		const record = matchDrop(this.records, nameOf(sourcePath), this.deps.now());
 		if (record === null) return false;
 		this.cancel(sourcePath);
-		this.pending.set(sourcePath, {
-			notePath: record.notePath,
-			awaiting: null,
-			preview: null,
-			deadline: this.deps.setTimeout(() => this.pending.delete(sourcePath), DROP_EMBED_DEADLINE_MS),
-		});
+		const entry: PendingEmbed = { notePath: record.notePath, awaiting: null, preview: null, deadline: null };
+		// Keyed by identity: a rename moves the entry to another key.
+		entry.deadline = this.deps.setTimeout(() => {
+			for (const [path, e] of this.pending) if (e === entry) this.pending.delete(path);
+		}, DROP_EMBED_DEADLINE_MS);
+		this.pending.set(sourcePath, entry);
+		return true;
+	}
+
+	/** The dropped document was renamed; true when an embed is still waiting for it. */
+	rename(oldPath: string, newPath: string): boolean {
+		const entry = this.pending.get(oldPath);
+		if (entry === undefined) return false;
+		this.cancel(newPath);
+		this.pending.delete(oldPath);
+		this.pending.set(newPath, entry);
 		return true;
 	}
 

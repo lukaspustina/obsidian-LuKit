@@ -27,7 +27,7 @@
 - [x] A renamed job that runs before its serialised `handleRename` writes the new mirror first; the old marked preview stays orphaned
 - [x] `evaluate`/reconcile apply a decision computed before an await to a path that may have been renamed meanwhile (stale `current`/`collision` entries)
 - [x] Collision retry fires only on create/delete at the mirror path, not when the foreign file is renamed away
-- [ ] Pending drop embeds are keyed by source path and not moved on rename (a renamed dropped file silently times out)
+- [x] Pending drop embeds are keyed by source path and not moved on rename (a renamed dropped file silently times out)
 - [ ] `dispose()` between qlmanage finishing and the `sips` spawn still spawns `sips` after unload
 - [x] Case-only rename (`Report.docx` → `report.docx`): the case-insensitive `adapter.exists` sees the old mirror as occupant, so the preview is not moved
 - [x] A mirror read mid-write by sync (partial bytes) is classified foreign; the collision clears only on create/delete, not on the completing modify
