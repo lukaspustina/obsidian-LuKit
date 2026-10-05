@@ -31,6 +31,8 @@ export function createQuickLookRenderer(opts: { qlmanage?: string; sips?: string
 	let disposing = false;
 
 	function run(cmd: string, args: string[], deadline: number): Promise<RunOutcome> {
+		// Disposed between two children (qlmanage done, sips next): spawn nothing more.
+		if (disposing) return Promise.resolve("exit");
 		return new Promise((resolve) => {
 			let timedOut = false;
 			const child = spawn(cmd, args, { stdio: "ignore" });

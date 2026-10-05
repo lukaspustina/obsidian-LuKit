@@ -59,6 +59,29 @@ describe.skipIf(process.platform !== "darwin")("office-previews renderer dispose
 		expect(fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith("lukit-preview-"))).toEqual([]);
 	});
 
+	// The guard sits in front of every spawn; disposing before the call stands in
+	// for disposing between qlmanage and sips, which no test can time.
+	it("spawns no child after dispose", { timeout: 15_000 }, async () => {
+		const work = fs.mkdtempSync(path.join(os.tmpdir(), "work-"));
+		const sentinel = path.join(work, "spawned");
+		const fake = path.join(work, "fake-tool.sh");
+		fs.writeFileSync(fake, `#!/bin/sh\ntouch "${sentinel}"\n`);
+		fs.chmodSync(fake, 0o755);
+		const source = path.join(work, "Folien.pptx");
+		fs.writeFileSync(source, "not a real document");
+
+		const renderer = createQuickLookRenderer({ qlmanage: fake, sips: fake });
+		renderer.dispose();
+		const rendered = await renderer.render(source, "jpg", 10_000);
+		const placeholder = await renderer.placeholder("Folien.pptx", "jpg", 10_000);
+		await sleep(200);
+
+		expect(rendered.ok).toBe(false);
+		expect(placeholder.ok).toBe(false);
+		expect(fs.existsSync(sentinel)).toBe(false);
+		expect(fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith("lukit-preview-"))).toEqual([]);
+	});
+
 	it("rasterizes the placeholder as PNG for documents and JPEG for presentations", { timeout: 20_000 }, async () => {
 		const renderer = createQuickLookRenderer();
 		const png = await renderer.placeholder("Projekte/Angebot.docx", "png", 10_000);
