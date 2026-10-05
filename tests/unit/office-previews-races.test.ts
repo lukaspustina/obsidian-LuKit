@@ -297,3 +297,34 @@ describe("a throw inside run", () => {
 		warn.mockRestore();
 	});
 });
+
+describe("a drop embed whose link vanishes between read and write", () => {
+	it("stays pending and embeds once the link is back", async () => {
+		h = createHarness();
+		await h.start();
+		const note = "Notizen/N.md";
+		h.putFile(note, "text with ![[Angebot.docx]]\n");
+		h.openNote(note);
+		h.renderer.hold();
+		h.drop(note, ["Angebot.docx"]);
+		h.createSource("_resources/Angebot.docx");
+		await h.settle();
+		expect(h.renderer.held).toHaveLength(1);
+		h.closeNote(note);
+
+		const impl = h.vaultProcess.getMockImplementation() as (...args: unknown[]) => Promise<string>;
+		const harness = h;
+		h.vaultProcess.mockImplementationOnce(async (...args: unknown[]) => {
+			harness.putFile(note, "text\n");
+			return impl(...args);
+		});
+		h.renderer.release();
+		await h.settle();
+		expect(h.readText(note)).toBe("text\n");
+
+		h.changeSource(note, "text with ![[Angebot.docx]]\n");
+		await h.settle();
+
+		expect(h.readText(note)).toBe("text with [[Angebot.docx]]\n![[Angebot.docx.png]]\n");
+	});
+});

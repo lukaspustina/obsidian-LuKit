@@ -32,6 +32,6 @@
 - [x] Case-only rename (`Report.docx` → `report.docx`): the case-insensitive `adapter.exists` sees the old mirror as occupant, so the preview is not moved
 - [x] A mirror read mid-write by sync (partial bytes) is classified foreign; the collision clears only on create/delete, not on the completing modify
 - [x] A throw inside `run` (unreadable source, synchronous spawn error) records no failure and gives a dropped file no failure Notice
-- [ ] `insert` reports "inserted" when the plan inside `vault.process` turns null (note changed after the read), so the pending embed is not retried
+- [x] `insert` reports "inserted" when the plan inside `vault.process` turns null (note changed after the read), so the pending embed is not retried
 - [ ] Reconcile's 0 ms yield timers are not tracked by `stopWork`/`onunload` (harmless: `live()` ends the loop)
 - [x] A collision found in `run` does not drop the path from the `current` set (status count)

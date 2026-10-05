@@ -173,13 +173,18 @@ export class DropEmbed {
 		// Unloaded, disabled or past the deadline while the note was read.
 		if (!this.pending.has(sourcePath)) return "unchanged";
 		if (plan(current) === null) return noLinkOr(current);
+		// The note may have changed since the read; its fresh content decides the outcome.
+		let outcome: InsertOutcome = "inserted";
 		await vault.process(note, (content) => {
 			const p = plan(content);
-			if (p === null) return content;
+			if (p === null) {
+				outcome = noLinkOr(content);
+				return content;
+			}
 			const lines = content.split("\n");
 			lines[p.lineIndex] = p.replacement;
 			return lines.join("\n");
 		});
-		return "inserted";
+		return outcome;
 	}
 }
