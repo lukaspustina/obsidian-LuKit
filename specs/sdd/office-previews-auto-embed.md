@@ -69,6 +69,7 @@ Backfill command ──> AutoEmbed.backfill(): marked images in the mirror folde
 15. The README shall state that backfill on more than one Mac is unsupported (Sync merge may duplicate embeds). Documentation requirement, not testable.
 16. `planAutoEmbed` shall reuse `WIKILINK_RE` and the idempotence scan of `planPreviewInsertion` through a small exported engine helper parameterized on the image (no second regex); the existing pins `sdd_office-previews_p4_c10..c13` stay green.
 17. The system shall emit no Notice for automatic embedding; console lines stay English and path-free with prefix `LuKit office previews: ` (base req 34).
+18. Wherever an embed is recognised — the idempotence scan (req 4), the preview-embed block (req 5) and the drop path's `planPreviewInsertion` — a Markdown-style embed `![alt](target)` counts like `![[…]]`: the target is URL-decoded (`%20` etc.), may be wrapped in `<…>`, and a trailing `"title"` is ignored; it resolves through the same resolver. This covers vaults with Obsidian's "Use [[Wikilinks]]" off, where `generateMarkdownLink` yields `![…](…)` and the scan would otherwise never match, stacking one embed per re-render. A link to the source itself stays wikilink-only (`[x](Angebot.docx)` is not an anchor, base Out of Scope).
 
 ### Modified
 
@@ -246,6 +247,23 @@ Phase complete when: all scenarios below pass and the full `npm run test` is gre
 - c16 GIVEN a backfill WHEN notes are embedded THEN no Notice other than the single summary is emitted.
 - c17 GIVEN the command registered THEN it is registered only inside the platform gate and `helpEntries()` lists it (updated p2_c27 asserts three commands).
 
+## Phase 4 — Markdown-style embeds and write-time re-resolve
+
+**Depends on:** Phase 2
+
+Added after `/sdd-verify` (2026-10-02, PARTIAL + one MAJOR from the correctness pass; operator decision 2026-10-05): requirement 18 in the engine (`containsEmbedOf` and the block-line shape accept `![alt](target)`), the harness's `linkStyle: "markdown"` (`generateMarkdownLink` → `[name](encodeURI(path))`, `resolvedLinks` also parsing `](…)` targets), and the two c16 sub-cases Phase 2 left untested. `auto-embed.ts`/`drop-embed.ts` are expected unchanged unless a test shows otherwise.
+
+Phase complete when: all scenarios below pass and the full `npm run test` is green, including every Phase 1–3 scenario and the base pins.
+
+### Test Scenarios
+
+- c1 GIVEN a note `see [[Angebot.docx]]\n![Angebot.docx.png](_previews/_resources/Angebot.docx.png)` WHEN planning for that image THEN null.
+- c2 GIVEN `[[a.docx]]` followed by `![](_previews/_resources/Neue%20Datei.docx.png)` (resolves under the preview folder) WHEN planning for `a.docx` THEN the Markdown embed line belongs to the block and `lineIndex` is 1; GIVEN `![x](<_previews/a b.docx.png> "Titel")` in the body for the image THEN null.
+- c3 GIVEN the harness with `linkStyle: "markdown"` and a note linking `Angebot.docx` WHEN its preview is rendered and then re-rendered THEN the note holds exactly one Markdown embed of the preview and the re-render writes nothing.
+- c4 GIVEN `linkStyle: "markdown"` and a drop of `Angebot.docx` into a note that already embeds its preview in Markdown form WHEN the drop's preview exists THEN no second embed is inserted.
+- c5 GIVEN the image deleted between listing and write (frozen listing, image removed before the pass writes) WHEN embedding THEN that note is skipped (byte-identical, no `vault.process`) and the pass continues with the next note.
+- c6 GIVEN the source renamed between listing and write (the lifecycle moves its mirror) WHEN the old pass reaches the note THEN it writes nothing; WHEN the renamed source is rendered THEN the note gains the embed of the current mirror, once.
+
 ## Decision Log
 
 | Decision | Chosen | Rejected and why |
@@ -281,6 +299,7 @@ Phase complete when: all scenarios below pass and the full `npm run test` is gre
 | Templates folder | No exclusion; notes there may receive embeds | Exclusion setting: not requested |
 | Editor path write | `"\n" + text` at end of line `lineIndex` in one transaction; `vault.process` uses `newContent` | Using `newContent` in the editor: loses cursor/undo behaviour |
 | Duplicate write logic (DropEmbed + AutoEmbed) | Not extracted; second occurrence | Extraction now: Rule of Three |
+| Markdown-style embeds (Phase 4) | Recognised in idempotence, block and drop scans; source links stay wikilink-only | Detecting Markdown source links too: base Out of Scope; ignoring Markdown embeds: duplicates on every re-render in a vault without wikilinks |
 | PNG-to-JPG handling | Falls out of per-image idempotence; test only | Extra requirement code |
 
 ## Open Decisions
@@ -294,7 +313,7 @@ None.
 ## Out of Scope
 
 - Converting existing links or embeds (`![[x.docx]]` ↔ `[[x.docx]]`) outside the drop note.
-- Markdown-style links (`[x](Angebot.docx)`) — base Out of Scope still applies.
+- Markdown-style links to a source (`[x](Angebot.docx)`) as anchors — base Out of Scope still applies; Markdown-style *embeds* of a preview are recognised (req 18).
 - A per-feature toggle for automatic embedding; it follows `officePreviews.enabled`.
 - Notices for background embedding (the backfill command's summary Notice is the only one).
 - Embedding on note edits (links added after a render); the backfill command covers them.
