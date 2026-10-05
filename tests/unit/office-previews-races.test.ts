@@ -124,3 +124,48 @@ describe("a case-only rename", () => {
 		expect(await h.status()).toEqual({ current: 1, queued: 0, failed: 0 });
 	});
 });
+
+/** Holds the adapter's answer for `path` until the returned release is called. */
+function blockExists(harness: Harness, path: string): () => void {
+	const exists = adapter(harness).exists;
+	const original = exists.getMockImplementation() as (p: string) => Promise<boolean>;
+	let release = (): void => undefined;
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	exists.mockImplementation(async (p: string) => {
+		if (p === path) await gate;
+		return original(p);
+	});
+	return release;
+}
+
+describe("a renamed job that runs before its serialised handleRename", () => {
+	it("leaves no orphaned preview at the old mirror path", async () => {
+		h = createHarness();
+		h.addSource("Alt/Angebot.docx", "v1");
+		h.putFile(h.mirror("Alt/Angebot.docx"), markedPreview("Alt/Angebot.docx", sha256Of("v1")));
+		h.addSource("Brief.docx", "brief");
+		h.putFile(h.mirror("Brief.docx"), markedPreview("Brief.docx", sha256Of("brief")));
+		await h.start();
+		h.changeSource("Alt/Angebot.docx", "v2");
+		await h.advance(10_000);
+		expect((await h.status()).queued).toBe(1);
+
+		// An earlier rename keeps the lifecycle chain busy.
+		const release = blockExists(h, h.mirror("Brief.docx"));
+		h.renameSource("Brief.docx", "Briefe/Brief.docx");
+		h.renameSource("Alt/Angebot.docx", "Neu/Angebot.docx");
+		await h.drain();
+		expect(h.previewMarker("Neu/Angebot.docx")?.sha256).toBe(sha256Of("v2"));
+
+		release();
+		await h.settle();
+		await h.drain();
+
+		expect(h.exists(h.mirror("Alt/Angebot.docx"))).toBe(false);
+		expect(h.previewMarker("Neu/Angebot.docx")?.sha256).toBe(sha256Of("v2"));
+		expect(h.previewMarker("Briefe/Brief.docx")?.sha256).toBe(sha256Of("brief"));
+		expect(await h.status()).toEqual({ current: 2, queued: 0, failed: 0 });
+	});
+});

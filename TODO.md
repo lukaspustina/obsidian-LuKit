@@ -24,7 +24,7 @@
 - [ ] Auto embed: a wikilink nested inside another link's alias (`[[Notiz|[[Datei|Text]]]]`, malformed) is not anchored — the outer link consumes it (1 pair in Lu); won't fix unless it recurs
 
 - [x] A rename or delete during `store.write` lets the write land at the old mirror path (orphaned marked image, stale `aktuell` entry)
-- [ ] A renamed job that runs before its serialised `handleRename` writes the new mirror first; the old marked preview stays orphaned
+- [x] A renamed job that runs before its serialised `handleRename` writes the new mirror first; the old marked preview stays orphaned
 - [ ] `evaluate`/reconcile apply a decision computed before an await to a path that may have been renamed meanwhile (stale `current`/`collision` entries)
 - [ ] Collision retry fires only on create/delete at the mirror path, not when the foreign file is renamed away
 - [ ] Pending drop embeds are keyed by source path and not moved on rename (a renamed dropped file silently times out)

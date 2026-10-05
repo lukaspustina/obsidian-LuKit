@@ -540,9 +540,17 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			if (file === null) return;
 			const sha256 = await this.fingerprint(file);
 			if (this.disposed) return;
-			// Another device already moved the preview: it is current, not a collision.
-			if (occupant.kind === "marked" && occupant.marker.sha256 === sha256) this.current.add(newPath);
-			else this.cache?.setFailure(newPath, this.failure(sha256, "collision"));
+			if (occupant.kind !== "marked" || occupant.marker.sha256 !== sha256) {
+				this.cache?.setFailure(newPath, this.failure(sha256, "collision"));
+				return;
+			}
+			// Another device, or the job that moved with the rename, already wrote the
+			// new preview: it is current, and the old image is an orphan.
+			this.current.add(newPath);
+			if ((await this.store?.inspect(oldMirror))?.kind !== "marked" || this.disposed) return;
+			await this.store?.remove(oldMirror);
+			if (this.disposed) return;
+			await this.store?.removeEmptyParents(oldMirror, folder);
 			return;
 		}
 		const preview = this.plugin?.app.vault.getAbstractFileByPath(oldMirror);
