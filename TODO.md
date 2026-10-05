@@ -25,7 +25,7 @@
 
 - [x] A rename or delete during `store.write` lets the write land at the old mirror path (orphaned marked image, stale `aktuell` entry)
 - [x] A renamed job that runs before its serialised `handleRename` writes the new mirror first; the old marked preview stays orphaned
-- [ ] `evaluate`/reconcile apply a decision computed before an await to a path that may have been renamed meanwhile (stale `current`/`collision` entries)
+- [x] `evaluate`/reconcile apply a decision computed before an await to a path that may have been renamed meanwhile (stale `current`/`collision` entries)
 - [ ] Collision retry fires only on create/delete at the mirror path, not when the foreign file is renamed away
 - [ ] Pending drop embeds are keyed by source path and not moved on rename (a renamed dropped file silently times out)
 - [ ] `dispose()` between qlmanage finishing and the `sips` spawn still spawns `sips` after unload

@@ -169,3 +169,58 @@ describe("a renamed job that runs before its serialised handleRename", () => {
 		expect(await h.status()).toEqual({ current: 2, queued: 0, failed: 0 });
 	});
 });
+
+describe("a decision computed before a rename", () => {
+	async function currentSource(): Promise<Harness> {
+		const harness = createHarness();
+		harness.addSource("Alt/Angebot.docx", "v1");
+		harness.putFile(harness.mirror("Alt/Angebot.docx"), markedPreview("Alt/Angebot.docx", sha256Of("v1")));
+		await harness.start();
+		expect((await harness.status()).current).toBe(1);
+		return harness;
+	}
+
+	it("is not applied to the old path by evaluate", async () => {
+		h = await currentSource();
+		const harness = h;
+		const fired = onExists(harness, h.mirror("Alt/Angebot.docx"), () => harness.renameSource("Alt/Angebot.docx", "Neu/Angebot.docx"));
+		h.emit("modify", "Alt/Angebot.docx");
+		await h.settle();
+		await h.drain();
+
+		expect(fired()).toBe(true);
+		expect(h.previewMarker("Neu/Angebot.docx")?.sha256).toBe(sha256Of("v1"));
+		expect(await h.status()).toEqual({ current: 1, queued: 0, failed: 0 });
+	});
+
+	it("is not applied to the old path by reconcile", async () => {
+		h = createHarness();
+		h.addSource("Alt/Angebot.docx", "v1");
+		h.putFile(h.mirror("Alt/Angebot.docx"), markedPreview("Alt/Angebot.docx", sha256Of("v1")));
+		const harness = h;
+		const fired = onExists(harness, h.mirror("Alt/Angebot.docx"), () => harness.renameSource("Alt/Angebot.docx", "Neu/Angebot.docx"));
+		await h.start();
+		await h.drain();
+
+		expect(fired()).toBe(true);
+		expect(h.previewMarker("Neu/Angebot.docx")?.sha256).toBe(sha256Of("v1"));
+		expect(await h.status()).toEqual({ current: 1, queued: 0, failed: 0 });
+	});
+
+	it("is not applied to the old path by the recheck before a run", async () => {
+		h = await currentSource();
+		h.changeSource("Alt/Angebot.docx", "v2");
+		await h.advance(10_000);
+		expect((await h.status()).queued).toBe(1);
+		// A foreign file takes the mirror path before the job runs; the rename lands while it is inspected.
+		h.putFile(h.mirror("Alt/Angebot.docx"), "foreign");
+		const harness = h;
+		const fired = onExists(harness, h.mirror("Alt/Angebot.docx"), () => harness.renameSource("Alt/Angebot.docx", "Neu/Angebot.docx"));
+		await h.drain();
+
+		expect(fired()).toBe(true);
+		expect(h.previewMarker("Neu/Angebot.docx")?.sha256).toBe(sha256Of("v2"));
+		expect(h.notices().filter((n) => n.includes("fremde Datei"))).toEqual([]);
+		expect(await h.status()).toEqual({ current: 1, queued: 0, failed: 0 });
+	});
+});

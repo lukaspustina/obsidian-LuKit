@@ -302,6 +302,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			return "skip";
 		}
 		if (this.disposed) return "skip";
+		// Renamed or deleted while it was read: the lifecycle events own the path now.
+		if (this.sourceFile(path) !== file || file.path !== path) return "skip";
 		const render = this.applyDecision(path, sha256, decision);
 		// A dropped document whose preview is already current still gets its embed.
 		if (decision === "current") await this.dropEmbed?.onPreview(path, mirrorPath(path, this.folder()));
@@ -616,6 +618,7 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			return;
 		}
 		if (this.disposed || !this.enabled()) return;
+		if (this.sourceFile(path) !== file || file.path !== path) return;
 		if (this.applyDecision(path, sha256, decision)) this.queue?.enqueue(path);
 	}
 
@@ -643,9 +646,10 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			if (file === null) continue;
 			try {
 				const sha256 = await this.fingerprint(file);
-				const decision = await this.decide(file.path, sha256, false);
+				const decision = await this.decide(path, sha256, false);
 				if (!live()) return;
-				if (this.applyDecision(file.path, sha256, decision)) this.queue?.enqueue(file.path);
+				if (this.sourceFile(path) !== file || file.path !== path) continue;
+				if (this.applyDecision(path, sha256, decision)) this.queue?.enqueue(path);
 			} catch {
 				console.warn("LuKit office previews: a source or its preview could not be read.");
 			}
