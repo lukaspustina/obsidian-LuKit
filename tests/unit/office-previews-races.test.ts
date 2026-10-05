@@ -245,4 +245,20 @@ describe("a collision at the mirror path", () => {
 		expect(h.readText("Bilder/fremd.png")).toBe("foreign");
 		expect(await h.status()).toEqual({ current: 1, queued: 0, failed: 0 });
 	});
+
+	it("clears when a mirror read mid-sync is completed by a modify", async () => {
+		h = createHarness();
+		h.addSource("Angebot.docx", "body");
+		const full = markedPreview("Angebot.docx", sha256Of("body"));
+		h.putFile(h.mirror("Angebot.docx"), full.slice(0, 16));
+		await h.start();
+		expect((await h.status()).failed).toBe(1);
+
+		h.changeSource(h.mirror("Angebot.docx"), full);
+		await h.settle();
+		await h.drain();
+
+		expect(h.renderer.renderedPaths()).toEqual([]);
+		expect(await h.status()).toEqual({ current: 1, queued: 0, failed: 0 });
+	});
 });

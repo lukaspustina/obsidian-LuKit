@@ -438,6 +438,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 
 	private onModify(file: TAbstractFile): void {
 		if (!this.enabled() || !(file instanceof TFile)) return;
+		// A mirror read while sync was still writing it looked foreign; the completing write retries.
+		this.retryCollisionAt(file.path);
 		void this.dropEmbed?.onNoteChanged(file.path);
 		if (!this.isSource(file.path)) return;
 		if (this.queue?.isImmediate(file.path) === true) return;
