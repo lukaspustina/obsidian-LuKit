@@ -21,7 +21,7 @@ import {
 } from "./office-previews-engine";
 import { PreviewQueue } from "./preview-queue";
 import { PreviewStore } from "./preview-store";
-import { createQuickLookRenderer, type PreviewRenderer } from "./quicklook-renderer";
+import { createQuickLookRenderer, type PreviewRenderer, type RenderResult } from "./quicklook-renderer";
 
 export interface OfficePreviewsDeps {
 	renderer: PreviewRenderer;
@@ -318,9 +318,17 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		if (file === null || this.disposed || !this.enabled() || !this.deps.fileExists(this.absPath(path))) return;
 		// Stamped with the fingerprint from before the render: a change during
 		// the render arrives as its own modify event and requeues the source.
-		const sha256 = await this.fingerprint(file);
 		const kind = imageExtFor(path);
-		const result = await this.deps.renderer.render(this.absPath(path), kind, RENDER_TIMEOUT_MS);
+		let sha256 = "";
+		let result: RenderResult;
+		try {
+			sha256 = await this.fingerprint(file);
+			result = await this.deps.renderer.render(this.absPath(path), kind, RENDER_TIMEOUT_MS);
+		} catch {
+			// An unreadable source or a synchronous spawn error, not a render result.
+			console.warn("LuKit office previews: a source could not be read or rendered.");
+			result = { ok: false, reason: "exit" };
+		}
 		if (this.disposed) return;
 		// Renamed or deleted during the render: the lifecycle events own the path now.
 		if (this.sourceFile(path) !== file || file.path !== path) return;

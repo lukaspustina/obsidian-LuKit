@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, type Mock } from "vitest";
+import { describe, it, expect, afterEach, vi, type Mock } from "vitest";
 import { createHarness, markedPreview, sha256Of, type Harness } from "../helpers/office-previews-harness";
 
 // Regressions for the minor races of correctness passes 2 and 3 (2026-10-02),
@@ -275,5 +275,25 @@ describe("a collision at the mirror path", () => {
 		await h.settle();
 
 		expect(await h.status()).toEqual({ current: 0, queued: 0, failed: 1 });
+	});
+});
+
+describe("a throw inside run", () => {
+	it("records a failure and gives a dropped file its failure Notice", async () => {
+		h = createHarness();
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const note = "Notizen/N.md";
+		h.putFile(note, "Intro\n![[Angebot.docx]]\n");
+		h.openNote(note);
+		await h.start();
+		vi.spyOn(h.renderer, "render").mockRejectedValueOnce(new Error("spawn EACCES"));
+
+		h.drop(note, ["Angebot.docx"]);
+		h.createSource("_resources/Angebot.docx");
+		await h.settle();
+
+		expect(h.notices().filter((n) => n.includes("fehlgeschlagen"))).toEqual(["Office-Vorschau fehlgeschlagen: Angebot.docx"]);
+		expect(await h.status()).toEqual({ current: 0, queued: 0, failed: 1 });
+		warn.mockRestore();
 	});
 });
