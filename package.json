@@ -1,6 +1,6 @@
 {
 	"name": "lukit",
-	"version": "1.26.2",
+	"version": "1.26.3",
 	"description": "Lukas' toolkit — modular workflow automations for Obsidian",
 	"bin": {
 		"lukit": "./cli.js"
