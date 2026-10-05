@@ -459,6 +459,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 	private onRename(file: TAbstractFile, oldPath: string): void {
 		if (!this.enabled() || !(file instanceof TFile)) return;
 		const newPath = file.path;
+		// A foreign file renamed away frees its mirror path like a delete.
+		this.retryCollisionAt(oldPath);
 		if (!this.isSource(oldPath)) {
 			if (this.isSource(newPath)) this.schedule(newPath);
 			return;

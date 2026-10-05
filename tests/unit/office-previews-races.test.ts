@@ -224,3 +224,25 @@ describe("a decision computed before a rename", () => {
 		expect(await h.status()).toEqual({ current: 1, queued: 0, failed: 0 });
 	});
 });
+
+describe("a collision at the mirror path", () => {
+	async function collided(): Promise<Harness> {
+		const harness = createHarness();
+		harness.addSource("Angebot.docx", "body");
+		harness.putFile(harness.mirror("Angebot.docx"), "foreign");
+		await harness.start();
+		expect(await harness.status()).toEqual({ current: 0, queued: 0, failed: 1 });
+		return harness;
+	}
+
+	it("clears when the foreign file is renamed away", async () => {
+		h = await collided();
+		h.renameSource(h.mirror("Angebot.docx"), "Bilder/fremd.png");
+		await h.settle();
+		await h.drain();
+
+		expect(h.previewMarker("Angebot.docx")?.sha256).toBe(sha256Of("body"));
+		expect(h.readText("Bilder/fremd.png")).toBe("foreign");
+		expect(await h.status()).toEqual({ current: 1, queued: 0, failed: 0 });
+	});
+});
