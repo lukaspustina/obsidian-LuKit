@@ -23,7 +23,7 @@
 - [x] Auto embed: Markdown-embed titles in single quotes or parentheses are not recognised (generateMarkdownLink writes none)
 - [ ] Auto embed: a wikilink nested inside another link's alias (`[[Notiz|[[Datei|Text]]]]`, malformed) is not anchored — the outer link consumes it (1 pair in Lu); won't fix unless it recurs
 
-- [ ] A rename or delete during `store.write` lets the write land at the old mirror path (orphaned marked image, stale `aktuell` entry)
+- [x] A rename or delete during `store.write` lets the write land at the old mirror path (orphaned marked image, stale `aktuell` entry)
 - [ ] A renamed job that runs before its serialised `handleRename` writes the new mirror first; the old marked preview stays orphaned
 - [ ] `evaluate`/reconcile apply a decision computed before an await to a path that may have been renamed meanwhile (stale `current`/`collision` entries)
 - [ ] Collision retry fires only on create/delete at the mirror path, not when the foreign file is renamed away

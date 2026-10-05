@@ -356,6 +356,10 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			return;
 		}
 		if (this.disposed) return;
+		if (this.sourceFile(path) !== file || file.path !== path) {
+			this.discardOrphan(path);
+			return;
+		}
 		this.cache?.clearFailure(path);
 		this.current.add(path);
 		this.report(path, `Office-Vorschau erzeugt: ${mirror}`);
@@ -382,10 +386,24 @@ export class OfficePreviewsFeature implements LuKitFeature {
 			if (!image.ok || this.disposed || this.sourceFile(path) !== file || file.path !== path) return false;
 			const marker = { version: 1 as const, sha256, placeholder: true as const };
 			await this.store?.write(mirror, kind === "jpg" ? writeMarkerJpeg(image.bytes, marker) : writeMarkerPng(image.bytes, marker));
-			return !this.disposed;
+			if (this.disposed) return false;
+			if (this.sourceFile(path) !== file || file.path !== path) {
+				this.discardOrphan(path);
+				return false;
+			}
+			return true;
 		} catch {
 			return false;
 		}
+	}
+
+	/**
+	 * The source was renamed or deleted while its image was written, so the write
+	 * may have landed at the old mirror path after the lifecycle event handled it.
+	 * Queued behind that event, the delete handling removes it once more.
+	 */
+	private discardOrphan(path: string): void {
+		this.serialise(() => this.handleDelete(path));
 	}
 
 	// --- events -------------------------------------------------------------
