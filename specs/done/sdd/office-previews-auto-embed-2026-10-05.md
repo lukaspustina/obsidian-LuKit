@@ -1,6 +1,7 @@
 # SDD: Office Previews — Automatic Embedding
 
-Status: Ready for Implementation
+Status: Done
+Finished: 2026-10-05
 Original: specs/sdd/office-previews-auto-embed.md
 Refined: 2026-10-02
 Base: specs/done/sdd/office-previews-2026-10-02.md
