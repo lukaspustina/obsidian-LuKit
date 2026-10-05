@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planAutoEmbed } from "../../src/features/office-previews/office-previews-engine";
+import { planAutoEmbed, transformLinkLine } from "../../src/features/office-previews/office-previews-engine";
 
 const isSource = (p: string): boolean => p === "a.docx";
 const isImage = (p: string): boolean => p === "a.docx.png";
@@ -58,6 +58,23 @@ describe("planAutoEmbed edge cases", () => {
 			const note = `- Beispiel:\n${indent}\`\`\`\n${indent}[[a.docx]]\n${indent}![[a.docx.png]]\n${indent}\`\`\`\n\nSiehe [[a.docx]]\n`;
 			expect(plan(note)?.lineIndex).toBe(6);
 		}
+	});
+
+	it("resolves a link written with decomposed umlauts (NFD) like Obsidian does", () => {
+		const nfc = "Bestätigung.docx";
+		const nfd = nfc.normalize("NFD");
+		const isNfcSource = (p: string): boolean => p === nfc;
+		const isNfcImage = (p: string): boolean => p === `${nfc}.png`;
+		const anchored = planAutoEmbed(`siehe [[${nfd}|${nfd}]]\n`, isNfcSource, isNfcImage, isPreview, `![[${nfc}.png]]`);
+		expect(anchored?.lineIndex).toBe(0);
+		const embedded = planAutoEmbed(`[[${nfc}]]\n![[${nfd}.png]]\n`, isNfcSource, isNfcImage, isPreview, `![[${nfc}.png]]`);
+		expect(embedded).toBeNull();
+	});
+
+	it("matches an NFD link on the drop path and keeps its original text", () => {
+		const nfd = "Bestätigung.docx".normalize("NFD");
+		const result = transformLinkLine(`![[${nfd}]]`, (p) => p === "Bestätigung.docx");
+		expect(result).toEqual({ line: `[[${nfd}]]`, matched: true });
 	});
 
 	it("treats an unclosed frontmatter block as body", () => {

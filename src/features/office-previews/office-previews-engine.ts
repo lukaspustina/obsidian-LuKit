@@ -279,7 +279,7 @@ export function transformLinkLine(
 ): { line: string; matched: boolean } {
 	for (const m of line.matchAll(WIKILINK_RE)) {
 		const [whole, bang, linkpath, heading, alias] = m;
-		if (!matches(linkpath)) continue;
+		if (!matches(linkpath.normalize("NFC"))) continue;
 		if (bang !== "!") return { line, matched: true };
 		const keptAlias = alias !== undefined && !/^\d+$/.test(alias) ? `|${alias}` : "";
 		const converted = `[[${linkpath}${heading ?? ""}${keptAlias}]]`;
@@ -306,9 +306,14 @@ export function planPreviewInsertion(
 	return null;
 }
 
-/** The wikilink path as the resolver sees it: `\|` in a table row leaves a trailing backslash. */
+/**
+ * The wikilink path as the resolver sees it: `\|` in a table row leaves a trailing
+ * backslash, and the text is NFC-normalized — names pasted from Finder carry
+ * decomposed umlauts, which Obsidian normalizes when it indexes links.
+ */
 function linkPathOf(match: RegExpMatchArray): string {
-	return match[2].endsWith("\\") ? match[2].slice(0, -1) : match[2];
+	const path = match[2].endsWith("\\") ? match[2].slice(0, -1) : match[2];
+	return path.normalize("NFC");
 }
 
 export type LinkResolver = (linkPath: string) => boolean;
@@ -325,9 +330,9 @@ const MD_EMBED_RE = new RegExp(MD_EMBED_SRC, "g");
 function markdownTargetOf(raw: string): string {
 	const target = raw.startsWith("<") ? raw.slice(1, -1) : raw;
 	try {
-		return decodeURIComponent(target);
+		return decodeURIComponent(target).normalize("NFC");
 	} catch {
-		return target;
+		return target.normalize("NFC");
 	}
 }
 
