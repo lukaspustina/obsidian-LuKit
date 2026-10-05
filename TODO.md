@@ -19,6 +19,10 @@
 
 ## Office previews — follow-ups (correctness passes 2 and 3, 2026-10-02)
 
+- [ ] Auto embed: `AutoEmbed.linkIndex` does not filter to `.md` notes (req 1 says Markdown notes) — check live whether `resolvedLinks` ever lists a `.canvas`; if so, a text node linking a document would get an embed line written into the canvas JSON (unverified, verify correctness pass 2026-10-05)
+- [ ] Auto embed: mutation over the auto-embed range (2026-10-05) left 35 surviving mutants in `auto-embed.ts`, 141 in the engine, 236 in the feature — tighten the fixtures that let them through
+- [ ] Auto embed: Markdown-embed titles in single quotes or parentheses are not recognised (generateMarkdownLink writes none)
+
 - [ ] A rename or delete during `store.write` lets the write land at the old mirror path (orphaned marked image, stale `aktuell` entry)
 - [ ] A renamed job that runs before its serialised `handleRename` writes the new mirror first; the old marked preview stays orphaned
 - [ ] `evaluate`/reconcile apply a decision computed before an await to a path that may have been renamed meanwhile (stale `current`/`collision` entries)
