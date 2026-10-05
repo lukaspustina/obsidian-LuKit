@@ -77,6 +77,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 	private autoEmbed: AutoEmbed | null = null;
 	private readonly debounce = new Map<string, unknown>();
 	private reconcileTimer: unknown = null;
+	/** Reconcile's per-file yields; cleared on stop, which abandons the pass. */
+	private readonly yieldTimers = new Set<unknown>();
 	/** Bumped by every stop; a reconcile loop from an older generation ends. */
 	private generation = 0;
 	/** Sources verified current in reconcile or rendered by this device since load. */
@@ -240,6 +242,8 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		this.debounce.clear();
 		if (this.reconcileTimer !== null) this.deps.clearTimeout(this.reconcileTimer);
 		this.reconcileTimer = null;
+		for (const t of this.yieldTimers) this.deps.clearTimeout(t);
+		this.yieldTimers.clear();
 	}
 
 	private sourceFile(path: string): TFile | null {
@@ -655,7 +659,13 @@ export class OfficePreviewsFeature implements LuKitFeature {
 		const live = (): boolean => !this.disposed && this.enabled() && this.generation === generation;
 		const paths = this.deps.shuffle(plugin.app.vault.getFiles().map((f) => f.path).filter((p) => this.isSource(p)));
 		for (const path of paths) {
-			await new Promise<void>((resolve) => this.deps.setTimeout(resolve, 0));
+			await new Promise<void>((resolve) => {
+				const timer = this.deps.setTimeout(() => {
+					this.yieldTimers.delete(timer);
+					resolve();
+				}, 0);
+				this.yieldTimers.add(timer);
+			});
 			if (!live()) return;
 			const file = this.sourceFile(path);
 			if (file === null) continue;

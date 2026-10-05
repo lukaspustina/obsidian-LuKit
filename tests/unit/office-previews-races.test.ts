@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach, vi, type Mock } from "vitest";
+import { RECONCILE_DELAY_MS } from "../../src/features/office-previews/office-previews-engine";
 import { createHarness, markedPreview, sha256Of, type Harness } from "../helpers/office-previews-harness";
 
 // Regressions for the minor races of correctness passes 2 and 3 (2026-10-02),
@@ -351,5 +352,22 @@ describe("a dropped document renamed before its preview exists", () => {
 		await h.advance(10_000);
 
 		expect(ed.getValue()).toBe("text with [[Angebot 2026.docx]]\n![[Angebot 2026.docx.png]]\n");
+	});
+});
+
+describe("unload during a reconcile pass", () => {
+	it("leaves no yield timer behind", async () => {
+		h = createHarness();
+		for (const name of ["a.docx", "b.docx", "c.docx"]) h.addSource(name);
+		h.layoutReady();
+		await h.advance(RECONCILE_DELAY_MS);
+		const yields = h.zeroDelayTimers;
+		expect(yields).toBeGreaterThan(0);
+
+		h.unload();
+
+		expect(vi.getTimerCount()).toBe(0);
+		await h.settle();
+		expect(h.zeroDelayTimers).toBe(yields);
 	});
 });
