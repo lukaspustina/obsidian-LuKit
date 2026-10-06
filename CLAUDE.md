@@ -176,4 +176,4 @@ This plugin operates on personal notes, so real data leaks easily into fixtures.
 
 ## Git
 - **Never add `Co-Authored-By` lines** to commit messages
-- `adlc auto defect-record`, `review-record`, `code-metrics` and a halt's `step-outcome --halt-outcome` write `.adlc/measurements/*.jsonl`; left uncommitted they make the next attestation `dirty` and the verify gate refuses — commit them first as `chore(adlc): record …` (path-limited `git commit -- <file>`), then gate the work commit
+- The gate is `adlc` v2, declared in `adlc.toml`; this repository is public on GitHub, whose CI cannot reach the adlc source, so `[exceptions] no-ci` makes the local hooks the gate. `adlc record ...` writes `.adlc/measurements/*.jsonl`; commit those rows before gating the work commit.

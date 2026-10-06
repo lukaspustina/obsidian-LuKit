@@ -1,3 +1,0 @@
-# What this repository's verify contract invokes, one per line.
-npm       # the suite (vitest) and the bundle
-npx       # tsc --noEmit, resolved from node_modules
